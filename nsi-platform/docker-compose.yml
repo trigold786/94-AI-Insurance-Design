@@ -1,0 +1,54 @@
+version: "3.8"
+
+include:
+  - infra/docker-compose.infra.yml
+
+services:
+  api-server:
+    build:
+      context: ./services/api-server
+      dockerfile: Dockerfile
+    container_name: nsi-api-server
+    ports:
+      - "30001:30001"
+    environment:
+      DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD:-postgres123}@postgres:5432/nsi?sslmode=disable
+      REDIS_URL: redis://redis:6379/0
+      JWT_SECRET: ${JWT_SECRET:-dev-secret-change-me}
+      ACTUARY_GRPC_ADDR: actuarial-engine:50051
+      STORAGE_ENDPOINT: http://minio:9000
+      STORAGE_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      STORAGE_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      STORAGE_BUCKET: nsi-reports
+      SERVER_PORT: "30001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  actuarial-engine:
+    build:
+      context: ./services/actuarial-engine
+      dockerfile: Dockerfile
+    container_name: nsi-actuarial-engine
+    ports:
+      - "50051:50051"
+    environment:
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  policy-crawler:
+    build:
+      context: ./services/policy-crawler
+      dockerfile: Dockerfile
+    container_name: nsi-policy-crawler
+    environment:
+      DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD:-postgres123}@postgres:5432/nsi?sslmode=disable
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_API_ENDPOINT: ${LLM_API_ENDPOINT:-}
+    depends_on:
+      postgres:
+        condition: service_healthy

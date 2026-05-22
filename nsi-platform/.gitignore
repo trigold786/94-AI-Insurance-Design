@@ -1,0 +1,35 @@
+# Go
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+vendor/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Env
+.env
+
+# Node (for future frontend builds)
+node_modules/
+dist/
+build/
+
+# Native builds
+*.apk
+*.aab
+*.ipa
+*.dSYM.zip
+*.dSYM

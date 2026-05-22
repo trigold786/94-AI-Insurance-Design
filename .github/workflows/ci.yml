@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "nsi-platform/**"
+  pull_request:
+    branches: [main]
+    paths:
+      - "nsi-platform/**"
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [api-server, policy-crawler, actuarial-engine]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          working-directory: nsi-platform/services/${{ matrix.service }}
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [api-server, policy-crawler, actuarial-engine]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+      - name: Test
+        run: go test ./... -race -count=1 -cover
+        working-directory: nsi-platform/services/${{ matrix.service }}
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: [lint, test]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build api-server
+        run: docker build -t nsi-api-server .
+        working-directory: nsi-platform/services/api-server
+      - name: Build policy-crawler
+        run: docker build -t nsi-policy-crawler .
+        working-directory: nsi-platform/services/policy-crawler
+      - name: Build actuarial-engine
+        run: docker build -t nsi-actuarial-engine .
+        working-directory: nsi-platform/services/actuarial-engine
