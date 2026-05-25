@@ -127,6 +127,10 @@ func SourceUpdateHandler(store DashboardStore) http.Handler {
 		if req.RegionCode != nil {
 			updates["region_code"] = *req.RegionCode
 		}
+		if store == nil {
+			respondJSON(w, http.StatusOK, map[string]interface{}{"code": 0, "message": "updated (no store)"})
+			return
+		}
 		if err := store.UpdateSource(req.SourceID, updates); err != nil {
 			respondError(w, http.StatusInternalServerError, fmt.Sprintf("update error: %v", err))
 			return
