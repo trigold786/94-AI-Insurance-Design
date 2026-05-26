@@ -2,15 +2,122 @@ package admin
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
+	"sync"
+	"time"
 
+	"github.com/trigold786/94-AI-Insurance-Design/policy-crawler/internal/parser"
 	"github.com/trigold786/94-AI-Insurance-Design/shared/models"
 )
 
+var validStatuses = map[string]bool{
+	"": true, "verified": true, "pending_review": true, "unverified": true,
+}
+
+// PendingRawText 待提取原始文本摘要
+type PendingRawText struct {
+	ID         int64  `json:"id"`
+	SourceID   string `json:"source_id"`
+	SourceName string `json:"source_name"`
+	Title      string `json:"title"`
+	SourceURL  string `json:"source_url"`
+	FetchedAt  string `json:"fetched_at"`
+}
+
+// ExtProgress 提取进度
+type ExtProgress struct {
+	mu         sync.Mutex
+	Total      int    `json:"total"`
+	Completed  int    `json:"completed"`
+	Failed     int    `json:"failed"`
+	Running    bool   `json:"running"`
+	Done       bool   `json:"done"`
+	CurrentID  int64  `json:"current_id"`
+	CurrentSrc string `json:"current_src"`
+}
+
+// GlobalExtProgress 全局提取进度（用于异步提取）
+var GlobalExtProgress = &ExtProgress{}
+
+func (p *ExtProgress) Lock()   { p.mu.Lock() }
+func (p *ExtProgress) Unlock() { p.mu.Unlock() }
+
 type ClaimStore interface {
-	ListByStatus(status string) ([]models.PolicyClaim, error)
+	ListByStatus(status string, regionCode string) ([]models.PolicyClaim, error)
 	UpdateStatus(claimID, status string, confidence float64) error
+	Ingest(claim *models.PolicyClaim) error
+}
+
+func SourceImportHandler(store SourceImportStore) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		r.Body = http.MaxBytesReader(w, r.Body, 2<<20)
+		var req struct {
+			SourceID  string `json:"source_id"`
+			Title     string `json:"title"`
+			Content   string `json:"content"`
+			SourceURL string `json:"source_url"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			respondError(w, http.StatusBadRequest, "invalid JSON")
+			return
+		}
+		if req.SourceID == "" || req.Title == "" || req.Content == "" {
+			respondError(w, http.StatusBadRequest, "source_id, title, and content are required")
+			return
+		}
+
+		src, err := store.GetSourceByID(req.SourceID)
+		if err != nil || src == nil {
+			respondError(w, http.StatusNotFound, "source not found")
+			return
+		}
+
+		now := time.Now()
+		claim := &models.PolicyClaim{
+			ClaimID:         fmt.Sprintf("MANUAL-%d", now.UnixNano()),
+			PolicyID:        req.Title,
+			RegionCode:      src.RegionCode,
+			PolicyType:      "subsidy",
+			TargetGroupTags:  []string{},
+			SubsidyCalcMethod: "参见原文",
+			EffectiveDate:   now.Format("2006-01-02"),
+			ConfidenceScore: 0.3,
+			Status:          "unverified",
+			VersionNumber:   1,
+			Conditions:      []byte("[]"),
+			RequiredDocuments: []byte("[]"),
+			SourceID:        req.SourceID,
+			SourceName:      src.SourceName,
+			SourceURL:       req.SourceURL,
+		}
+
+		if err := store.SaveRawText(req.SourceID, req.Title, req.Content, req.SourceURL, ""); err != nil {
+			respondError(w, http.StatusInternalServerError, fmt.Sprintf("save raw text: %v", err))
+			return
+		}
+
+		if err := store.Ingest(claim); err != nil {
+			respondError(w, http.StatusInternalServerError, fmt.Sprintf("ingest: %v", err))
+			return
+		}
+
+		store.MarkRawTextExtractedByTitle(req.SourceID, req.Title)
+
+		respondJSON(w, http.StatusOK, map[string]interface{}{
+			"code":    0,
+			"message": "导入成功，待人工审核",
+			"data":    claim,
+		})
+	})
+}
+
+type SourceImportStore interface {
+	ClaimStore
+	GetSourceByID(sourceID string) (*SourceInfo, error)
+	SaveRawText(sourceID, title, content, sourceURL, versionHash string) error
+	MarkRawTextExtractedByTitle(sourceID, title string)
 }
 
 type updateRequest struct {
@@ -31,6 +138,7 @@ func respondError(w http.ResponseWriter, code int, msg string) {
 func ListClaimsHandler(store ClaimStore) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		status := r.URL.Query().Get("status")
+		regionCode := r.URL.Query().Get("region_code")
 
 		validStatuses := map[string]bool{
 			"": true, "verified": true, "pending_review": true, "unverified": true,
@@ -45,7 +153,7 @@ func ListClaimsHandler(store ClaimStore) http.Handler {
 			return
 		}
 
-		claims, err := store.ListByStatus(status)
+		claims, err := store.ListByStatus(status, regionCode)
 		if err != nil {
 			respondError(w, http.StatusInternalServerError, "failed to list claims")
 			return
@@ -58,6 +166,107 @@ func ListClaimsHandler(store ClaimStore) http.Handler {
 	})
 }
 
+func IngestPolicyHandler(store ClaimStore) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
+		var req struct {
+			Text string `json:"text"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			respondError(w, http.StatusBadRequest, "invalid JSON")
+			return
+		}
+		if req.Text == "" {
+			respondError(w, http.StatusBadRequest, "text is required")
+			return
+		}
+
+		parsed, conditions, docs, err := parser.ParseStructuredText(req.Text)
+		if err != nil {
+			respondError(w, http.StatusBadRequest, fmt.Sprintf("parse error: %v", err))
+			return
+		}
+
+		condJSON, _ := json.Marshal(conditions)
+		docJSON, _ := json.Marshal(docs)
+
+		now := time.Now()
+		claim := &models.PolicyClaim{
+			ClaimID:          fmt.Sprintf("IMP-%d", now.UnixNano()),
+			PolicyID:         parsed.PolicyID,
+			RegionCode:       parsed.RegionCode,
+			PolicyType:       parsed.PolicyType,
+			TargetGroupTags:  parsed.TargetGroups,
+			SubsidyCalcMethod: parsed.SubsidyCalcMethod,
+			SubsidyAmountMin: parsed.AmountMin,
+			SubsidyAmountMax: parsed.AmountMax,
+			SubsidyDuration:  parsed.SubsidyDuration,
+			EffectiveDate:    parsed.EffectiveDate,
+			ExpireDate:       parsed.ExpireDate,
+			ConfidenceScore:  0.7,
+			Status:           "pending_review",
+			VersionNumber:    1,
+			Conditions:       condJSON,
+			RequiredDocuments: docJSON,
+		}
+
+		if store != nil {
+			if err := store.Ingest(claim); err != nil {
+				respondError(w, http.StatusInternalServerError, fmt.Sprintf("store error: %v", err))
+				return
+			}
+		}
+
+		respondJSON(w, http.StatusOK, map[string]interface{}{
+			"code":    0,
+			"message": "政策导入成功，待审核",
+			"data":    claim,
+		})
+	})
+}
+
+func BatchUpdateHandler(store ClaimStore) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
+		var req struct {
+			ClaimIDs []string `json:"claim_ids"`
+			Status   string   `json:"status"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			respondError(w, http.StatusBadRequest, "invalid JSON")
+			return
+		}
+		validStatuses := map[string]bool{"verified": true, "unverified": true, "pending_review": true}
+		if !validStatuses[req.Status] {
+			respondError(w, http.StatusBadRequest, "invalid status")
+			return
+		}
+		var succeeded, failed int
+		var lastErr string
+		for _, id := range req.ClaimIDs {
+			if store != nil {
+				if err := store.UpdateStatus(id, req.Status, 1.0); err != nil {
+					failed++
+					lastErr = err.Error()
+				} else {
+					succeeded++
+				}
+			}
+		}
+		if failed > 0 {
+			respondJSON(w, http.StatusOK, map[string]interface{}{
+				"code": 0, "succeeded": succeeded, "failed": failed,
+				"message": fmt.Sprintf("batch updated: %d succeeded, %d failed", succeeded, failed),
+				"last_error": lastErr,
+			})
+		} else {
+			respondJSON(w, http.StatusOK, map[string]interface{}{
+				"code": 0, "succeeded": succeeded, "message": fmt.Sprintf("batch updated %d claims", succeeded),
+			})
+		}
+	})
+}
+
 func UpdateClaimHandler(store ClaimStore) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		parts := strings.Split(strings.TrimRight(r.URL.Path, "/"), "/")
@@ -67,6 +276,7 @@ func UpdateClaimHandler(store ClaimStore) http.Handler {
 			return
 		}
 
+		r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 		var req updateRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			respondError(w, http.StatusBadRequest, "invalid JSON")

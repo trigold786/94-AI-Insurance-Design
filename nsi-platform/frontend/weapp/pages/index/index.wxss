@@ -1,0 +1,45 @@
+.city-bar {
+  display: flex;
+  align-items: center;
+  padding: 20rpx 0;
+}
+.city-icon { font-size: 32rpx; margin-right: 8rpx; }
+.city-name { font-size: 32rpx; font-weight: 600; color: #333; }
+.arrow { font-size: 24rpx; color: #9CA3AF; margin-left: 8rpx; }
+
+.hero {
+  background: linear-gradient(135deg, #1A56DB, #3B82F6);
+  border-radius: 24rpx;
+  padding: 60rpx 40rpx;
+  margin: 20rpx 0;
+  text-align: center;
+}
+.hero-title { font-size: 40rpx; font-weight: 700; color: #fff; display: block; }
+.hero-desc { font-size: 28rpx; color: rgba(255,255,255,0.8); display: block; margin: 16rpx 0 32rpx; }
+.hero-btn { margin-top: 16rpx; }
+
+.quick-actions { margin: 20rpx 0; }
+.action-card {
+  display: flex;
+  align-items: center;
+  background: #fff;
+  border-radius: 16rpx;
+  padding: 24rpx;
+  box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.06);
+}
+.action-icon { font-size: 36rpx; margin-right: 16rpx; }
+.action-text { font-size: 30rpx; color: #333; font-weight: 500; }
+.section { margin-top: 40rpx; }
+.section-title { font-size: 32rpx; font-weight: 600; margin-bottom: 20rpx; display: block; }
+.policy-scroll { white-space: nowrap; }
+.policy-card {
+  display: inline-block;
+  width: 260rpx;
+  background: #fff;
+  border-radius: 16rpx;
+  padding: 24rpx;
+  margin-right: 20rpx;
+  box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.06);
+}
+.policy-type { font-size: 28rpx; font-weight: 600; color: #1A56DB; display: block; }
+.policy-desc { font-size: 24rpx; color: #6B7280; margin-top: 8rpx; display: block; }

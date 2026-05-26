@@ -1,0 +1,11 @@
+<view class="container">
+  <text class="page-title">选择城市</text>
+  <view class="city-list">
+    <view class="city-item" a:for="{{cities}}" a:key="code" 
+          data-code="{{item.code}}" data-name="{{item.name}}" 
+          onTap="onSelect">
+      <text class="city-name {{currentCode === item.code ? 'active' : ''}}">{{item.name}}</text>
+      <text a:if="{{currentCode === item.code}}" class="checkmark">✓</text>
+    </view>
+  </view>
+</view>

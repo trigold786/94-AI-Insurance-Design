@@ -1,0 +1,176 @@
+<view class="profile-container">
+  <view class="progress-section">
+    <view class="progress-bar">
+      <view class="progress-fill" style="width: {{stepIndex / 3 * 100}}%;"></view>
+    </view>
+    <view class="step-indicators">
+      <view class="step-dot {{stepIndex >= 1 ? 'step-active' : ''}}" bindtap="goStep" data-step="1">
+        <text class="step-num">1</text>
+      </view>
+      <view class="step-line {{stepIndex >= 2 ? 'step-line-active' : ''}}"></view>
+      <view class="step-dot {{stepIndex >= 2 ? 'step-active' : ''}}" bindtap="goStep" data-step="2">
+        <text class="step-num">2</text>
+      </view>
+      <view class="step-line {{stepIndex >= 3 ? 'step-line-active' : ''}}"></view>
+      <view class="step-dot {{stepIndex >= 3 ? 'step-active' : ''}}" bindtap="goStep" data-step="3">
+        <text class="step-num">3</text>
+      </view>
+    </view>
+    <view class="step-labels">
+      <text class="step-label {{stepIndex >= 1 ? 'label-active' : ''}}">基本</text>
+      <text class="step-label {{stepIndex >= 2 ? 'label-active' : ''}}">就业</text>
+      <text class="step-label {{stepIndex >= 3 ? 'label-active' : ''}}">家庭</text>
+    </view>
+  </view>
+
+  <view class="form-section">
+    <!-- Step 1: Basic Info -->
+    <view wx:if="{{stepIndex === 1}}" class="form-step">
+      <text class="step-title">基本信息</text>
+      <text class="step-desc">请填写您的基本信息</text>
+
+      <view class="form-group">
+        <text class="input-label">年龄</text>
+        <input class="input-field" type="number" placeholder="请输入年龄（16-70）" value="{{formData.age}}" bindinput="onInput" data-field="age" maxlength="2" />
+      </view>
+
+      <view class="form-group">
+        <text class="input-label">性别</text>
+        <view class="radio-group">
+          <view class="radio-item {{formData.gender === 'male' ? 'radio-active' : ''}}" bindtap="setGender" data-value="male">
+            <text>男</text>
+          </view>
+          <view class="radio-item {{formData.gender === 'female' ? 'radio-active' : ''}}" bindtap="setGender" data-value="female">
+            <text>女</text>
+          </view>
+        </view>
+      </view>
+
+      <view class="form-group">
+        <text class="input-label">户籍所在地</text>
+        <view class="picker-selector" bindtap="onPickHukou">
+          <text class="{{formData.hukou ? '' : 'placeholder'}}">{{formData.hukou || '请选择户籍所在地'}}</text>
+          <text class="picker-arrow">></text>
+        </view>
+      </view>
+
+      <view class="form-group">
+        <text class="input-label">居住地</text>
+        <view class="picker-selector" bindtap="onPickResidence">
+          <text class="{{formData.residence ? '' : 'placeholder'}}">{{formData.residence || '请选择居住地'}}</text>
+          <text class="picker-arrow">></text>
+        </view>
+      </view>
+    </view>
+
+    <!-- Step 2: Employment Info -->
+    <view wx:elif="{{stepIndex === 2}}" class="form-step">
+      <text class="step-title">就业信息</text>
+      <text class="step-desc">请填写您的就业情况</text>
+
+      <view class="form-group">
+        <text class="input-label">就业状态</text>
+        <view class="options-grid">
+          <view
+            class="option-item {{formData.employment === item.value ? 'option-active' : ''}}"
+            wx:for="{{employmentOptions}}"
+            wx:key="value"
+            bindtap="setEmployment"
+            data-value="{{item.value}}"
+          >
+            <text>{{item.label}}</text>
+          </view>
+        </view>
+      </view>
+
+      <view class="form-group">
+        <text class="input-label">社保缴纳年限</text>
+        <input class="input-field" type="number" placeholder="请输入已缴纳年限（年）" value="{{formData.socialYears}}" bindinput="onInput" data-field="socialYears" maxlength="2" />
+      </view>
+
+      <view class="form-group" wx:if="{{formData.employment === 'unemployed'}}">
+        <text class="input-label">失业登记日期</text>
+        <picker mode="date" value="{{formData.unemploymentDate}}" bindchange="setUnemploymentDate">
+          <view class="picker-selector">
+            <text class="{{formData.unemploymentDate ? '' : 'placeholder'}}">{{formData.unemploymentDate || '请选择失业登记日期'}}</text>
+            <text class="picker-arrow">></text>
+          </view>
+        </picker>
+      </view>
+    </view>
+
+    <!-- Step 3: Family Info -->
+    <view wx:elif="{{stepIndex === 3}}" class="form-step">
+      <text class="step-title">家庭信息</text>
+      <text class="step-desc">请填写您的家庭情况</text>
+
+      <view class="form-group">
+        <text class="input-label">是否有子女</text>
+        <view class="radio-group">
+          <view class="radio-item {{formData.hasChildren === 'yes' ? 'radio-active' : ''}}" bindtap="setHasChildren" data-value="yes">
+            <text>有</text>
+          </view>
+          <view class="radio-item {{formData.hasChildren === 'no' ? 'radio-active' : ''}}" bindtap="setHasChildren" data-value="no">
+            <text>无</text>
+          </view>
+        </view>
+      </view>
+
+      <view class="form-group" wx:if="{{formData.hasChildren === 'yes'}}">
+        <text class="input-label">子女数量</text>
+        <view class="options-grid">
+          <view
+            class="option-item {{formData.childrenCount == 1 ? 'option-active' : ''}}"
+            bindtap="setChildrenCount"
+            data-value="1"
+          >
+            <text>1个</text>
+          </view>
+          <view
+            class="option-item {{formData.childrenCount == 2 ? 'option-active' : ''}}"
+            bindtap="setChildrenCount"
+            data-value="2"
+          >
+            <text>2个</text>
+          </view>
+          <view
+            class="option-item {{formData.childrenCount >= 3 ? 'option-active' : ''}}"
+            bindtap="setChildrenCount"
+            data-value="3"
+          >
+            <text>3个及以上</text>
+          </view>
+        </view>
+      </view>
+
+      <view class="form-group">
+        <text class="input-label">技能证书</text>
+        <view class="options-grid">
+          <view
+            class="option-item {{formData.hasSkills === 'yes' ? 'option-active' : ''}}"
+            bindtap="setSkills"
+            data-value="yes"
+          >
+            <text>有</text>
+          </view>
+          <view
+            class="option-item {{formData.hasSkills === 'no' ? 'option-active' : ''}}"
+            bindtap="setSkills"
+            data-value="no"
+          >
+            <text>无</text>
+          </view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <view class="form-actions">
+    <button wx:if="{{stepIndex > 1}}" class="btn-secondary prev-btn" catchtap="prevStep">上一步</button>
+    <button class="btn-primary next-btn" catchtap="nextStep" loading="{{submitting}}">
+      <text wx:if="{{stepIndex < 3}}">下一步</text>
+      <text wx:elif="{{submitting}}">提交中...</text>
+      <text wx:else>提交信息</text>
+    </button>
+  </view>
+</view>

@@ -1,0 +1,47 @@
+<view class="index-container">
+  <view class="index-header">
+    <view class="location-bar" bindtap="goCityPicker">
+      <text class="location-icon">📍</text>
+      <text class="location-city">{{cityName || '请选择城市'}}</text>
+      <text class="location-arrow">▼</text>
+    </view>
+    <text class="header-greeting">{{greeting}}，{{userName || '用户'}}</text>
+  </view>
+
+  <view class="cta-section">
+    <view class="cta-card">
+      <text class="cta-title">社保筹划，从现在开始</text>
+      <text class="cta-desc">AI 智能分析您的社保状况，定制最优缴费方案</text>
+      <button class="btn-primary cta-btn" catchtap="goProfile">开始筹划</button>
+    </view>
+  </view>
+
+  <view class="policy-section">
+    <view class="section-header">
+      <text class="section-title">政策速览</text>
+      <text class="section-more" bindtap="loadPolicies">刷新</text>
+    </view>
+
+    <view wx:if="{{loading}}" class="loading-state">
+      <text class="loading-text">加载中...</text>
+    </view>
+
+    <view wx:elif="{{policies.length === 0}}" class="empty-state">
+      <text class="empty-text">暂无政策数据</text>
+      <text class="empty-hint">请先选择城市</text>
+    </view>
+
+    <view wx:else class="policy-list">
+      <policy-card
+        wx:for="{{policies}}"
+        wx:key="index"
+        title="{{item.title}}"
+        description="{{item.description}}"
+        icon="{{item.icon}}"
+        iconBg="{{item.iconBg}}"
+        tags="{{item.tags}}"
+        bindtap="onPolicyTap"
+      />
+    </view>
+  </view>
+</view>

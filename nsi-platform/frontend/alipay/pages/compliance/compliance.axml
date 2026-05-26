@@ -1,0 +1,48 @@
+<view class="container">
+  <text class="page-title">合规认定与材料清单</text>
+
+  <view class="section" a:if="{{eligibleTags.length > 0}}">
+    <text class="section-title">您的可认定身份</text>
+    <view class="tag-list">
+      <text class="tag" a:for="{{eligibleTags}}" a:key="*this">{{item}}</text>
+    </view>
+  </view>
+
+  <view class="section">
+    <text class="section-title">匹配政策 ({{matchedPolicies.length}})</text>
+    <view class="policy-card" a:for="{{matchedPolicies}}" a:key="claim_id">
+      <view class="policy-header">
+        <text class="policy-type">{{item.policy_type}}</text>
+        <text class="status-tag {{item.is_eligible ? 'eligible' : 'ineligible'}}">
+          {{item.is_eligible ? '可申请' : '条件不足'}}
+        </text>
+      </view>
+      <text class="policy-desc">{{item.subsidy_calc_method}}</text>
+
+      <view class="condition-section" a:if="{{item.conditions.length > 0}}">
+        <text class="condition-title">认定条件</text>
+        <view class="condition-item" a:for="{{item.conditions}}" a:key="name">
+          <text class="condition-name">{{item.name}}</text>
+          <text class="condition-desc">{{item.description}}</text>
+        </view>
+      </view>
+
+      <view class="unmet-section" a:if="{{item.unmet_conditions.length > 0}}">
+        <text class="unmet-title">未满足条件</text>
+        <text class="unmet-item" a:for="{{item.unmet_conditions}}" a:key="*this">✗ {{item}}</text>
+      </view>
+    </view>
+  </view>
+
+  <view class="section" a:if="{{requiredDocs.length > 0}}">
+    <text class="section-title">必需材料清单 ({{requiredDocs.length}})</text>
+    <view class="doc-card" a:for="{{requiredDocs}}" a:key="name">
+      <view class="doc-header">
+        <text class="doc-name">{{item.name}}</text>
+        <text class="doc-source">来源: {{item.source}}</text>
+      </view>
+      <text class="doc-desc">{{item.description}}</text>
+      <text class="doc-optional" a:if="{{item.optional}}">非必需材料</text>
+    </view>
+  </view>
+</view>

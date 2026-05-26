@@ -1,0 +1,24 @@
+<view class="container">
+  <text class="page-title">您的社保方案</text>
+  <text class="page-desc">以下是 AI 为您推荐的社保方案预览</text>
+
+  <view class="preview-card">
+    <text class="preview-label">预计年补贴额</text>
+    <view class="blurred-value">
+      <text class="blur-text">{{blurredAmount}}</text>
+    </view>
+  </view>
+
+  <view class="preview-card">
+    <text class="preview-label">月节省额</text>
+    <view class="blurred-value">
+      <text class="blur-text">{{blurredMonthly}}</text>
+    </view>
+  </view>
+
+  <button class="btn-primary unlock-btn" onTap="onUnlock">解锁完整报告</button>
+
+  <view class="tip">
+    <text class="tip-text">解锁后可查看方案对比、年度现金流和行动清单</text>
+  </view>
+</view>

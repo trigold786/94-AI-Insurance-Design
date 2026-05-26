@@ -1,0 +1,35 @@
+<view class="container">
+  <view class="city-bar" onTap="onCityTap">
+    <text class="city-icon">📍</text>
+    <text class="city-name">{{currentCity}}</text>
+    <text class="arrow">▼</text>
+  </view>
+
+  <view class="hero">
+    <text class="hero-title">社保规划，智能匹配</text>
+    <text class="hero-desc">AI 为您匹配最优社保方案</text>
+    <button class="btn-primary hero-btn" onTap="onStartPlan">开始社保筹划</button>
+  </view>
+
+  <view class="quick-actions">
+    <view class="action-card" onTap="onComplianceTap">
+      <text class="action-icon">📋</text>
+      <text class="action-text">合规认定与材料清单</text>
+    </view>
+    <view class="action-card" onTap="onRightsTap" style="margin-top:12rpx">
+      <text class="action-icon">🛡️</text>
+      <text class="action-text">权益监测与风险预警</text>
+    </view>
+  </view>
+
+  <view class="section">
+    <text class="section-title">政策速览</text>
+    <scroll-view class="policy-scroll" scroll-x>
+      <view class="policy-card" a:for="{{policies}}" a:key="claim_id" 
+            data-item="{{item}}" onTap="onPolicyTap">
+        <text class="policy-type">{{item.policy_type}}</text>
+        <text class="policy-desc">{{item.subsidy_calc_method}}</text>
+      </view>
+    </scroll-view>
+  </view>
+</view>

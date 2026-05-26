@@ -1,0 +1,4 @@
+ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS date_of_birth TEXT DEFAULT '';
+ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS contribution_months INT DEFAULT 0;
+ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS pension_total_amount DOUBLE PRECISION DEFAULT 0;
+ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS pension_personal_amount DOUBLE PRECISION DEFAULT 0;

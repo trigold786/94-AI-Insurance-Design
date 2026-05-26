@@ -1,0 +1,63 @@
+<view class="preview-container">
+  <view class="preview-header">
+    <text class="preview-title">您的社保规划方案</text>
+    <text class="preview-desc">基于您的个人信息和城市政策，AI 为您生成了以下方案</text>
+  </view>
+
+  <view class="blurred-cards">
+    <view class="blur-card">
+      <view class="blur-card-header">
+        <text class="blur-label">预计年补贴额</text>
+        <text class="blur-badge">年度预估</text>
+      </view>
+      <view class="blur-value-area">
+        <text class="blur-value">****</text>
+        <text class="blur-unit">元/年</text>
+      </view>
+    </view>
+
+    <view class="blur-card">
+      <view class="blur-card-header">
+        <text class="blur-label">月节省成本</text>
+        <text class="blur-badge">节省估算</text>
+      </view>
+      <view class="blur-value-area">
+        <text class="blur-value">****</text>
+        <text class="blur-unit">元/月</text>
+      </view>
+    </view>
+
+    <view class="blur-card">
+      <view class="blur-card-header">
+        <text class="blur-label">预计退休养老金</text>
+        <text class="blur-badge">未来收益</text>
+      </view>
+      <view class="blur-value-area">
+        <text class="blur-value">****</text>
+        <text class="blur-unit">元/月</text>
+      </view>
+    </view>
+  </view>
+
+  <view class="features-section">
+    <text class="features-title">解锁后可查看完整方案详情</text>
+    <view class="features-list">
+      <view class="feature-row" wx:for="{{features}}" wx:key="index">
+        <text class="feat-icon">{{item.icon}}</text>
+        <view class="feat-content">
+          <text class="feat-title">{{item.title}}</text>
+          <text class="feat-desc">{{item.desc}}</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <view class="blur-overlay">
+    <view class="overlay-content">
+      <text class="overlay-icon">🔓</text>
+      <text class="overlay-title">解锁完整方案</text>
+      <text class="overlay-desc">查看详细方案对比、现金流分析和行动建议</text>
+      <button class="btn-primary unlock-btn" catchtap="goToPlan">查看完整报告</button>
+    </view>
+  </view>
+</view>

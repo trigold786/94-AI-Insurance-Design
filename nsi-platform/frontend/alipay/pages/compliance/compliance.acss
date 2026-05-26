@@ -1,0 +1,58 @@
+.page-title { font-size: 36rpx; font-weight: 700; margin: 20rpx 0; }
+.section { margin: 24rpx 0; }
+.section-title { font-size: 30rpx; font-weight: 600; margin-bottom: 16rpx; display: block; }
+
+.tag-list { display: flex; flex-wrap: wrap; gap: 12rpx; }
+.tag {
+  background: #EEF2FF;
+  color: #1A56DB;
+  padding: 8rpx 20rpx;
+  border-radius: 24rpx;
+  font-size: 26rpx;
+}
+
+.policy-card {
+  background: #fff;
+  border-radius: 16rpx;
+  padding: 24rpx;
+  margin-bottom: 16rpx;
+  box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.06);
+}
+.policy-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8rpx;
+}
+.policy-type { font-size: 28rpx; font-weight: 600; color: #1A56DB; }
+.status-tag {
+  font-size: 22rpx;
+  padding: 4rpx 16rpx;
+  border-radius: 20rpx;
+}
+.status-tag.eligible { background: #D1FAE5; color: #059669; }
+.status-tag.ineligible { background: #FEE2E2; color: #EF4444; }
+.policy-desc { font-size: 26rpx; color: #6B7280; margin-bottom: 12rpx; display: block; }
+
+.condition-section { margin-top: 12rpx; }
+.condition-title { font-size: 26rpx; font-weight: 600; color: #374151; display: block; margin-bottom: 8rpx; }
+.condition-item { margin-bottom: 8rpx; }
+.condition-name { font-size: 24rpx; color: #333; display: block; }
+.condition-desc { font-size: 22rpx; color: #9CA3AF; display: block; }
+
+.unmet-section { margin-top: 12rpx; }
+.unmet-title { font-size: 26rpx; font-weight: 600; color: #EF4444; display: block; margin-bottom: 4rpx; }
+.unmet-item { font-size: 24rpx; color: #EF4444; display: block; }
+
+.doc-card {
+  background: #fff;
+  border-radius: 16rpx;
+  padding: 20rpx;
+  margin-bottom: 12rpx;
+  box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.04);
+}
+.doc-header { display: flex; justify-content: space-between; margin-bottom: 4rpx; }
+.doc-name { font-size: 28rpx; font-weight: 600; color: #333; }
+.doc-source { font-size: 22rpx; color: #9CA3AF; }
+.doc-desc { font-size: 24rpx; color: #6B7280; display: block; margin-bottom: 4rpx; }
+.doc-optional { font-size: 22rpx; color: #F59E0B; }

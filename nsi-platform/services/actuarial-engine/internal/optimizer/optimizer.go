@@ -52,6 +52,20 @@ func RankByEfficiency(schemes []Scheme) []Scheme {
 	return sorted
 }
 
+func FilterParetoOptimal(schemes []Scheme, efficiencyThreshold float64) []Scheme {
+	frontier := FindParetoFrontier(schemes)
+	if efficiencyThreshold <= 0 {
+		return frontier
+	}
+	var filtered []Scheme
+	for _, s := range frontier {
+		if efficiency(s) >= efficiencyThreshold {
+			filtered = append(filtered, s)
+		}
+	}
+	return filtered
+}
+
 func efficiency(s Scheme) float64 {
 	if s.MonthlyCost <= 0 {
 		return s.ProjectedPension

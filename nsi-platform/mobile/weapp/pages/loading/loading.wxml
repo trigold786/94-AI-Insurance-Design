@@ -1,0 +1,26 @@
+<view class="loading-container">
+  <view class="loading-animation">
+    <view class="shield-icon">
+      <text class="shield-emoji">🛡️</text>
+    </view>
+    <view class="shield-ring"></view>
+  </view>
+
+  <text class="loading-title">AI 正在智能分析...</text>
+  <text class="loading-message">{{currentMessage}}</text>
+
+  <view class="loading-progress">
+    <view class="progress-track">
+      <view class="progress-fill" style="width: {{progress}}%;"></view>
+    </view>
+    <text class="progress-text">{{progress}}%</text>
+  </view>
+
+  <view class="loading-tips">
+    <text class="tips-title">正在为您</text>
+    <view class="tip-item" wx:for="{{tips}}" wx:key="index">
+      <text class="tip-icon {{item.done ? 'tip-done' : ''}}">{{item.done ? '✓' : '○'}}</text>
+      <text class="tip-text {{item.done ? 'tip-done' : ''}}">{{item.text}}</text>
+    </view>
+  </view>
+</view>

@@ -1,6 +1,9 @@
 package models
 
-import "time"
+import (
+	"encoding/json"
+	"time"
+)
 
 // UserProfile 用户画像
 type UserProfile struct {
@@ -16,24 +19,88 @@ type UserProfile struct {
 	SocialSecurityYears      int      `db:"social_security_years" json:"social_security_years"`
 	SkillCertificateLevel    *string  `db:"skill_certificate_level" json:"skill_certificate_level,omitempty"`
 	HasChildren              bool     `db:"has_children" json:"has_children"`
+	// 新增字段
+	DateOfBirth           string  `db:"date_of_birth" json:"date_of_birth"`                       // 出生年月 YYYY-MM
+	ContributionMonths    int     `db:"contribution_months" json:"contribution_months"`            // 累计缴费月数
+	PensionTotalAmount    float64 `db:"pension_total_amount" json:"pension_total_amount"`          // 养老金本息总额
+	PensionPersonalAmount float64 `db:"pension_personal_amount" json:"pension_personal_amount"`    // 养老金总额个人部分
 }
 
 // PolicyClaim 结构化政策原子
 type PolicyClaim struct {
-	ClaimID          string   `db:"claim_id" json:"claim_id"`
-	PolicyID         string   `db:"policy_id" json:"policy_id"`
-	RegionCode       string   `db:"region_code" json:"region_code"`
-	PolicyType       string   `db:"policy_type" json:"policy_type"`
-	TargetGroupTags  []string `db:"target_group_tags" json:"target_group_tags"`
-	SubsidyCalcMethod string  `db:"subsidy_calc_method" json:"subsidy_calc_method"`
-	SubsidyAmountMin *float64 `db:"subsidy_amount_min" json:"subsidy_amount_min,omitempty"`
-	SubsidyAmountMax *float64 `db:"subsidy_amount_max" json:"subsidy_amount_max,omitempty"`
-	SubsidyDuration  *int     `db:"subsidy_duration" json:"subsidy_duration,omitempty"`
-	EffectiveDate    string   `db:"effective_date" json:"effective_date"`
-	ExpireDate       *string  `db:"expire_date" json:"expire_date,omitempty"`
-	ConfidenceScore  float64  `db:"confidence_score" json:"confidence_score"`
-	Status           string   `db:"status" json:"status"` // verified, pending_review, unverified
-	VersionNumber    int      `db:"version_number" json:"version_number"`
+	ClaimID           string           `db:"claim_id" json:"claim_id"`
+	PolicyID          string           `db:"policy_id" json:"policy_id"`
+	RegionCode        string           `db:"region_code" json:"region_code"`
+	PolicyType        string           `db:"policy_type" json:"policy_type"`
+	TargetGroupTags   []string         `db:"target_group_tags" json:"target_group_tags"`
+	SubsidyCalcMethod string           `db:"subsidy_calc_method" json:"subsidy_calc_method"`
+	SubsidyAmountMin  *float64         `db:"subsidy_amount_min" json:"subsidy_amount_min,omitempty"`
+	SubsidyAmountMax  *float64         `db:"subsidy_amount_max" json:"subsidy_amount_max,omitempty"`
+	SubsidyDuration   *int             `db:"subsidy_duration" json:"subsidy_duration,omitempty"`
+	EffectiveDate     string           `db:"effective_date" json:"effective_date"`
+	ExpireDate        *string          `db:"expire_date" json:"expire_date,omitempty"`
+	ConfidenceScore   float64          `db:"confidence_score" json:"confidence_score"`
+	Status            string           `db:"status" json:"status"`
+	VersionNumber     int              `db:"version_number" json:"version_number"`
+	Conditions        json.RawMessage  `db:"conditions" json:"conditions,omitempty"`
+	RequiredDocuments json.RawMessage  `db:"required_documents" json:"required_documents,omitempty"`
+	SourceID          string           `db:"source_id" json:"source_id,omitempty"`
+	SourceName        string           `db:"source_name" json:"source_name,omitempty"`
+	SourceURL         string           `db:"source_url" json:"source_url,omitempty"`
+	PolicyURL         string           `db:"policy_url" json:"policy_url,omitempty"`
+	SourceLevel       string           `db:"source_level" json:"source_level,omitempty"`
+	FetchedAt         string           `db:"fetched_at" json:"fetched_at,omitempty"`
+	VerifiedBy        string           `db:"verified_by" json:"verified_by,omitempty"`
+	MatchRate         float64          `db:"match_rate" json:"match_rate,omitempty"`
+	ConflictScore     float64          `db:"conflict_score" json:"conflict_score,omitempty"`
+	Embedding         []float64        `db:"embedding" json:"embedding,omitempty"`
+}
+
+// ComplianceCondition 认定条件
+type ComplianceCondition struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Required    bool   `json:"required"`
+	TagMatch    string `json:"tag_match,omitempty"`
+}
+
+// RequiredDocument 必需材料
+type RequiredDocument struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Source      string `json:"source"` // user, gov, employer
+	Optional    bool   `json:"optional"`
+}
+
+// ComplianceChecklist 合规检查清单
+type ComplianceChecklist struct {
+	UserID           string               `json:"user_id"`
+	CityCode         string               `json:"city_code"`
+	CityName         string               `json:"city_name"`
+	MatchedPolicies  []PolicyCompliance   `json:"matched_policies"`
+	RequiredDocs     []RequiredDocument   `json:"required_docs"`
+	EligibleTags     []string             `json:"eligible_tags"`
+}
+
+// ProcessingStep 办理流程步骤
+type ProcessingStep struct {
+	Order       int    `json:"order"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	URL         string `json:"url,omitempty"`
+}
+
+// PolicyCompliance 单个政策的合规信息
+type PolicyCompliance struct {
+	PolicyID         string                `json:"policy_id"`
+	PolicyType       string                `json:"policy_type"`
+	ClaimID          string                `json:"claim_id"`
+	SubsidyCalcMethod string               `json:"subsidy_calc_method"`
+	Conditions       []ComplianceCondition `json:"conditions"`
+	RequiredDocs     []RequiredDocument    `json:"required_docs"`
+	IsEligible       bool                  `json:"is_eligible"`
+	UnmetConditions  []string              `json:"unmet_conditions,omitempty"`
+	ProcessingSteps  []ProcessingStep      `json:"processing_steps,omitempty"`
 }
 
 // PlanSnapshot 方案快照
@@ -49,12 +116,19 @@ type PlanSnapshot struct {
 
 // Scheme 推荐方案
 type Scheme struct {
-	Name            string           `json:"name"`
-	BaseSalary      int              `json:"base_salary"`
-	MonthlyCost     float64          `json:"monthly_cost"`
-	AnnualSubsidy   float64          `json:"annual_subsidy"`
-	ProjectedPension float64          `json:"projected_pension"`
-	Cashflow        []CashFlowItem   `json:"cashflow,omitempty"`
+	Name                  string         `json:"name"`
+	BaseSalary            int            `json:"base_salary"`
+	MonthlyCost           float64        `json:"monthly_cost"`
+	AnnualSubsidy         float64        `json:"annual_subsidy"`
+	SubsidyPolicy         string         `json:"subsidy_policy"`
+	SubsidyCondition      string         `json:"subsidy_condition"`
+	PaidMonths            int            `json:"paid_months"`
+	TargetMonths          int            `json:"target_months"`
+	RemainingMonths       int            `json:"remaining_months"`
+	TotalPersonalCost     float64        `json:"total_personal_cost"`
+	RemainingPersonalCost float64        `json:"remaining_personal_cost"`
+	ProjectedPension      float64        `json:"projected_pension"`
+	Cashflow              []CashFlowItem `json:"cashflow,omitempty"`
 }
 
 // CashFlowItem 现金流
@@ -65,6 +139,31 @@ type CashFlowItem struct {
 	Balance float64 `json:"balance"`
 }
 
+// PaymentRecord 缴费记录
+type PaymentRecord struct {
+	RecordID   string  `db:"record_id" json:"record_id"`
+	UserID     string  `db:"user_id" json:"user_id"`
+	PolicyType string  `db:"policy_type" json:"policy_type"`
+	Month      string  `db:"month" json:"month"`       // YYYY-MM
+	Amount     float64 `db:"amount" json:"amount"`
+	Status     string  `db:"status" json:"status"`     // paid, pending, missed
+	DueDate    string  `db:"due_date" json:"due_date"` // YYYY-MM-DD
+	PaidDate   *string `db:"paid_date" json:"paid_date,omitempty"`
+}
+
+// Alert 权益预警
+type Alert struct {
+	AlertID    string `db:"alert_id" json:"alert_id"`
+	UserID     string `db:"user_id" json:"user_id"`
+	AlertType  string `db:"alert_type" json:"alert_type"`   // disconnection_risk, policy_change
+	Severity   string `db:"severity" json:"severity"`       // high, medium, low
+	Title      string `db:"title" json:"title"`
+	Message    string `db:"message" json:"message"`
+	IsRead     bool   `db:"is_read" json:"is_read"`
+	CreatedAt  string `db:"created_at" json:"created_at"`
+	PolicyID   *string `db:"policy_id" json:"policy_id,omitempty"`
+}
+
 // PolicySource 政策数据源
 type PolicySource struct {
 	SourceID    string  `db:"source_id" json:"source_id"`
@@ -72,4 +171,15 @@ type PolicySource struct {
 	SourceURL   string  `db:"source_url" json:"source_url"`
 	SourceLevel string  `db:"source_level" json:"source_level"` // HIGH, MEDIUM, LOW
 	Weight      float64 `db:"weight" json:"weight"`
+}
+
+// VersionSnapshot 政策版本快照
+type VersionSnapshot struct {
+	ID            int              `db:"id" json:"id"`
+	ClaimID       string           `db:"claim_id" json:"claim_id"`
+	PolicyID      string           `db:"policy_id" json:"policy_id"`
+	VersionNumber int              `db:"version_number" json:"version_number"`
+	SnapshotData  *json.RawMessage  `db:"snapshot_data" json:"snapshot_data"`
+	SupersededBy  string           `db:"superseded_by" json:"superseded_by,omitempty"`
+	CreatedAt     string           `db:"created_at" json:"created_at"`
 }

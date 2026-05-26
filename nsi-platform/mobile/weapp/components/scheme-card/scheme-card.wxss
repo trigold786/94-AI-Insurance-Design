@@ -1,0 +1,78 @@
+.scheme-card {
+  background: #FFFFFF;
+  border-radius: 20rpx;
+  padding: 28rpx;
+  min-width: 420rpx;
+  border: 2rpx solid #E5E7EB;
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.05);
+  flex-shrink: 0;
+}
+
+.scheme-card-selected {
+  border-color: #1A56DB;
+  box-shadow: 0 0 0 2rpx rgba(26, 86, 219, 0.2), 0 4rpx 16rpx rgba(26, 86, 219, 0.12);
+}
+
+.scheme-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20rpx;
+}
+
+.scheme-name {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #1F2937;
+}
+
+.scheme-badge {
+  font-size: 20rpx;
+  color: #FFFFFF;
+  padding: 4rpx 16rpx;
+  border-radius: 20rpx;
+  font-weight: 500;
+}
+
+.scheme-data {
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
+}
+
+.scheme-data-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.data-label {
+  font-size: 24rpx;
+  color: #6B7280;
+}
+
+.data-value {
+  font-size: 26rpx;
+  font-weight: 600;
+  color: #1F2937;
+}
+
+.primary-color { color: #1A56DB; }
+.success-color { color: #059669; }
+
+.scheme-footer {
+  margin-top: 16rpx;
+  padding-top: 16rpx;
+  border-top: 2rpx solid #F3F4F6;
+}
+
+.saving-text {
+  font-size: 24rpx;
+  color: #6B7280;
+}
+
+.saving-amount {
+  color: #EF4444;
+  font-weight: 600;
+  font-size: 28rpx;
+}

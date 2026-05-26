@@ -1,54 +1,130 @@
-version: "3.8"
-
 include:
   - infra/docker-compose.infra.yml
 
 services:
   api-server:
-    build:
-      context: ./services/api-server
-      dockerfile: Dockerfile
+    image: nsi-api-server:latest
     container_name: nsi-api-server
     ports:
-      - "30001:30001"
+      - "39401:39401"
     environment:
-      DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD:-postgres123}@postgres:5432/nsi?sslmode=disable
+      DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@postgres:5432/nsi_api?sslmode=disable
       REDIS_URL: redis://redis:6379/0
-      JWT_SECRET: ${JWT_SECRET:-dev-secret-change-me}
-      ACTUARY_GRPC_ADDR: actuarial-engine:50051
-      STORAGE_ENDPOINT: http://minio:9000
-      STORAGE_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
-      STORAGE_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
-      STORAGE_BUCKET: nsi-reports
-      SERVER_PORT: "30001"
+      ACTUARY_HTTP_ADDR: actuarial-engine:39402
+      ACTUARY_SECRET: ${ACTUARY_SECRET:-}
+      SERVER_PORT: "39401"
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:39401}
+      JWT_SECRET: ${JWT_SECRET:-}
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+      db-migrate:
+        condition: service_completed_successfully
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '1.0'
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:39401/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
   actuarial-engine:
-    build:
-      context: ./services/actuarial-engine
-      dockerfile: Dockerfile
+    image: nsi-actuarial-engine:latest
     container_name: nsi-actuarial-engine
     ports:
-      - "50051:50051"
+      - "39402:39402"
     environment:
       REDIS_URL: redis://redis:6379/0
+      ACTUARY_SECRET: ${ACTUARY_SECRET:-}
+      SERVER_PORT: "39402"
     depends_on:
       redis:
         condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '1.0'
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:39402/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
   policy-crawler:
-    build:
-      context: ./services/policy-crawler
-      dockerfile: Dockerfile
+    image: nsi-policy-crawler:latest
     container_name: nsi-policy-crawler
+    ports:
+      - "39403:39403"
     environment:
-      DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD:-postgres123}@postgres:5432/nsi?sslmode=disable
-      LLM_API_KEY: ${LLM_API_KEY:-}
-      LLM_API_ENDPOINT: ${LLM_API_ENDPOINT:-}
+      DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@postgres:5432/nsi_crawler?sslmode=disable
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-changeme}
     depends_on:
       postgres:
         condition: service_healthy
+      db-migrate:
+        condition: service_completed_successfully
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '1.0'
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:39403/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  db-init:
+    image: postgres:18-alpine
+    container_name: nsi-db-init
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+    entrypoint: >
+      sh -c "
+        until pg_isready -h postgres -U postgres; do sleep 1; done;
+        psql -h postgres -U postgres -c 'CREATE DATABASE nsi_api;' 2>/dev/null || true;
+        psql -h postgres -U postgres -c 'CREATE DATABASE nsi_crawler;' 2>/dev/null || true;
+      "
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  db-migrate:
+    image: postgres:18-alpine
+    container_name: nsi-db-migrate
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+    volumes:
+      - ./services/api-server/migrations:/migrations/api:ro
+      - ./services/policy-crawler/migrations:/migrations/crawler:ro
+    entrypoint: >
+      sh -c "
+        until pg_isready -h postgres -U postgres; do sleep 1; done;
+        echo 'Running api-server migrations...';
+        for f in /migrations/api/*.sql; do
+          echo \"  $$(basename $$f)\";
+          psql -h postgres -U postgres -d nsi_api -f \"$$f\" 2>&1 | grep -v 'NOTICE\|already exists, skipping';
+        done;
+        echo 'Running crawler migrations...';
+        for f in /migrations/crawler/*.sql; do
+          echo \"  $$(basename $$f)\";
+          psql -h postgres -U postgres -d nsi_crawler -f \"$$f\" 2>&1 | grep -v 'NOTICE\|already exists, skipping';
+        done;
+        psql -h postgres -U postgres -d nsi_api -c \"INSERT INTO users (user_id) VALUES ('default-user') ON CONFLICT DO NOTHING;\" 2>/dev/null;
+        echo 'Migrations complete.';
+      "
+    depends_on:
+      postgres:
+        condition: service_healthy
+      db-init:
+        condition: service_completed_successfully

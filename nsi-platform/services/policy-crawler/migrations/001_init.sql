@@ -50,5 +50,6 @@ CREATE INDEX IF NOT EXISTS idx_policy_claims_region ON policy_claims(region_code
 CREATE INDEX IF NOT EXISTS idx_policy_claims_policy_id ON policy_claims(policy_id);
 CREATE INDEX IF NOT EXISTS idx_policy_claims_status ON policy_claims(status);
 CREATE INDEX IF NOT EXISTS idx_fetch_history_source ON fetch_history(source_id);
+CREATE INDEX IF NOT EXISTS idx_policy_claims_updated_at ON policy_claims(updated_at DESC);
 
 COMMIT;

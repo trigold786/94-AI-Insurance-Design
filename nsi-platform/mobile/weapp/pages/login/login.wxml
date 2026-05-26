@@ -1,0 +1,39 @@
+<view class="login-container">
+  <view class="login-header">
+    <image class="login-logo" src="/images/logo.png" mode="aspectFit"></image>
+    <text class="login-title">AI社保智筹</text>
+    <text class="login-subtitle">智能社保规划专家</text>
+  </view>
+
+  <view class="login-features">
+    <view class="feature-item" wx:for="{{features}}" wx:key="index">
+      <text class="feature-icon">{{item.icon}}</text>
+      <text class="feature-text">{{item.text}}</text>
+    </view>
+  </view>
+
+  <view class="login-actions">
+    <label class="agreement-check">
+      <checkbox checked="{{agreed}}" bindchange="toggleAgreement" color="#1A56DB" />
+      <text class="agreement-text-sm">
+        我已阅读并同意
+        <text class="link" bindtap="onPrivacy">《隐私政策》</text>
+        和
+        <text class="link" bindtap="onTerms">《用户协议》</text>
+      </text>
+    </label>
+
+    <button class="btn-primary login-btn" disabled="{{!agreed}}" loading="{{logging}}" bindtap="onStart">
+      <text wx:if="{{!logging}}">开始使用</text>
+      <text wx:else>处理中...</text>
+    </button>
+
+    <view class="city-selector" bindtap="goCityPicker">
+      <text class="city-label">当前城市</text>
+      <view class="city-value">
+        <text>{{currentCity || '请选择城市'}}</text>
+        <text class="city-arrow">▼</text>
+      </view>
+    </view>
+  </view>
+</view>

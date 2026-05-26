@@ -1,0 +1,110 @@
+.modal-mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-container {
+  width: 580rpx;
+  background: #FFFFFF;
+  border-radius: 32rpx;
+  padding: 48rpx 40rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.modal-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 40rpx;
+}
+
+.modal-logo {
+  width: 120rpx;
+  height: 120rpx;
+  margin-bottom: 16rpx;
+}
+
+.modal-title {
+  font-size: 44rpx;
+  font-weight: 700;
+  color: #1F2937;
+  margin-bottom: 8rpx;
+}
+
+.modal-subtitle {
+  font-size: 28rpx;
+  color: #6B7280;
+}
+
+.modal-body {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.agreement-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-bottom: 32rpx;
+  font-size: 24rpx;
+}
+
+.agreement-checkbox {
+  margin-right: 8rpx;
+  transform: scale(0.8);
+}
+
+.agreement-text {
+  color: #6B7280;
+}
+
+.agreement-link {
+  color: #1A56DB;
+  text-decoration: underline;
+}
+
+.login-btn {
+  width: 100%;
+  height: 88rpx;
+  line-height: 88rpx;
+  background: linear-gradient(135deg, #07C160 0%, #06AD56 100%);
+  color: #FFFFFF;
+  font-size: 32rpx;
+  font-weight: 600;
+  border-radius: 44rpx;
+  text-align: center;
+  margin-bottom: 20rpx;
+  border: none;
+}
+
+.login-btn[disabled] {
+  opacity: 0.5;
+}
+
+.browse-btn {
+  width: 100%;
+  height: 80rpx;
+  line-height: 80rpx;
+  background: transparent;
+  color: #6B7280;
+  font-size: 28rpx;
+  border: none;
+  text-align: center;
+}
+
+.browse-btn:active {
+  color: #1A56DB;
+}

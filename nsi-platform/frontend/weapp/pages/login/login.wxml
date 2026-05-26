@@ -1,0 +1,28 @@
+<view class="container">
+  <view class="header">
+    <view class="logo-placeholder">
+      <text class="logo-text">社保</text>
+    </view>
+    <text class="title">AI社保智筹</text>
+    <text class="subtitle">AI驱动的社保规划助手</text>
+  </view>
+
+  <view class="policy-card">
+    <checkbox class="policy-checkbox" checked="{{agreed}}" bindchange="onAgreeChange"/>
+    <text class="policy-text">我已阅读并同意</text>
+    <text class="policy-link" bindtap="onViewPrivacy">《隐私政策》</text>
+    <text class="policy-text">和</text>
+    <text class="policy-link" bindtap="onViewTerms">《用户协议》</text>
+  </view>
+
+  <button class="btn-primary {{!agreed ? 'btn-disabled' : ''}}" 
+          disabled="{{!agreed}}" 
+          bindtap="onLogin">
+    <text wx:if="{{!loading}}">微信一键登录</text>
+    <text wx:else>登录中...</text>
+  </button>
+
+  <view class="footer">
+    <text class="text-muted">登录即表示您同意上述条款</text>
+  </view>
+</view>

@@ -1,0 +1,34 @@
+.scheme-list { white-space: nowrap; margin: 20rpx 0; padding: 10rpx 0; }
+.scheme-card {
+  display: inline-block;
+  width: 320rpx;
+  background: #fff;
+  border-radius: 16rpx;
+  padding: 28rpx;
+  margin-right: 20rpx;
+  border: 3rpx solid transparent;
+}
+.scheme-card.active { border-color: #1A56DB; }
+.scheme-name { font-size: 28rpx; font-weight: 600; color: #1A56DB; display: block; }
+.scheme-pension { font-size: 24rpx; color: #6B7280; display: block; margin-top: 12rpx; }
+.scheme-amount { font-size: 40rpx; font-weight: 700; color: #1A56DB; display: block; margin: 8rpx 0; }
+.scheme-cost { font-size: 24rpx; color: #6B7280; display: block; }
+
+.detail-card {
+  background: #fff;
+  border-radius: 16rpx;
+  padding: 30rpx;
+  margin: 20rpx 0;
+}
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 20rpx 0;
+  border-bottom: 2rpx solid #F3F4F6;
+}
+.detail-label { font-size: 28rpx; color: #6B7280; }
+.detail-value { font-size: 28rpx; color: #333; font-weight: 600; }
+.detail-value.highlight { color: #059669; }
+
+.action-section { margin-top: 40rpx; }
+.action-section .btn-secondary { margin-top: 20rpx; }

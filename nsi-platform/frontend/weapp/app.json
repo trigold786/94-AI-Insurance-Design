@@ -1,0 +1,26 @@
+{
+  "pages": [
+    "pages/index/index",
+    "pages/login/login",
+    "pages/city-picker/city-picker",
+    "pages/profile/profile",
+    "pages/loading/loading",
+    "pages/preview/preview",
+    "pages/plan/plan",
+    "pages/compliance/compliance",
+    "pages/rights/rights",
+    "pages/feedback/feedback"
+  ],
+  "window": {
+    "navigationBarTitleText": "AI社保智筹",
+    "navigationBarBackgroundColor": "#1A56DB",
+    "navigationBarTextStyle": "white",
+    "backgroundColor": "#F5F7FA"
+  },
+  "permission": {
+    "scope.userLocation": {
+      "desc": "用于自动定位您所在的城市"
+    }
+  },
+  "sitemapLocation": "sitemap.json"
+}

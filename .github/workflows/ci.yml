@@ -27,9 +27,22 @@ jobs:
         with:
           working-directory: nsi-platform/services/${{ matrix.service }}
 
-  test:
-    name: Test
+  test-shared:
+    name: Test shared
     runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+      - name: Test
+        run: go test ./... -race -count=1 -cover
+        working-directory: nsi-platform/shared
+
+  test-services:
+    name: Test ${{ matrix.service }}
+    runs-on: ubuntu-latest
+    needs: [lint]
     strategy:
       matrix:
         service: [api-server, policy-crawler, actuarial-engine]
@@ -45,15 +58,15 @@ jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
-    needs: [lint, test]
+    needs: [test-shared, test-services]
     steps:
       - uses: actions/checkout@v4
       - name: Build api-server
-        run: docker build -t nsi-api-server .
-        working-directory: nsi-platform/services/api-server
+        run: docker build -t nsi-api-server -f services/api-server/Dockerfile .
+        working-directory: nsi-platform
       - name: Build policy-crawler
-        run: docker build -t nsi-policy-crawler .
-        working-directory: nsi-platform/services/policy-crawler
+        run: docker build -t nsi-policy-crawler -f services/policy-crawler/Dockerfile .
+        working-directory: nsi-platform
       - name: Build actuarial-engine
-        run: docker build -t nsi-actuarial-engine .
-        working-directory: nsi-platform/services/actuarial-engine
+        run: docker build -t nsi-actuarial-engine -f services/actuarial-engine/Dockerfile .
+        working-directory: nsi-platform

@@ -53,7 +53,7 @@ func TestGetProfileHandlerSuccess(t *testing.T) {
 		SocialSecurityYears: 8,
 	}
 	repo := &mockProfileRepo{profile: profile}
-	handler := middleware.AuthMiddleware(GetProfileHandler(repo))
+	handler := middleware.AuthMiddleware("")(GetProfileHandler(repo))
 
 	req := httptest.NewRequest("GET", "/v1/profile", nil)
 	req.Header.Set("x-user-id", "user-123")
@@ -71,7 +71,7 @@ func TestGetProfileHandlerSuccess(t *testing.T) {
 
 func TestGetProfileHandlerNotFound(t *testing.T) {
 	repo := &mockProfileRepo{err: errors.NewNotFound("user profile", "user-999")}
-	handler := middleware.AuthMiddleware(GetProfileHandler(repo))
+	handler := middleware.AuthMiddleware("")(GetProfileHandler(repo))
 
 	req := httptest.NewRequest("GET", "/v1/profile", nil)
 	req.Header.Set("x-user-id", "user-999")
@@ -86,7 +86,7 @@ func TestGetProfileHandlerNotFound(t *testing.T) {
 
 func TestGetProfileHandlerUnauthenticated(t *testing.T) {
 	repo := &mockProfileRepo{}
-	handler := middleware.AuthMiddleware(GetProfileHandler(repo))
+	handler := middleware.AuthMiddleware("")(GetProfileHandler(repo))
 
 	req := httptest.NewRequest("GET", "/v1/profile", nil)
 	w := httptest.NewRecorder()
@@ -100,7 +100,7 @@ func TestGetProfileHandlerUnauthenticated(t *testing.T) {
 
 func TestUpdateProfileHandlerSuccess(t *testing.T) {
 	repo := &mockProfileRepo{}
-	handler := middleware.AuthMiddleware(UpdateProfileHandler(repo))
+	handler := middleware.AuthMiddleware("")(UpdateProfileHandler(repo))
 
 	body := `{"age":30,"gender":"male","employment_status":"flexible"}`
 	req := httptest.NewRequest("PUT", "/v1/profile", strings.NewReader(body))
@@ -117,7 +117,7 @@ func TestUpdateProfileHandlerSuccess(t *testing.T) {
 
 func TestUpdateProfileHandlerInvalidJSON(t *testing.T) {
 	repo := &mockProfileRepo{}
-	handler := middleware.AuthMiddleware(UpdateProfileHandler(repo))
+	handler := middleware.AuthMiddleware("")(UpdateProfileHandler(repo))
 
 	req := httptest.NewRequest("PUT", "/v1/profile", strings.NewReader(`invalid json`))
 	req.Header.Set("x-user-id", "user-123")

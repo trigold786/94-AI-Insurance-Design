@@ -1,0 +1,16 @@
+.page-title { font-size: 36rpx; font-weight: 700; margin: 20rpx 0; display: block; }
+.section-title { font-size: 28rpx; font-weight: 600; display: block; }
+.cat-tag {
+  padding: 12rpx 28rpx; border-radius: 32rpx; font-size: 26rpx;
+  background: #F3F4F6; color: #6B7280;
+}
+.cat-tag.active { background: #DBEAFE; color: #1A56DB; font-weight: 500; }
+.input-textarea {
+  width: 100%; min-height: 200rpx; margin-top: 16rpx;
+  padding: 20rpx; background: #F9FAFB; border-radius: 12rpx;
+  font-size: 28rpx; border: none;
+}
+.input-field {
+  width: 100%; margin-top: 16rpx; padding: 20rpx;
+  background: #F9FAFB; border-radius: 12rpx; font-size: 28rpx; border: none;
+}

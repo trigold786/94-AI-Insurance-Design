@@ -1,0 +1,72 @@
+<view class="plan-container">
+  <view class="plan-header">
+    <text class="plan-title">您的社保规划方案</text>
+    <text class="plan-subtitle" wx:if="{{cityName}}">{{cityName}} · 个性化方案</text>
+  </view>
+
+  <view class="recommend-banner" wx:if="{{recommended}}">
+    <text class="recommend-icon">🏆</text>
+    <view class="recommend-content">
+      <text class="recommend-title">推荐方案</text>
+      <text class="recommend-desc">{{recommended.name}} — 预计月养老金 {{recommended.pension}} 元</text>
+    </view>
+  </view>
+
+  <view class="schemes-section">
+    <text class="section-title">方案对比</text>
+    <scroll-view class="schemes-scroll" scroll-x enhanced show-scrollbar="{{false}}">
+      <scheme-card
+        wx:for="{{schemes}}"
+        wx:key="index"
+        name="{{item.name}}"
+        baseAmount="{{item.baseAmount}}"
+        monthlyPayment="{{item.monthlyPayment}}"
+        pension="{{item.pension}}"
+        saving="{{item.saving}}"
+        badge="{{item.badge}}"
+        badgeColor="{{item.badgeColor}}"
+        selected="{{item.selected}}"
+        bindselect="onSelectScheme"
+        data-index="{{index}}"
+      />
+    </scroll-view>
+  </view>
+
+  <view class="cashflow-section">
+    <text class="section-title">现金流预测</text>
+    <view class="cashflow-table">
+      <view class="table-header">
+        <text class="th year-col">年度</text>
+        <text class="th">月缴费</text>
+        <text class="th">年缴费</text>
+        <text class="th">累计</text>
+        <text class="th th-right">预计养老金</text>
+      </view>
+      <view class="table-body">
+        <view class="table-row" wx:for="{{cashflow}}" wx:key="index">
+          <text class="td year-col">{{item.year}}</text>
+          <text class="td">{{item.monthlyPayment}}元</text>
+          <text class="td">{{item.yearlyPayment}}元</text>
+          <text class="td">{{item.cumulative}}元</text>
+          <text class="td th-right">{{item.pension}}元</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <view class="action-section">
+    <view class="action-card">
+      <text class="action-title">行动建议</text>
+      <view class="action-items">
+        <view class="action-item" wx:for="{{actions}}" wx:key="index">
+          <text class="action-index">{{index + 1}}</text>
+          <text class="action-text">{{item}}</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <view class="plan-footer">
+    <button class="btn-secondary report-btn" catchtap="viewReport">查看完整报告</button>
+  </view>
+</view>

@@ -1,0 +1,13 @@
+.page-title { font-size: 36rpx; font-weight: 700; margin: 20rpx 0; display: block; }
+.city-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 32rpx 24rpx;
+  background: #fff;
+  border-radius: 16rpx;
+  margin-bottom: 12rpx;
+}
+.city-name { font-size: 32rpx; color: #333; }
+.city-name.active { color: #1A56DB; font-weight: 600; }
+.checkmark { font-size: 32rpx; color: #1A56DB; }

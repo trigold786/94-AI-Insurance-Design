@@ -1,0 +1,195 @@
+.plan-container {
+  min-height: 100vh;
+  background: #F5F7FA;
+  padding-bottom: 40rpx;
+}
+
+.plan-header {
+  background: linear-gradient(135deg, #1A56DB 0%, #2563EB 100%);
+  padding: 40rpx 32rpx 48rpx;
+  border-radius: 0 0 40rpx 40rpx;
+}
+
+.plan-title {
+  font-size: 38rpx;
+  font-weight: 700;
+  color: #FFFFFF;
+  display: block;
+  margin-bottom: 8rpx;
+}
+
+.plan-subtitle {
+  font-size: 26rpx;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.recommend-banner {
+  display: flex;
+  align-items: center;
+  background: linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%);
+  margin: -24rpx 32rpx 24rpx;
+  padding: 24rpx 28rpx;
+  border-radius: 20rpx;
+  box-shadow: 0 4rpx 16rpx rgba(245, 158, 11, 0.2);
+  position: relative;
+  z-index: 2;
+}
+
+.recommend-icon {
+  font-size: 44rpx;
+  margin-right: 20rpx;
+  flex-shrink: 0;
+}
+
+.recommend-content {
+  flex: 1;
+}
+
+.recommend-title {
+  font-size: 28rpx;
+  font-weight: 700;
+  color: #92400E;
+  display: block;
+  margin-bottom: 4rpx;
+}
+
+.recommend-desc {
+  font-size: 24rpx;
+  color: #A16207;
+}
+
+.schemes-section {
+  padding-top: 24rpx;
+}
+
+.schemes-scroll {
+  display: flex;
+  padding: 0 32rpx 24rpx;
+  white-space: nowrap;
+}
+
+.schemes-scroll scheme-card {
+  display: inline-block;
+  margin-right: 20rpx;
+}
+
+.cashflow-section {
+  padding: 0 32rpx;
+  margin-bottom: 32rpx;
+}
+
+.cashflow-table {
+  background: #FFFFFF;
+  border-radius: 20rpx;
+  overflow: hidden;
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.05);
+}
+
+.table-header {
+  display: flex;
+  background: #F9FAFB;
+  padding: 20rpx 24rpx;
+  border-bottom: 2rpx solid #E5E7EB;
+}
+
+.th {
+  flex: 1;
+  font-size: 24rpx;
+  color: #6B7280;
+  font-weight: 500;
+  text-align: center;
+}
+
+.year-col {
+  flex: 0.6;
+  text-align: left;
+}
+
+.th-right {
+  text-align: right;
+}
+
+.table-body {
+  max-height: 500rpx;
+  overflow-y: auto;
+}
+
+.table-row {
+  display: flex;
+  padding: 20rpx 24rpx;
+  border-bottom: 2rpx solid #F3F4F6;
+}
+
+.table-row:last-child {
+  border-bottom: none;
+}
+
+.td {
+  flex: 1;
+  font-size: 24rpx;
+  color: #374151;
+  text-align: center;
+}
+
+.action-section {
+  padding: 0 32rpx;
+  margin-bottom: 32rpx;
+}
+
+.action-card {
+  background: #FFFFFF;
+  border-radius: 20rpx;
+  padding: 32rpx;
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.05);
+}
+
+.action-title {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #1F2937;
+  display: block;
+  margin-bottom: 24rpx;
+}
+
+.action-items {
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+}
+
+.action-item {
+  display: flex;
+  align-items: flex-start;
+}
+
+.action-index {
+  width: 36rpx;
+  height: 36rpx;
+  background: #1A56DB;
+  color: #FFFFFF;
+  font-size: 22rpx;
+  font-weight: 600;
+  border-radius: 18rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-right: 16rpx;
+  margin-top: 4rpx;
+}
+
+.action-text {
+  font-size: 26rpx;
+  color: #374151;
+  line-height: 1.5;
+  flex: 1;
+}
+
+.plan-footer {
+  padding: 0 32rpx 48rpx;
+}
+
+.report-btn {
+  height: 88rpx;
+  line-height: 84rpx;
+}

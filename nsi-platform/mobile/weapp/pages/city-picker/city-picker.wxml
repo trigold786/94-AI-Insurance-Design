@@ -1,0 +1,38 @@
+<view class="picker-container">
+  <view class="picker-header">
+    <text class="picker-title">选择城市</text>
+    <text class="picker-desc">选择您所在的城市以获取当地社保政策</text>
+  </view>
+
+  <view class="search-bar">
+    <text class="search-icon">🔍</text>
+    <input class="search-input" placeholder="搜索城市" value="{{searchKey}}" bindinput="onSearch" />
+    <text wx:if="{{searchKey}}" class="search-clear" bindtap="clearSearch">✕</text>
+  </view>
+
+  <view class="city-list">
+    <view
+      class="city-item {{item.code === selectedCode ? 'city-item-active' : ''}}"
+      wx:for="{{filteredCities}}"
+      wx:key="code"
+      bindtap="selectCity"
+      data-code="{{item.code}}"
+      data-name="{{item.name}}"
+      data-display="{{item.displayName}}"
+    >
+      <view class="city-info">
+        <text class="city-name">{{item.name}}</text>
+        <text class="city-display">{{item.displayName}}</text>
+      </view>
+      <text wx:if="{{item.code === selectedCode}}" class="city-check">✓</text>
+    </view>
+  </view>
+
+  <view wx:if="{{filteredCities.length === 0}}" class="no-result">
+    <text class="no-result-text">未找到匹配城市</text>
+  </view>
+
+  <view class="picker-footer">
+    <button class="btn-primary confirm-btn" catchtap="onConfirm">确认选择</button>
+  </view>
+</view>

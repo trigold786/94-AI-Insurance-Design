@@ -1,0 +1,74 @@
+<view class="container">
+  <view class="step-bar">
+    <view class="step {{currentStep >= 1 ? 'active' : ''}}">1</view>
+    <view class="step-line {{currentStep >= 2 ? 'active' : ''}}"></view>
+    <view class="step {{currentStep >= 2 ? 'active' : ''}}">2</view>
+    <view class="step-line {{currentStep >= 3 ? 'active' : ''}}"></view>
+    <view class="step {{currentStep >= 3 ? 'active' : ''}}">3</view>
+  </view>
+
+  <view wx:if="{{currentStep === 1}}" class="form-step">
+    <text class="step-title">基本信息</text>
+    <picker mode="selector" range="{{genders}}" bindchange="onGenderChange">
+      <view class="form-field">
+        <text class="label">性别</text>
+        <text class="value">{{gender || '请选择'}}</text>
+      </view>
+    </picker>
+    <view class="form-field">
+      <text class="label">年龄</text>
+      <input class="input" type="number" placeholder="请输入年龄(16-70)" value="{{age}}" bindinput="onAgeInput"/>
+    </view>
+    <picker mode="region" bindchange="onRegionChange">
+      <view class="form-field">
+        <text class="label">户籍地</text>
+        <text class="value">{{household || '请选择'}}</text>
+      </view>
+    </picker>
+    <button class="btn-primary" bindtap="onNextStep">下一步</button>
+  </view>
+
+  <view wx:if="{{currentStep === 2}}" class="form-step">
+    <text class="step-title">就业信息</text>
+    <picker mode="selector" range="{{employmentStatus}}" bindchange="onEmploymentChange">
+      <view class="form-field">
+        <text class="label">就业状态</text>
+        <text class="value">{{employment || '请选择'}}</text>
+      </view>
+    </picker>
+    <view class="form-field">
+      <text class="label">累计社保年限</text>
+      <input class="input" type="number" placeholder="请输入年限(年)" value="{{years}}" bindinput="onYearsInput"/>
+    </view>
+    <view class="btn-row">
+      <button class="btn-secondary" bindtap="onPrevStep">上一步</button>
+      <button class="btn-primary" bindtap="onNextStep">下一步</button>
+    </view>
+  </view>
+
+  <view wx:if="{{currentStep === 3}}" class="form-step">
+    <text class="step-title">补充信息</text>
+    <picker mode="selector" range="{{childOptions}}" bindchange="onChildChange">
+      <view class="form-field">
+        <text class="label">子女情况</text>
+        <text class="value">{{hasChildrenText || '请选择'}}</text>
+      </view>
+    </picker>
+    <view class="form-field">
+      <text class="label">月预算（元）</text>
+      <input class="input" type="number" placeholder="请输入月缴费预算" value="{{budget}}" bindinput="onBudgetInput"/>
+    </view>
+    <view class="form-field">
+      <text class="label">当前账户余额（元）</text>
+      <input class="input" type="number" placeholder="请输入当前账户余额" value="{{balance}}" bindinput="onBalanceInput"/>
+    </view>
+    <view class="btn-row">
+      <button class="btn-secondary" bindtap="onPrevStep">上一步</button>
+      <button class="btn-primary" bindtap="onSubmit" loading="{{submitting}}">
+        {{submitting ? '提交中...' : '生成方案'}}
+      </button>
+    </view>
+  </view>
+
+  <view wx:if="{{error}}" class="error-msg">{{error}}</view>
+</view>

@@ -1,0 +1,15 @@
+<view class="policy-card" bindtap="onTap">
+  <view class="policy-icon" style="background-color: {{iconBg}};">
+    <text>{{icon}}</text>
+  </view>
+  <view class="policy-info">
+    <text class="policy-title">{{title}}</text>
+    <text class="policy-desc">{{description}}</text>
+    <view class="policy-tags" wx:if="{{tags && tags.length > 0}}">
+      <text class="policy-tag" wx:for="{{tags}}" wx:key="index">{{item}}</text>
+    </view>
+  </view>
+  <view class="policy-arrow">
+    <text>></text>
+  </view>
+</view>

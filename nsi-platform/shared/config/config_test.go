@@ -8,19 +8,19 @@ import (
 func TestLoadDefaults(t *testing.T) {
 	cfg := Load()
 
-	if cfg.DatabaseURL != "postgres://postgres:postgres123@localhost:35432/nsi?sslmode=disable" {
+	if cfg.DatabaseURL != "postgres://localhost:39432/nsi?sslmode=disable" {
 		t.Errorf("unexpected DatabaseURL default: %s", cfg.DatabaseURL)
 	}
-	if cfg.RedisURL != "redis://localhost:36379/0" {
+	if cfg.RedisURL != "redis://localhost:39479/0" {
 		t.Errorf("unexpected RedisURL default: %s", cfg.RedisURL)
 	}
-	if cfg.JWTSecret != "dev-secret-change-me" {
+	if cfg.JWTSecret != "" {
 		t.Errorf("unexpected JWTSecret default: %s", cfg.JWTSecret)
 	}
-	if cfg.ServerPort != 30001 {
+	if cfg.ServerPort != 39401 {
 		t.Errorf("unexpected ServerPort default: %d", cfg.ServerPort)
 	}
-	if cfg.StorageBucket != "nsi-reports" {
+	if cfg.StorageBucket != "" {
 		t.Errorf("unexpected StorageBucket default: %s", cfg.StorageBucket)
 	}
 }
@@ -30,13 +30,11 @@ func TestLoadEnvOverrides(t *testing.T) {
 	os.Setenv("REDIS_URL", "redis://localhost:9999/1")
 	os.Setenv("JWT_SECRET", "production-secret")
 	os.Setenv("SERVER_PORT", "8080")
-	os.Setenv("STORAGE_BUCKET", "test-bucket")
 	defer func() {
 		os.Unsetenv("DATABASE_URL")
 		os.Unsetenv("REDIS_URL")
 		os.Unsetenv("JWT_SECRET")
 		os.Unsetenv("SERVER_PORT")
-		os.Unsetenv("STORAGE_BUCKET")
 	}()
 
 	cfg := Load()
@@ -53,9 +51,6 @@ func TestLoadEnvOverrides(t *testing.T) {
 	if cfg.ServerPort != 8080 {
 		t.Errorf("expected overridden ServerPort, got %d", cfg.ServerPort)
 	}
-	if cfg.StorageBucket != "test-bucket" {
-		t.Errorf("expected overridden StorageBucket, got %s", cfg.StorageBucket)
-	}
 }
 
 func TestGetEnvIntInvalid(t *testing.T) {
@@ -63,7 +58,7 @@ func TestGetEnvIntInvalid(t *testing.T) {
 	defer os.Unsetenv("SERVER_PORT")
 
 	cfg := Load()
-	if cfg.ServerPort != 30001 {
+	if cfg.ServerPort != 39401 {
 		t.Errorf("expected fallback for invalid SERVER_PORT, got %d", cfg.ServerPort)
 	}
 }

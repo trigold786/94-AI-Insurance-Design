@@ -1,0 +1,6 @@
+{
+  "navigationBarTitleText": "AI社保智筹",
+  "usingComponents": {
+    "policy-card": "/components/policy-card/policy-card"
+  }
+}

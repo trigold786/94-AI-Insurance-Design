@@ -1,0 +1,43 @@
+<view class="container">
+  <text class="page-title">权益监测</text>
+
+  <view class="summary-row">
+    <view class="summary-card paid">
+      <text class="summary-num">{{paymentSummary.paid_count || 0}}</text>
+      <text class="summary-label">已缴纳</text>
+    </view>
+    <view class="summary-card pending">
+      <text class="summary-num">{{paymentSummary.pending_count || 0}}</text>
+      <text class="summary-label">待缴纳</text>
+    </view>
+    <view class="summary-card missed">
+      <text class="summary-num">{{paymentSummary.missed_count || 0}}</text>
+      <text class="summary-label">已断缴</text>
+    </view>
+  </view>
+
+  <view class="section">
+    <text class="section-title">预警通知 ({{alerts.length}})</text>
+    <view class="alert-card" wx:for="{{alerts}}" wx:key="alert_id">
+      <view class="alert-header">
+        <text class="alert-severity {{item.severity}}">{{item.severity === 'high' ? '高危' : item.severity === 'medium' ? '中等' : '低危'}}</text>
+        <text class="alert-type">{{item.alert_type === 'disconnection_risk' ? '断缴风险' : '政策变更'}}</text>
+        <text class="alert-read" wx:if="{{item.is_read}}">已读</text>
+      </view>
+      <text class="alert-title">{{item.title}}</text>
+      <text class="alert-msg">{{item.message}}</text>
+    </view>
+    <text class="empty-tip" wx:if="{{alerts.length === 0}}">暂无预警</text>
+  </view>
+
+  <view class="section">
+    <text class="section-title">近期缴费记录 ({{paymentSummary.recent_records.length}})</text>
+    <view class="record-item" wx:for="{{paymentSummary.recent_records}}" wx:key="record_id">
+      <text class="record-month">{{item.month}}</text>
+      <text class="record-type">{{item.policy_type}}</text>
+      <text class="record-amount">{{item.amount}}元</text>
+      <text class="record-status {{item.status}}">{{item.status === 'paid' ? '已缴' : item.status === 'pending' ? '待缴' : '断缴'}}</text>
+    </view>
+    <text class="empty-tip" wx:if="{{!paymentSummary.recent_records || paymentSummary.recent_records.length === 0}}">暂无缴费记录</text>
+  </view>
+</view>

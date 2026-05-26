@@ -1,0 +1,7 @@
+<view class="container">
+  <view class="animation-area">
+    <view class="spinner"></view>
+  </view>
+  <text class="loading-text">AI 正在为您匹配最优政策...</text>
+  <text class="loading-sub">{{progressText}}</text>
+</view>

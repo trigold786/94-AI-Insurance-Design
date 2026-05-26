@@ -1,17 +1,17 @@
-version: "3.8"
+
 
 services:
   postgres:
-    image: postgres:18-alpine
+    image: pgvector/pgvector:pg18
     container_name: nsi-postgres
     environment:
       POSTGRES_DB: nsi
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres123}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
     ports:
-      - "35432:5432"
+      - "39432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
@@ -22,7 +22,7 @@ services:
     image: redis:7-alpine
     container_name: nsi-redis
     ports:
-      - "36379:6379"
+      - "39479:6379"
     volumes:
       - redis_data:/data
     healthcheck:
@@ -36,11 +36,11 @@ services:
     container_name: nsi-minio
     command: server /data --console-address ":9001"
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - "39490:9000"
+      - "39491:9001"
     environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?MINIO_ROOT_USER must be set}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD must be set}
     volumes:
       - minio_data:/data
     healthcheck:

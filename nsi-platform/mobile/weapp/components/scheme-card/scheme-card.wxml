@@ -1,0 +1,23 @@
+<view class="scheme-card {{selected ? 'scheme-card-selected' : ''}}" bindtap="onSelect">
+  <view class="scheme-header">
+    <text class="scheme-name">{{name}}</text>
+    <text class="scheme-badge" wx:if="{{badge}}" style="background-color: {{badgeColor}};">{{badge}}</text>
+  </view>
+  <view class="scheme-data">
+    <view class="scheme-data-item">
+      <text class="data-label">缴费基数</text>
+      <text class="data-value">{{baseAmount}}元/月</text>
+    </view>
+    <view class="scheme-data-item">
+      <text class="data-label">月缴费额</text>
+      <text class="data-value primary-color">{{monthlyPayment}}元</text>
+    </view>
+    <view class="scheme-data-item">
+      <text class="data-label">预计养老金</text>
+      <text class="data-value success-color">{{pension}}元/月</text>
+    </view>
+  </view>
+  <view class="scheme-footer" wx:if="{{saving}}">
+    <text class="saving-text">预计节省 <text class="saving-amount">{{saving}}</text> 元/年</text>
+  </view>
+</view>

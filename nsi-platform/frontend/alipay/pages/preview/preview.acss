@@ -1,0 +1,18 @@
+.page-title { font-size: 40rpx; font-weight: 700; text-align: center; margin-top: 40rpx; }
+.page-desc { font-size: 28rpx; color: #6B7280; text-align: center; margin: 12rpx 0 40rpx; }
+.preview-card {
+  background: #fff;
+  border-radius: 16rpx;
+  padding: 32rpx;
+  margin-bottom: 20rpx;
+  text-align: center;
+}
+.preview-label { font-size: 28rpx; color: #6B7280; display: block; margin-bottom: 12rpx; }
+.blurred-value {
+  filter: blur(12rpx);
+  user-select: none;
+}
+.blur-text { font-size: 48rpx; font-weight: 700; color: #1A56DB; }
+.unlock-btn { margin: 40rpx 0; }
+.tip { text-align: center; padding: 0 40rpx; }
+.tip-text { font-size: 24rpx; color: #9CA3AF; }

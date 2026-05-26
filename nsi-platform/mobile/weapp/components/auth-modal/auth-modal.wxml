@@ -1,0 +1,23 @@
+<view class="modal-mask" wx:if="{{visible}}" bindtap="onCancel">
+  <view class="modal-container" catchtap="stopPropagation">
+    <view class="modal-header">
+      <image class="modal-logo" src="/images/logo.png" mode="aspectFit"></image>
+      <text class="modal-title">AI社保智筹</text>
+      <text class="modal-subtitle">智能社保规划专家</text>
+    </view>
+    <view class="modal-body">
+      <label class="agreement-row">
+        <checkbox class="agreement-checkbox" checked="{{privacyChecked}}" bindchange="togglePrivacy" color="#1A56DB" />
+        <text class="agreement-text">我已阅读并同意</text>
+        <text class="agreement-link" bindtap="onViewPrivacy">《隐私政策》</text>
+        <text class="agreement-text">和</text>
+        <text class="agreement-link" bindtap="onViewAgreement">《用户协议》</text>
+      </label>
+      <button class="login-btn" disabled="{{!privacyChecked}}" bindtap="onLogin" loading="{{logining}}">
+        <text wx:if="{{!logining}}">微信一键登录</text>
+        <text wx:else>登录中...</text>
+      </button>
+      <button class="browse-btn" bindtap="onBrowse">仅浏览</button>
+    </view>
+  </view>
+</view>

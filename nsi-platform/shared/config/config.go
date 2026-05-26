@@ -11,27 +11,25 @@ type Config struct {
 	JWTSecret        string
 	LLMApiKey        string
 	LLMApiEndpoint   string
-	ActuaryGRPCAddr  string
+	ActuaryHTTPAddr  string
 	StorageEndpoint  string
 	StorageAccessKey string
 	StorageSecretKey string
 	StorageBucket    string
 	ServerPort       int
+	AllowedOrigins   string
+	WebClientAPIBaseURL string
 }
 
 func Load() *Config {
 	return &Config{
-		DatabaseURL:      getEnv("DATABASE_URL", "postgres://postgres:postgres123@localhost:35432/nsi?sslmode=disable"),
-		RedisURL:         getEnv("REDIS_URL", "redis://localhost:36379/0"),
-		JWTSecret:        getEnv("JWT_SECRET", "dev-secret-change-me"),
-		LLMApiKey:        getEnv("LLM_API_KEY", ""),
-		LLMApiEndpoint:   getEnv("LLM_API_ENDPOINT", "https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation"),
-		ActuaryGRPCAddr:  getEnv("ACTUARY_GRPC_ADDR", "localhost:50051"),
-		StorageEndpoint:  getEnv("STORAGE_ENDPOINT", "http://localhost:9000"),
-		StorageAccessKey: getEnv("STORAGE_ACCESS_KEY", "minioadmin"),
-		StorageSecretKey: getEnv("STORAGE_SECRET_KEY", "minioadmin"),
-		StorageBucket:    getEnv("STORAGE_BUCKET", "nsi-reports"),
-		ServerPort:       getEnvInt("SERVER_PORT", 30001),
+		DatabaseURL:      getEnv("DATABASE_URL", "postgres://localhost:39432/nsi?sslmode=disable"),
+		RedisURL:         getEnv("REDIS_URL", "redis://localhost:39479/0"),
+		JWTSecret:        getEnv("JWT_SECRET", ""),
+		ActuaryHTTPAddr:  getEnv("ACTUARY_HTTP_ADDR", "localhost:39402"),
+		StorageEndpoint:  getEnv("STORAGE_ENDPOINT", "http://localhost:39490"),
+		ServerPort:       getEnvInt("SERVER_PORT", 39401),
+		WebClientAPIBaseURL: getEnv("WEBCLIENT_API_BASE_URL", "http://127.0.0.1:39401"),
 	}
 }
 

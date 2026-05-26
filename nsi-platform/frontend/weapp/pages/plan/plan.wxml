@@ -1,0 +1,38 @@
+<view class="container">
+  <text class="page-title">方案详情</text>
+
+  <scroll-view class="scheme-list" scroll-x>
+    <view class="scheme-card {{currentScheme === index ? 'active' : ''}}"
+          wx:for="{{schemes}}" wx:key="name" 
+          data-index="{{index}}" bindtap="onSchemeTap">
+      <text class="scheme-name">{{item.name}}</text>
+      <text class="scheme-pension">预计养老金</text>
+      <text class="scheme-amount">{{item.projected_pension.toFixed(0)}}元/月</text>
+      <text class="scheme-cost">月缴费: {{item.monthly_cost.toFixed(0)}}元</text>
+    </view>
+  </scroll-view>
+
+  <view class="detail-card" wx:if="{{currentSchemeData}}">
+    <view class="detail-row">
+      <text class="detail-label">缴费基数</text>
+      <text class="detail-value">{{currentSchemeData.base_salary}}元</text>
+    </view>
+    <view class="detail-row">
+      <text class="detail-label">月缴费</text>
+      <text class="detail-value">{{currentSchemeData.monthly_cost.toFixed(0)}}元</text>
+    </view>
+    <view class="detail-row">
+      <text class="detail-label">企业年补贴</text>
+      <text class="detail-value highlight">{{currentSchemeData.annual_subsidy.toFixed(0)}}元/年</text>
+    </view>
+    <view class="detail-row">
+      <text class="detail-label">预计养老金</text>
+      <text class="detail-value highlight">{{currentSchemeData.projected_pension.toFixed(0)}}元/月</text>
+    </view>
+  </view>
+
+  <view class="action-section">
+    <button class="btn-primary" bindtap="onSavePDF">保存为 PDF</button>
+    <button class="btn-secondary" bindtap="onShare">分享方案</button>
+  </view>
+</view>

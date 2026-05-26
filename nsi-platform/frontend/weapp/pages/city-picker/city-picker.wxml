@@ -1,0 +1,11 @@
+<view class="container">
+  <text class="page-title">选择城市</text>
+  <view class="city-list">
+    <view class="city-item" wx:for="{{cities}}" wx:key="code" 
+          data-code="{{item.code}}" data-name="{{item.name}}" 
+          bindtap="onSelect">
+      <text class="city-name {{currentCode === item.code ? 'active' : ''}}">{{item.name}}</text>
+      <text wx:if="{{currentCode === item.code}}" class="checkmark">✓</text>
+    </view>
+  </view>
+</view>

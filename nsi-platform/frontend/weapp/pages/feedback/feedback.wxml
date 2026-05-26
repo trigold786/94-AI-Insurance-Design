@@ -1,0 +1,28 @@
+<view class="container">
+  <text class="page-title">意见反馈</text>
+  <text class="text-muted mt-8">帮助我们改进产品</text>
+
+  <view class="card mt-24">
+    <text class="section-title">反馈类型</text>
+    <view class="flex-row gap-16 mt-16">
+      <view class="cat-tag {{category=='general'?'active':''}}" data-cat="general" bindtap="onCategoryTap">功能建议</view>
+      <view class="cat-tag {{category=='bug'?'active':''}}" data-cat="bug" bindtap="onCategoryTap">问题报告</view>
+      <view class="cat-tag {{category=='other'?'active':''}}" data-cat="other" bindtap="onCategoryTap">其他</view>
+    </view>
+  </view>
+
+  <view class="card">
+    <text class="section-title">反馈内容</text>
+    <textarea class="input-textarea" placeholder="请详细描述您的意见或遇到的问题..." value="{{content}}" bindinput="onContentInput" maxlength="500"></textarea>
+    <text class="text-muted" style="text-align:right;display:block">{{content.length}}/500</text>
+  </view>
+
+  <view class="card">
+    <text class="section-title">联系方式（选填）</text>
+    <input class="input-field" placeholder="手机号或邮箱" value="{{contact}}" bindinput="onContactInput" />
+  </view>
+
+  <button class="btn-primary mt-24 {{submitting?'loading':''}}" disabled="{{submitting}}" bindtap="onSubmit">
+    {{submitting ? '提交中...' : '提交反馈'}}
+  </button>
+</view>

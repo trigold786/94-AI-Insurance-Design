@@ -7,7 +7,7 @@ import (
 )
 
 func TestAuthMiddlewareSetsUserID(t *testing.T) {
-	handler := AuthMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := AuthMiddleware("")(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		userID := r.Context().Value(ContextKeyUserID)
 		if userID == nil {
 			t.Error("expected user_id in context")
@@ -30,7 +30,7 @@ func TestAuthMiddlewareSetsUserID(t *testing.T) {
 }
 
 func TestAuthMiddlewareMissingHeader(t *testing.T) {
-	handler := AuthMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := AuthMiddleware("")(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		t.Error("should not reach handler when header is missing")
 	}))
 
@@ -45,7 +45,7 @@ func TestAuthMiddlewareMissingHeader(t *testing.T) {
 }
 
 func TestAuthMiddlewareEmptyHeader(t *testing.T) {
-	handler := AuthMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := AuthMiddleware("")(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		t.Error("should not reach handler when header is empty")
 	}))
 
@@ -100,7 +100,7 @@ func TestRecoveryMiddlewareNormalRequest(t *testing.T) {
 func TestChainMiddleware(t *testing.T) {
 	handler := Chain(
 		RecoveryMiddleware(),
-		AuthMiddleware,
+		AuthMiddleware(""),
 	)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		userID := r.Context().Value(ContextKeyUserID)
 		if userID == nil || userID.(string) != "test-user" {

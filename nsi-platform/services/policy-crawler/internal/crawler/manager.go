@@ -84,7 +84,62 @@ func (m *CrawlerManager) CrawlSource(sourceID string) {
 			return
 		}
 	}
+	if m.store != nil {
+		s, err := m.loadAndRegisterSource(sourceID)
+		if err != nil {
+			log.Printf("[crawler] dynamic load source %s error: %v", sourceID, err)
+			return
+		}
+		if s != nil {
+			m.crawlAndProcess(s)
+			return
+		}
+	}
 	log.Printf("[crawler] source %s not found for crawl", sourceID)
+}
+
+func (m *CrawlerManager) loadAndRegisterSource(sourceID string) (Source, error) {
+	cfgs, err := m.store.ListEnabledSources()
+	if err != nil {
+		return nil, fmt.Errorf("query sources: %w", err)
+	}
+	for _, cfg := range cfgs {
+		if cfg.SourceID != sourceID {
+			continue
+		}
+		for _, existing := range m.crawlers {
+			if existing.SourceID() == sourceID {
+				return existing, nil
+			}
+		}
+		var s Source
+		switch cfg.CrawlType {
+		case "govsite":
+			gc := NewGovSiteCrawler(cfg)
+			if m.renderer != nil {
+				gc.SetRenderer(m.renderer)
+			}
+			s = gc
+		case "file":
+			s = NewFileWatcherCrawler(cfg, "")
+		case "rss":
+			s = NewRSSCrawler(cfg)
+		case "manual":
+			s = NewManualCrawler(cfg)
+		case "douyin":
+			dc := NewDouyinCrawler(cfg)
+			if m.renderer != nil {
+				dc.SetRenderer(m.renderer)
+			}
+			s = dc
+		default:
+			return nil, fmt.Errorf("unknown crawl type %q", cfg.CrawlType)
+		}
+		m.crawlers = append(m.crawlers, s)
+		log.Printf("[crawler] dynamically registered source %s (%s)", cfg.SourceID, cfg.CrawlType)
+		return s, nil
+	}
+	return nil, nil
 }
 
 func (m *CrawlerManager) Stop() {

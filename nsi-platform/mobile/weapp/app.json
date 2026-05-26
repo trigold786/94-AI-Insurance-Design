@@ -1,0 +1,20 @@
+{
+  "pages": [
+    "pages/login/login",
+    "pages/index/index",
+    "pages/city-picker/city-picker",
+    "pages/profile/profile",
+    "pages/loading/loading",
+    "pages/preview/preview",
+    "pages/plan/plan"
+  ],
+  "window": {
+    "navigationBarBackgroundColor": "#1A56DB",
+    "navigationBarTitleText": "AI社保智筹",
+    "navigationBarTextStyle": "white",
+    "backgroundColor": "#F5F7FA",
+    "backgroundTextStyle": "dark"
+  },
+  "requiredPrivateInfos": ["getLocation"],
+  "sitemapLocation": "sitemap.json"
+}

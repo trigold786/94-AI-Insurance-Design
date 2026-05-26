@@ -5,6 +5,125 @@ import (
 	"testing"
 )
 
+func TestGenerateSalaryTiers_Fallback(t *testing.T) {
+	tiers := generateSalaryTiers(10000, 0, 0)
+	if len(tiers) != 3 {
+		t.Fatalf("expected 3 tiers, got %d", len(tiers))
+	}
+	expected := []int{6000, 10000, 30000}
+	for i, v := range tiers {
+		if v != expected[i] {
+			t.Errorf("tier %d: expected %d, got %d", i, expected[i], v)
+		}
+	}
+}
+
+func TestGenerateSalaryTiers_Enumeration(t *testing.T) {
+	tiers := generateSalaryTiers(0, 5000, 5400)
+	if len(tiers) != 5 {
+		t.Fatalf("expected 5 tiers for 5000-5400 step 100, got %d", len(tiers))
+	}
+	expected := []int{5000, 5100, 5200, 5300, 5400}
+	for i, v := range tiers {
+		if v != expected[i] {
+			t.Errorf("tier %d: expected %d, got %d", i, expected[i], v)
+		}
+	}
+}
+
+func TestGenerateSalaryTiers_RoundUp(t *testing.T) {
+	tiers := generateSalaryTiers(0, 5010, 5200)
+	if len(tiers) < 2 {
+		t.Fatalf("expected at least 2 tiers, got %d", len(tiers))
+	}
+	if tiers[0] != 5100 {
+		t.Errorf("first tier should round up to 5100, got %d", tiers[0])
+	}
+	if tiers[len(tiers)-1] != 5200 {
+		t.Errorf("last tier should be 5200, got %d", tiers[len(tiers)-1])
+	}
+}
+
+func TestGenerateSalaryTiers_SingleValue(t *testing.T) {
+	tiers := generateSalaryTiers(0, 5000, 5000)
+	if len(tiers) != 1 || tiers[0] != 5000 {
+		t.Errorf("expected [5000], got %v", tiers)
+	}
+}
+
+func TestParseSubsidyRateFromMethod(t *testing.T) {
+	tests := []struct {
+		method string
+		want   float64
+	}{
+		{"基数*50%", 0.5},
+		{"基数*8%+基数*16%", 0.08},
+		{"基数*30%", 0.3},
+		{"", 0},
+		{"基数*0%", 0},
+	}
+	for _, tc := range tests {
+		got := parseSubsidyRateFromMethod(tc.method)
+		if !almostEqual(got, tc.want, 0.001) {
+			t.Errorf("parseSubsidyRateFromMethod(%q) = %.4f, want %.4f", tc.method, got, tc.want)
+		}
+	}
+}
+
+func TestGenerateSchemes_WithEnumeration(t *testing.T) {
+	schemes := GenerateSchemes(GenerateInput{
+		Age:                 30,
+		Gender:              "male",
+		Employment:          "employed",
+		ContributionYears:   10,
+		LocalAvgSalary:      10000,
+		CurrentBalance:      50000,
+		MonthlyBudget:       5000,
+		PensionAge:          60,
+		ContributionBaseMin: 5000,
+		ContributionBaseMax: 5200,
+	})
+	if len(schemes) == 0 {
+		t.Fatal("expected at least 1 scheme from enumeration")
+	}
+	for _, s := range schemes {
+		if s.BaseSalary < 5000 || s.BaseSalary > 5200 {
+			t.Errorf("base salary %d out of range [5000,5200]", s.BaseSalary)
+		}
+		if s.BaseSalary%100 != 0 {
+			t.Errorf("base salary %d not a multiple of 100", s.BaseSalary)
+		}
+		if s.MonthlyCost > 5000 {
+			t.Errorf("monthly cost %.2f exceeds budget", s.MonthlyCost)
+		}
+	}
+}
+
+func TestGenerateSchemes_WithSubsidyCalcMethod(t *testing.T) {
+	schemes := GenerateSchemes(GenerateInput{
+		Age:               30,
+		Gender:            "female",
+		Employment:        "flexible",
+		ContributionYears: 15,
+		LocalAvgSalary:    8000,
+		CurrentBalance:    0,
+		MonthlyBudget:     5000,
+		PensionAge:        55,
+		SubsidyCalcMethod: "基数*80%",
+	})
+	if len(schemes) == 0 {
+		t.Fatal("expected at least 1 scheme with subsidy override")
+	}
+	for _, s := range schemes {
+		if s.AnnualSubsidy <= 0 {
+			t.Errorf("expected positive subsidy with 80%% rate, got %.2f", s.AnnualSubsidy)
+		}
+		if s.SubsidyPolicy != "政策性补贴（动态计算）" {
+			t.Errorf("expected dynamic subsidy policy name, got %q", s.SubsidyPolicy)
+		}
+	}
+}
+
 func TestCalculateBasicPension(t *testing.T) {
 	result := CalculateBasicPension(10000, 12000, 15)
 	expected := (10000+12000)/2*15*0.01 // 1650
@@ -157,6 +276,53 @@ func TestGenerateSchemesOrderedByCost(t *testing.T) {
 				schemes[i].Name, schemes[i].MonthlyCost,
 				schemes[i-1].Name, schemes[i-1].MonthlyCost)
 		}
+	}
+}
+
+func TestCalculateBasicPension_ZeroYears(t *testing.T) {
+	if v := CalculateBasicPension(10000, 8000, 0); v != 0 {
+		t.Fatalf("zero years should return 0, got %.2f", v)
+	}
+}
+
+func TestCalculateBasicPension_NegativeSalary(t *testing.T) {
+	if v := CalculateBasicPension(-100, 8000, 15); v != 0 {
+		t.Fatalf("negative salary should return 0, got %.2f", v)
+	}
+}
+
+func TestCalculateMonthlyContribution_ZeroSalary(t *testing.T) {
+	if v := CalculateMonthlyContribution(0, 0.08, 0.02); v != 0 {
+		t.Fatalf("zero salary should return 0, got %.2f", v)
+	}
+}
+
+func TestGenerateSchemes_ZeroBudget(t *testing.T) {
+	schemes := GenerateSchemes(GenerateInput{
+		Age: 30, Gender: "male", ContributionYears: 15,
+		LocalAvgSalary: 10000, CurrentBalance: 0,
+		MonthlyBudget: 0, PensionAge: 60,
+	})
+	if len(schemes) != 0 {
+		t.Fatalf("zero budget should produce 0 schemes, got %d", len(schemes))
+	}
+}
+
+func TestGenerateSchemes_AlreadyRetired(t *testing.T) {
+	schemes := GenerateSchemes(GenerateInput{
+		Age: 65, Gender: "male", ContributionYears: 0,
+		LocalAvgSalary: 10000, CurrentBalance: 50000,
+		MonthlyBudget: 5000, PensionAge: 60,
+	})
+	if len(schemes) == 0 {
+		t.Fatal("already retired with high budget should still produce schemes")
+	}
+}
+
+func TestProjectAccountBalance_NegativeYears(t *testing.T) {
+	v := projectAccountBalance(10000, 5000, 0.08, 60, 55)
+	if v != 10000 {
+		t.Fatalf("past pension age should return current balance, got %.2f", v)
 	}
 }
 

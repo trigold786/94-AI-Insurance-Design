@@ -1,0 +1,131 @@
+.loading-container {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: linear-gradient(180deg, #F0F5FF 0%, #FFFFFF 100%);
+  padding: 120rpx 48rpx 80rpx;
+  box-sizing: border-box;
+}
+
+.loading-animation {
+  position: relative;
+  width: 200rpx;
+  height: 200rpx;
+  margin-bottom: 48rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.shield-icon {
+  width: 160rpx;
+  height: 160rpx;
+  background: linear-gradient(135deg, #1A56DB, #3B82F6);
+  border-radius: 40rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+  box-shadow: 0 8rpx 32rpx rgba(26, 86, 219, 0.3);
+}
+
+.shield-emoji {
+  font-size: 80rpx;
+}
+
+.shield-ring {
+  position: absolute;
+  width: 200rpx;
+  height: 200rpx;
+  border-radius: 50%;
+  border: 6rpx solid transparent;
+  border-top-color: #1A56DB;
+  border-right-color: #3B82F6;
+  animation: spin 1.5s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.loading-title {
+  font-size: 36rpx;
+  font-weight: 600;
+  color: #1F2937;
+  margin-bottom: 16rpx;
+}
+
+.loading-message {
+  font-size: 28rpx;
+  color: #6B7280;
+  margin-bottom: 48rpx;
+  text-align: center;
+  min-height: 40rpx;
+}
+
+.loading-progress {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+  margin-bottom: 64rpx;
+}
+
+.progress-track {
+  flex: 1;
+  height: 12rpx;
+  background: #E5E7EB;
+  border-radius: 6rpx;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #1A56DB, #3B82F6);
+  border-radius: 6rpx;
+  transition: width 0.5s ease;
+}
+
+.progress-text {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #1A56DB;
+  min-width: 72rpx;
+  text-align: right;
+}
+
+.loading-tips {
+  width: 100%;
+}
+
+.tips-title {
+  font-size: 26rpx;
+  color: #6B7280;
+  margin-bottom: 24rpx;
+  display: block;
+}
+
+.tip-item {
+  display: flex;
+  align-items: center;
+  margin-bottom: 20rpx;
+}
+
+.tip-icon {
+  font-size: 24rpx;
+  color: #9CA3AF;
+  margin-right: 16rpx;
+  width: 28rpx;
+  text-align: center;
+}
+
+.tip-text {
+  font-size: 26rpx;
+  color: #6B7280;
+}
+
+.tip-done {
+  color: #059669;
+}

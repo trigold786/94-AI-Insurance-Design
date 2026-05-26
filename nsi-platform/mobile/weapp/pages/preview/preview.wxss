@@ -1,0 +1,178 @@
+.preview-container {
+  min-height: 100vh;
+  background: #F5F7FA;
+  padding-bottom: 40rpx;
+  position: relative;
+}
+
+.preview-header {
+  padding: 40rpx 32rpx 24rpx;
+  background: linear-gradient(135deg, #1A56DB 0%, #2563EB 100%);
+  border-radius: 0 0 40rpx 40rpx;
+}
+
+.preview-title {
+  font-size: 38rpx;
+  font-weight: 700;
+  color: #FFFFFF;
+  display: block;
+  margin-bottom: 12rpx;
+}
+
+.preview-desc {
+  font-size: 26rpx;
+  color: rgba(255, 255, 255, 0.8);
+  display: block;
+}
+
+.blurred-cards {
+  padding: 32rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 24rpx;
+}
+
+.blur-card {
+  background: #FFFFFF;
+  border-radius: 24rpx;
+  padding: 32rpx;
+  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.06);
+}
+
+.blur-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16rpx;
+}
+
+.blur-label {
+  font-size: 28rpx;
+  color: #374151;
+  font-weight: 500;
+}
+
+.blur-badge {
+  font-size: 20rpx;
+  color: #1A56DB;
+  background: #EBF0FF;
+  padding: 4rpx 16rpx;
+  border-radius: 20rpx;
+}
+
+.blur-value-area {
+  display: flex;
+  align-items: baseline;
+  gap: 8rpx;
+}
+
+.blur-value {
+  font-size: 52rpx;
+  font-weight: 700;
+  color: #D1D5DB;
+  filter: blur(8px);
+  letter-spacing: 8rpx;
+  user-select: none;
+}
+
+.blur-unit {
+  font-size: 28rpx;
+  color: #6B7280;
+}
+
+.features-section {
+  padding: 0 32rpx;
+  margin-bottom: 32rpx;
+}
+
+.features-title {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #1F2937;
+  display: block;
+  margin-bottom: 24rpx;
+  text-align: center;
+}
+
+.features-list {
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+}
+
+.feature-row {
+  display: flex;
+  align-items: center;
+  background: #FFFFFF;
+  border-radius: 16rpx;
+  padding: 24rpx;
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.04);
+}
+
+.feat-icon {
+  font-size: 40rpx;
+  margin-right: 20rpx;
+  flex-shrink: 0;
+}
+
+.feat-content {
+  flex: 1;
+}
+
+.feat-title {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #1F2937;
+  display: block;
+  margin-bottom: 4rpx;
+}
+
+.feat-desc {
+  font-size: 24rpx;
+  color: #6B7280;
+}
+
+.blur-overlay {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(180deg, rgba(245,247,250,0) 0%, rgba(245,247,250,0.95) 30%, #F5F7FA 50%);
+  padding: 80rpx 32rpx 60rpx;
+  display: flex;
+  justify-content: center;
+}
+
+.overlay-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+
+.overlay-icon {
+  font-size: 64rpx;
+  margin-bottom: 16rpx;
+}
+
+.overlay-title {
+  font-size: 36rpx;
+  font-weight: 700;
+  color: #1F2937;
+  margin-bottom: 12rpx;
+}
+
+.overlay-desc {
+  font-size: 26rpx;
+  color: #6B7280;
+  text-align: center;
+  margin-bottom: 32rpx;
+}
+
+.unlock-btn {
+  width: 480rpx;
+  height: 88rpx;
+  line-height: 88rpx;
+  border: none;
+  font-size: 32rpx;
+}
