@@ -114,13 +114,19 @@ func RSSTestHandler() http.Handler {
 
 		resp, err := http.DefaultClient.Get(req.URL)
 		if err != nil {
-			respondError(w, http.StatusBadGateway, fmt.Sprintf("fetch error: %v", err))
+			respondJSON(w, http.StatusOK, map[string]interface{}{
+				"code":  1,
+				"error": fmt.Sprintf("无法连接: %v", err),
+			})
 			return
 		}
 		defer resp.Body.Close()
 
 		if resp.StatusCode != 200 {
-			respondError(w, http.StatusBadGateway, fmt.Sprintf("HTTP %d", resp.StatusCode))
+			respondJSON(w, http.StatusOK, map[string]interface{}{
+				"code":  1,
+				"error": fmt.Sprintf("目标返回 HTTP %d，请检查 URL 是否正确", resp.StatusCode),
+			})
 			return
 		}
 
