@@ -133,7 +133,7 @@ func (s *DBStore) ListByRegionAndType(regionCode, policyType string) ([]models.P
 }
 
 // admin.ClaimStore 接口方法
-func (s *DBStore) ListByStatus(status string, regionCode string) ([]models.PolicyClaim, error) {
+func (s *DBStore) ListByStatus(status string, regionCode string, sourceID string) ([]models.PolicyClaim, error) {
 	query := `SELECT claim_id, policy_id, region_code, policy_type, target_group_tags,
 		subsidy_calc_method, subsidy_amount_min, subsidy_amount_max, subsidy_duration,
 		effective_date, expire_date, confidence_score, status, version_number,
@@ -152,6 +152,11 @@ func (s *DBStore) ListByStatus(status string, regionCode string) ([]models.Polic
 		argIdx++
 		conditions = append(conditions, fmt.Sprintf(`region_code = $%d`, argIdx))
 		args = append(args, regionCode)
+	}
+	if sourceID != "" {
+		argIdx++
+		conditions = append(conditions, fmt.Sprintf(`source_id = $%d`, argIdx))
+		args = append(args, sourceID)
 	}
 	if len(conditions) > 0 {
 		query += ` WHERE ` + strings.Join(conditions, ` AND `)

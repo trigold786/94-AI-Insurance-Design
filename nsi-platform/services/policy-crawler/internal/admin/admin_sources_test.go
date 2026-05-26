@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"bytes"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -94,8 +95,11 @@ func TestRSSTestHandler_InvalidURL(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	handler.ServeHTTP(w, req)
-	if w.Code == http.StatusOK {
-		t.Errorf("expected non-200 for invalid URL, got %d", w.Code)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+	if !bytes.Contains(w.Body.Bytes(), []byte(`"code":1`)) {
+		t.Errorf("expected error code:1 in response, got %s", w.Body.String())
 	}
 }
 

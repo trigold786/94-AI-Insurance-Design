@@ -200,14 +200,44 @@ function loadDashboard(){
   }).catch(function(e){document.getElementById('app').innerHTML='<div class="card"><h3>加载失败</h3><p>'+esc(e.message)+'</p></div>'});
 }
 
+var allSourcesData=[];
+
 function loadSources(){
   fetch('/admin/sources').then(function(r){return r.json()}).then(function(d){
     if(d.code!==0)throw new Error(d.message||'error');
-    var h='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">'+
-      '<span style="color:#6B7280;font-size:13px">共 '+d.data.length+' 个数据源</span>'+
-      '<button class="btn btn-success" onclick="showSourceForm()">+ 新增数据源</button></div>'+
-      '<div style="overflow-x:auto"><table><tr><th>启用</th><th>名称</th><th>URL</th><th>级别</th><th>类型</th><th>地区</th><th>间隔</th><th>最近爬取</th><th>状态</th><th>操作</th></tr>';
-    d.data.forEach(function(s){
+    allSourcesData=d.data||[];
+    renderSources();
+  }).catch(function(e){document.getElementById('app').innerHTML='<div class="card"><h3>加载失败</h3><p>'+esc(e.message)+'</p></div>'});
+}
+
+function renderSources(){
+  var ft=document.getElementById('src_ft')?document.getElementById('src_ft').value:'';
+  var fl=document.getElementById('src_fl')?document.getElementById('src_fl').value:'';
+  var fr=document.getElementById('src_fr')?document.getElementById('src_fr').value:'';
+  var fi=document.getElementById('src_fi')?document.getElementById('src_fi').value.toLowerCase():'';
+  var filtered=allSourcesData.filter(function(s){
+    if(ft && s.crawl_type!==ft)return false;
+    if(fl && s.source_level!==fl)return false;
+    if(fr && (s.region_code||'')!==fr)return false;
+    if(fi && s.source_id.toLowerCase().indexOf(fi)<0 && s.source_name.toLowerCase().indexOf(fi)<0)return false;
+    return true;
+  });
+  var regions=[];allSourcesData.forEach(function(s){if(s.region_code && regions.indexOf(s.region_code)<0)regions.push(s.region_code)});
+  var h='<div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;align-items:center">'+
+    '<span style="font-size:12px;color:#6B7280">筛选:</span>'+
+    '<select id="src_ft" onchange="renderSources()" style="padding:4px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:12px">'+
+    '<option value="">全部类型</option><option value="govsite"'+(ft==='govsite'?' selected':'')+'>政府网站</option><option value="rss"'+(ft==='rss'?' selected':'')+'>RSS</option><option value="douyin"'+(ft==='douyin'?' selected':'')+'>抖音</option><option value="manual"'+(ft==='manual'?' selected':'')+'>手动</option><option value="file"'+(ft==='file'?' selected':'')+'>文件</option></select>'+
+    '<select id="src_fl" onchange="renderSources()" style="padding:4px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:12px">'+
+    '<option value="">全部级别</option><option value="HIGH"'+(fl==='HIGH'?' selected':'')+'>HIGH</option><option value="MEDIUM"'+(fl==='MEDIUM'?' selected':'')+'>MEDIUM</option><option value="LOW"'+(fl==='LOW'?' selected':'')+'>LOW</option></select>'+
+    '<select id="src_fr" onchange="renderSources()" style="padding:4px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:12px">'+
+    '<option value="">全部地区</option>';
+  regions.forEach(function(r){h+='<option value="'+r+'"'+(fr===r?' selected':'')+'>'+r+'</option>'});
+  h+='</select>'+
+    '<input id="src_fi" oninput="renderSources()" placeholder="搜索ID/名称..." value="'+esc(fi)+'" style="padding:4px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:12px;width:160px">'+
+    '<span style="color:#6B7280;font-size:13px">共 '+filtered.length+' / '+allSourcesData.length+' 个数据源</span>'+
+    '<span style="flex:1"></span><button class="btn btn-success" onclick="showSourceForm()">+ 新增数据源</button></div>';
+  h+='<div style="overflow-x:auto"><table><tr><th>启用</th><th>名称</th><th>URL</th><th>级别</th><th>类型</th><th>地区</th><th>间隔</th><th>最近爬取</th><th>状态</th><th>操作</th></tr>';
+  filtered.forEach(function(s){
       var actions='<div style="display:flex;gap:4px;flex-wrap:nowrap">';
       actions+='<button class="btn btn-outline btn-sm" onclick="showSourceForm(\''+esc(s.source_id)+'\')" title="编辑">✎</button>';
       actions+='<button class="btn btn-danger btn-sm" onclick="deleteSource(\''+esc(s.source_id)+'\',\''+esc(s.source_name).replace(/'/g,"\\'")+'\')" title="删除">✕</button>';
@@ -269,7 +299,6 @@ function loadSources(){
       '<div style="margin-top:12px;text-align:right"><button class="btn btn-outline" onclick="closeRSSPreview()">关闭</button></div>'+
       '</div></div>';
     document.getElementById('app').innerHTML=h;
-  }).catch(function(e){document.getElementById('app').innerHTML='<div class="card"><h3>加载失败</h3><p>'+esc(e.message)+'</p></div>'});
 }
 
 function toggleSource(el){
@@ -421,16 +450,24 @@ function doSourceImport(){
 
 var claimFilter='';
 var claimRegion='';
+var claimSource='';
 
-function loadClaims(filter,region){
+function loadClaims(filter,region,source){
   if(filter!==undefined)claimFilter=filter;
   if(region!==undefined)claimRegion=region;
+  if(source!==undefined)claimSource=source;
   var params=[];
   if(claimFilter)params.push('status='+claimFilter);
   if(claimRegion)params.push('region_code='+claimRegion);
+  if(claimSource)params.push('source_id='+encodeURIComponent(claimSource));
   var url='/admin/claims'+(params.length?'?'+params.join('&'):'');
-  fetch(url).then(function(r){return r.json()}).then(function(d){
+  Promise.all([
+    fetch(url).then(function(r){return r.json()}),
+    fetch('/admin/sources').then(function(r){return r.json()})
+  ]).then(function(results){
+    var d=results[0],srcD=results[1];
     var claims=d.data||d.claims||[];
+    var sources=(srcD.data||[]).sort(function(a,b){return (a.source_name||a.source_id).localeCompare(b.source_name||b.source_id)});
     var regionMap={'':'全部地区','110000':'北京','310000':'上海','330100':'杭州','440100':'广州','440300':'深圳'};
     var h='<div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;align-items:center">'+
       '<button class="btn '+(claimFilter===''?'btn-primary':'btn-outline')+'" onclick="loadClaims(\'\')">全部 ('+claims.length+')</button>'+
@@ -442,6 +479,14 @@ function loadClaims(filter,region){
       '<select onchange="loadClaims(undefined,this.value)" style="padding:4px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px">';
     Object.keys(regionMap).forEach(function(k){
       h+='<option value="'+k+'" '+(claimRegion===k?'selected':'')+'>'+regionMap[k]+'</option>';
+    });
+    h+='</select>'+
+      '<span style="font-size:12px;color:#6B7280">数据源:</span> '+
+      '<select onchange="loadClaims(undefined,undefined,this.value)" style="padding:4px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px;max-width:200px">'+
+      '<option value="">全部数据源</option>';
+    sources.forEach(function(s){
+      var label=esc(s.source_name||s.source_id)+(s.crawl_type?' ('+s.crawl_type+')':'');
+      h+='<option value="'+esc(s.source_id)+'" '+(claimSource===s.source_id?'selected':'')+'>'+label+'</option>';
     });
     h+='</select></div>';
     claims.forEach(function(c){

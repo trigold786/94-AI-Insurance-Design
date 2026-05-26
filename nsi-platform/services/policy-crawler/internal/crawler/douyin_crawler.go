@@ -4,9 +4,12 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"log"
+	"regexp"
 	"strings"
 	"time"
 )
+
+var douyinVideoRe = regexp.MustCompile(`href="([^"]*?douyin\.com/video/\d+[^"]*?)"`)
 
 type DouyinCrawler struct {
 	config    SourceConfig
@@ -18,7 +21,7 @@ type DouyinCrawler struct {
 func NewDouyinCrawler(cfg SourceConfig) *DouyinCrawler {
 	return &DouyinCrawler{
 		config:    cfg,
-		maxItems:  20,
+		maxItems:  50,
 		processed: make(map[string]bool),
 	}
 }
@@ -44,8 +47,22 @@ func (d *DouyinCrawler) Fetch() ([]*CrawlResult, error) {
 	}
 
 	urls := parseDouyinURLs(d.config.SourceURL)
-	var results []*CrawlResult
+	var videoURLs []string
 	for _, u := range urls {
+		if isDouyinUserURL(u) {
+			discovered, err := d.discoverVideosFromUserPage(u)
+			if err != nil {
+				log.Printf("[douyin] discover videos from %s error: %v", u, err)
+				continue
+			}
+			videoURLs = append(videoURLs, discovered...)
+		} else {
+			videoURLs = append(videoURLs, u)
+		}
+	}
+
+	var results []*CrawlResult
+	for _, u := range videoURLs {
 		if d.processed[u] {
 			continue
 		}
@@ -64,6 +81,43 @@ func (d *DouyinCrawler) Fetch() ([]*CrawlResult, error) {
 		}
 	}
 	return results, nil
+}
+
+func (d *DouyinCrawler) discoverVideosFromUserPage(userURL string) ([]string, error) {
+	cleanURL := stripQueryParams(userURL)
+	log.Printf("[douyin] discovering videos from user page: %s", cleanURL)
+
+	html, err := d.renderer.RenderWithVirtualTime(cleanURL, 15000)
+	if err != nil {
+		return nil, fmt.Errorf("render user page: %w", err)
+	}
+
+	matches := douyinVideoRe.FindAllStringSubmatch(html, -1)
+	seen := make(map[string]bool)
+	var videoURLs []string
+	for _, m := range matches {
+		raw := m[1]
+		raw = stripQueryParams(raw)
+		if seen[raw] {
+			continue
+		}
+		seen[raw] = true
+		videoURLs = append(videoURLs, raw)
+	}
+
+	log.Printf("[douyin] discovered %d videos from user page %s", len(videoURLs), cleanURL)
+	return videoURLs, nil
+}
+
+func isDouyinUserURL(u string) bool {
+	return strings.Contains(u, "douyin.com/user/")
+}
+
+func stripQueryParams(u string) string {
+	if idx := strings.Index(u, "?"); idx >= 0 {
+		return u[:idx]
+	}
+	return u
 }
 
 func (d *DouyinCrawler) fetchVideoPage(videoURL string) (*CrawlResult, error) {

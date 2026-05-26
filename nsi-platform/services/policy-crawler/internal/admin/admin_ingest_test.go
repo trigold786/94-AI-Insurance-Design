@@ -95,6 +95,6 @@ type mockStore struct {
 	ingested *bool
 }
 
-func (m *mockStore) ListByStatus(status string, regionCode string) ([]models.PolicyClaim, error) { return nil, nil }
+func (m *mockStore) ListByStatus(status string, regionCode string, sourceID string) ([]models.PolicyClaim, error) { return nil, nil }
 func (m *mockStore) UpdateStatus(claimID, status string, confidence float64) error { return nil }
 func (m *mockStore) Ingest(claim *models.PolicyClaim) error { m.ingested = &[]bool{true}[0]; return nil }

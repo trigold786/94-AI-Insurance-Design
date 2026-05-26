@@ -45,7 +45,7 @@ func (p *ExtProgress) Lock()   { p.mu.Lock() }
 func (p *ExtProgress) Unlock() { p.mu.Unlock() }
 
 type ClaimStore interface {
-	ListByStatus(status string, regionCode string) ([]models.PolicyClaim, error)
+	ListByStatus(status string, regionCode string, sourceID string) ([]models.PolicyClaim, error)
 	UpdateStatus(claimID, status string, confidence float64) error
 	Ingest(claim *models.PolicyClaim) error
 }
@@ -139,6 +139,7 @@ func ListClaimsHandler(store ClaimStore) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		status := r.URL.Query().Get("status")
 		regionCode := r.URL.Query().Get("region_code")
+		sourceID := r.URL.Query().Get("source_id")
 
 		validStatuses := map[string]bool{
 			"": true, "verified": true, "pending_review": true, "unverified": true,
@@ -153,7 +154,7 @@ func ListClaimsHandler(store ClaimStore) http.Handler {
 			return
 		}
 
-		claims, err := store.ListByStatus(status, regionCode)
+		claims, err := store.ListByStatus(status, regionCode, sourceID)
 		if err != nil {
 			respondError(w, http.StatusInternalServerError, "failed to list claims")
 			return

@@ -13,6 +13,7 @@ var chromeMu sync.Mutex
 
 type PageRenderer interface {
 	Render(url string) (string, error)
+	RenderWithVirtualTime(url string, budgetMs int) (string, error)
 }
 
 type ChromeRenderer struct {
@@ -20,24 +21,33 @@ type ChromeRenderer struct {
 }
 
 func NewChromeRenderer() *ChromeRenderer {
-	return &ChromeRenderer{timeout: 45 * time.Second}
+	return &ChromeRenderer{timeout: 60 * time.Second}
 }
 
 func (r *ChromeRenderer) Render(url string) (string, error) {
+	return r.RenderWithVirtualTime(url, 0)
+}
+
+func (r *ChromeRenderer) RenderWithVirtualTime(url string, budgetMs int) (string, error) {
 	chromeMu.Lock()
 	defer chromeMu.Unlock()
 
 	ctx, cancel := context.WithTimeout(context.Background(), r.timeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, "chromium-browser",
+	args := []string{
 		"--headless",
 		"--disable-gpu",
 		"--no-sandbox",
 		"--disable-dev-shm-usage",
 		"--dump-dom",
-		url,
-	)
+	}
+	if budgetMs > 0 {
+		args = append(args, fmt.Sprintf("--virtual-time-budget=%d", budgetMs))
+	}
+	args = append(args, url)
+
+	cmd := exec.CommandContext(ctx, "chromium-browser", args...)
 
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
