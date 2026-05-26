@@ -240,7 +240,7 @@ function loadSources(){
       '<div><label style="font-size:12px;color:#6B7280;display:block;margin-bottom:4px">数据源 ID</label><input id="sf_id" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px"></div>'+
       '<div><label style="font-size:12px;color:#6B7280;display:block;margin-bottom:4px">名称</label><input id="sf_name" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px"></div>'+
       '<div><label style="font-size:12px;color:#6B7280;display:block;margin-bottom:4px">类型</label><select id="sf_type" onchange="onTypeChange()" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px">'+
-      '<option value="govsite">政府网站</option><option value="file">文件</option><option value="rss">RSS</option><option value="manual">手动</option></select></div>'+
+      '<option value="govsite">政府网站</option><option value="file">文件</option><option value="rss">RSS</option><option value="manual">手动</option><option value="douyin">抖音</option></select></div>'+
       '<div><label style="font-size:12px;color:#6B7280;display:block;margin-bottom:4px">级别</label><select id="sf_level" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px">'+
       '<option value="HIGH">HIGH</option><option value="MEDIUM" selected>MEDIUM</option><option value="LOW">LOW</option></select></div>'+
       '<div id="sf_url_wrap" style="grid-column:1/3"><label style="font-size:12px;color:#6B7280;display:block;margin-bottom:4px">URL</label><input id="sf_url" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px" placeholder="https://..."></div>'+
@@ -279,8 +279,8 @@ function toggleSource(el){
   .catch(function(){showToast('\u64cd\u4f5c\u5931\u8d25','error')});
 }
 
-var sourceTypeMap={'govsite':'政府网站','file':'文件','rss':'RSS','manual':'手动'};
-var sourceTypeBadge={'govsite':'bg-blue','file':'bg-yellow','rss':'bg-green','manual':'bg-yellow'};
+var sourceTypeMap={'govsite':'政府网站','file':'文件','rss':'RSS','manual':'手动','douyin':'抖音'};
+var sourceTypeBadge={'govsite':'bg-blue','file':'bg-yellow','rss':'bg-green','manual':'bg-yellow','douyin':'bg-red'};
 var sourceLevelBadge={'HIGH':'bg-green','MEDIUM':'bg-yellow','LOW':'bg-blue'};
 var editingSourceId='';
 
