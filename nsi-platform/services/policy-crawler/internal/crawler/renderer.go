@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"log"
+	"os"
 	"os/exec"
 	"sync"
 	"time"
@@ -11,9 +13,43 @@ import (
 
 var chromeMu sync.Mutex
 
+var (
+	chromeBinOnce sync.Once
+	chromeBinPath string
+)
+
 type PageRenderer interface {
 	Render(url string) (string, error)
 	RenderWithVirtualTime(url string, budgetMs int) (string, error)
+}
+
+var chromeCandidates = []string{
+	"chromium-browser",
+	"google-chrome",
+	"google-chrome-stable",
+	"google-chrome-unstable",
+	"chromium",
+	"chrome",
+	"chrome.exe",
+}
+
+func findChromeBinary() string {
+	chromeBinOnce.Do(func() {
+		if p := os.Getenv("CHROME_PATH"); p != "" {
+			if _, err := os.Stat(p); err == nil {
+				chromeBinPath = p
+				return
+			}
+			log.Printf("[chrome] CHROME_PATH=%s not found, falling back to LookPath", p)
+		}
+		for _, name := range chromeCandidates {
+			if p, err := exec.LookPath(name); err == nil {
+				chromeBinPath = p
+				return
+			}
+		}
+	})
+	return chromeBinPath
 }
 
 type ChromeRenderer struct {
@@ -32,6 +68,11 @@ func (r *ChromeRenderer) RenderWithVirtualTime(url string, budgetMs int) (string
 	chromeMu.Lock()
 	defer chromeMu.Unlock()
 
+	chromeBin := findChromeBinary()
+	if chromeBin == "" {
+		return "", fmt.Errorf("chrome binary not found: tried %v and CHROME_PATH", chromeCandidates)
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), r.timeout)
 	defer cancel()
 
@@ -47,7 +88,7 @@ func (r *ChromeRenderer) RenderWithVirtualTime(url string, budgetMs int) (string
 	}
 	args = append(args, url)
 
-	cmd := exec.CommandContext(ctx, "chromium-browser", args...)
+	cmd := exec.CommandContext(ctx, chromeBin, args...)
 
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout

@@ -20,6 +20,7 @@ type RawTextStore interface {
 	MarkExtracted(id int64, claimID string) error
 	InsertClaim(claim *models.PolicyClaim) error
 	SaveExtractLog(sourceID string, success bool, msg string)
+	SaveExtractLogDetailed(rawTextID int64, sourceID string, success bool, msg string, claimID string, title string, modelName string, summary string)
 	SaveEmbedding(claimID string, embedding []float64) error
 	SaveSnapshot(claim *models.PolicyClaim) error
 	MarkSuperseded(oldClaimID, newClaimID string) error
@@ -32,6 +33,7 @@ type RawTextEntry struct {
 	Content    string `json:"content"`
 	SourceURL  string `json:"source_url"`
 	SourceName string `json:"source_name"`
+	Title      string `json:"title"`
 }
 
 // ReferenceChecker 交叉验证接口
@@ -105,7 +107,7 @@ func (e *Extractor) ProcessUnprocessed(limit int) (int, int, error) {
 	for _, entry := range entries {
 		if err := e.ProcessOne(entry); err != nil {
 			log.Printf("[extractor] failed id=%d source=%s: %v", entry.ID, entry.SourceID, err)
-			e.store.SaveExtractLog(entry.SourceID, false, err.Error())
+			e.store.SaveExtractLogDetailed(entry.ID, entry.SourceID, false, err.Error(), "", entry.Title, e.client.ModelName(), "")
 			failed++
 		} else {
 			succeeded++
@@ -136,6 +138,7 @@ func (e *Extractor) ProcessOne(entry RawTextEntry) error {
   "effective_date": "生效日期YYYY-MM-DD",
   "expire_date": "失效日期YYYY-MM-DD(可选)",
   "policy_url": "该政策原文的网址(从页面文本中提取完整的URL,必填)",
+  "brief_summary": "用一句话概括该社保政策的要点(不超过50字)",
   "conditions": [{"name":"条件名称","description":"条件描述","tag_match":"对应人群标签"}],
   "required_documents": [{"name":"材料名称","description":"描述","source":"user/gov","optional":false}]
 }`
@@ -229,9 +232,9 @@ func (e *Extractor) ProcessOne(entry RawTextEntry) error {
 			}
 		}
 		if maxScore > 0.85 && parsed.RegionCode != "" {
-			// 高度重复，跳过入库，标记提取成功
-			e.store.SaveExtractLog(entry.SourceID, true,
-				fmt.Sprintf("duplicate of %s (score=%.2f), skipped insert", similar[0].ClaimID, maxScore))
+			e.store.SaveExtractLogDetailed(entry.ID, entry.SourceID, true,
+				fmt.Sprintf("duplicate of %s (score=%.2f), skipped insert", similar[0].ClaimID, maxScore),
+				similar[0].ClaimID, entry.Title, e.client.ModelName(), "")
 			if err := e.store.MarkExtracted(entry.ID, similar[0].ClaimID); err != nil {
 				return fmt.Errorf("mark extracted: %w", err)
 			}
@@ -265,7 +268,7 @@ func (e *Extractor) ProcessOne(entry RawTextEntry) error {
 		return fmt.Errorf("mark extracted: %w", err)
 	}
 
-	e.store.SaveExtractLog(entry.SourceID, true, fmt.Sprintf("claim=%s", claim.ClaimID))
+	e.store.SaveExtractLogDetailed(entry.ID, entry.SourceID, true, fmt.Sprintf("claim=%s", claim.ClaimID), claim.ClaimID, entry.Title, e.client.ModelName(), parsed.BriefSummary)
 	log.Printf("[extractor] extracted claim %s from raw_text id=%d", claim.ClaimID, entry.ID)
 	return nil
 }
@@ -285,6 +288,7 @@ type ExtractionResult struct {
 	Conditions        []map[string]interface{} `json:"conditions"`
 	RequiredDocuments []map[string]interface{} `json:"required_documents"`
 	PolicyURL         string                   `json:"policy_url"`
+	BriefSummary      string                   `json:"brief_summary"`
 }
 
 func parseExtractionResult(llmOutput string) (*ExtractionResult, error) {

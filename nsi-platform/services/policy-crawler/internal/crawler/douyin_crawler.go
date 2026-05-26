@@ -3,7 +3,9 @@ package crawler
 import (
 	"crypto/sha256"
 	"fmt"
+	"io"
 	"log"
+	"net/http"
 	"regexp"
 	"strings"
 	"time"
@@ -39,10 +41,6 @@ func (d *DouyinCrawler) Interval() time.Duration {
 
 func (d *DouyinCrawler) Fetch() ([]*CrawlResult, error) {
 	if d.config.SourceURL == "" {
-		return nil, nil
-	}
-	if d.renderer == nil {
-		log.Printf("[douyin] %s: Chrome renderer not available, skipping", d.config.SourceID)
 		return nil, nil
 	}
 
@@ -87,14 +85,43 @@ func (d *DouyinCrawler) discoverVideosFromUserPage(userURL string) ([]string, er
 	cleanURL := stripQueryParams(userURL)
 	log.Printf("[douyin] discovering videos from user page: %s", cleanURL)
 
-	html, err := d.renderer.RenderWithVirtualTime(cleanURL, 15000)
-	if err != nil {
-		return nil, fmt.Errorf("render user page: %w", err)
+	if d.renderer != nil {
+		html, err := d.renderer.RenderWithVirtualTime(cleanURL, 30000)
+		if err == nil {
+			videoURLs := extractDouyinVideoURLs(html)
+			log.Printf("[douyin] discovered %d videos via Chrome from %s", len(videoURLs), cleanURL)
+			return videoURLs, nil
+		}
+		log.Printf("[douyin] Chrome render failed for user page %s: %v", cleanURL, err)
 	}
 
+	html, err := httpFetch(cleanURL)
+	if err != nil {
+		return nil, fmt.Errorf("discover videos from %s: %w", cleanURL, err)
+	}
+
+	videoURLs := extractDouyinVideoURLs(html)
+	if len(videoURLs) == 0 {
+		douyinVideoLinks := extractDouyinVideoLinks(html)
+		if len(douyinVideoLinks) > 0 {
+			videoURLs = douyinVideoLinks
+		}
+	}
+
+	if len(videoURLs) == 0 {
+		return nil, fmt.Errorf("no videos discovered from %s (Chrome rendering required for Douyin user pages)", cleanURL)
+	}
+
+	log.Printf("[douyin] discovered %d videos via HTTP from %s", len(videoURLs), cleanURL)
+	return videoURLs, nil
+}
+
+var douyinShareURLRe = regexp.MustCompile(`https?://(?:www\.)?douyin\.com/video/\d+`)
+
+func extractDouyinVideoURLs(html string) []string {
 	matches := douyinVideoRe.FindAllStringSubmatch(html, -1)
 	seen := make(map[string]bool)
-	var videoURLs []string
+	var urls []string
 	for _, m := range matches {
 		raw := m[1]
 		raw = stripQueryParams(raw)
@@ -102,11 +129,24 @@ func (d *DouyinCrawler) discoverVideosFromUserPage(userURL string) ([]string, er
 			continue
 		}
 		seen[raw] = true
-		videoURLs = append(videoURLs, raw)
+		urls = append(urls, raw)
 	}
+	return urls
+}
 
-	log.Printf("[douyin] discovered %d videos from user page %s", len(videoURLs), cleanURL)
-	return videoURLs, nil
+func extractDouyinVideoLinks(html string) []string {
+	matches := douyinShareURLRe.FindAllString(html, -1)
+	seen := make(map[string]bool)
+	var urls []string
+	for _, u := range matches {
+		u = stripQueryParams(u)
+		if seen[u] {
+			continue
+		}
+		seen[u] = true
+		urls = append(urls, u)
+	}
+	return urls
 }
 
 func isDouyinUserURL(u string) bool {
@@ -121,9 +161,21 @@ func stripQueryParams(u string) string {
 }
 
 func (d *DouyinCrawler) fetchVideoPage(videoURL string) (*CrawlResult, error) {
-	html, err := d.renderer.Render(videoURL)
-	if err != nil {
-		return nil, fmt.Errorf("render: %w", err)
+	var html string
+	var err error
+
+	if d.renderer != nil {
+		html, err = d.renderer.RenderWithVirtualTime(videoURL, 15000)
+		if err != nil {
+			log.Printf("[douyin] Chrome render failed for %s, falling back to HTTP: %v", videoURL, err)
+		}
+	}
+
+	if html == "" {
+		html, err = httpFetch(videoURL)
+		if err != nil {
+			return nil, fmt.Errorf("http fetch: %w", err)
+		}
 	}
 
 	title := extractDouyinTitle(html)
@@ -133,7 +185,10 @@ func (d *DouyinCrawler) fetchVideoPage(videoURL string) (*CrawlResult, error) {
 		content = title + "\n" + desc
 	}
 	if content == "" {
-		content = html
+		content = extractDouyinTextFromHTML(html)
+	}
+	if content == "" {
+		return nil, nil
 	}
 
 	hash := sha256.Sum256([]byte(videoURL))
@@ -146,6 +201,30 @@ func (d *DouyinCrawler) fetchVideoPage(videoURL string) (*CrawlResult, error) {
 		FetchedAt:   time.Now(),
 		VersionHash: fmt.Sprintf("%x", hash),
 	}, nil
+}
+
+func httpFetch(url string) (string, error) {
+	client := &http.Client{Timeout: 30 * time.Second}
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+	req.Header.Set("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8")
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 400 {
+		return "", fmt.Errorf("HTTP %d fetching %s", resp.StatusCode, url)
+	}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+	return string(body), nil
 }
 
 func parseDouyinURLs(rawURL string) []string {
@@ -196,6 +275,16 @@ func extractDouyinTitle(html string) string {
 			return title
 		}
 	}
+
+	// fallback: try <title>.*</title> via regex
+	re := regexp.MustCompile(`<title>([^<]+)</title>`)
+	matches := re.FindStringSubmatch(html)
+	if len(matches) > 1 {
+		t := strings.TrimSpace(matches[1])
+		t = strings.ReplaceAll(t, " - 抖音", "")
+		t = strings.ReplaceAll(t, " | 抖音", "")
+		return t
+	}
 	return ""
 }
 
@@ -216,5 +305,16 @@ func extractDouyinDesc(html string) string {
 	}
 	desc := html[start : start+end]
 	return strings.TrimSpace(desc)
+}
+
+func extractDouyinTextFromHTML(html string) string {
+	stripTags := regexp.MustCompile(`<[^>]*>`)
+	text := stripTags.ReplaceAllString(html, " ")
+	text = strings.Join(strings.Fields(text), " ")
+	runes := []rune(text)
+	if len(runes) > 500 {
+		text = string(runes[:500])
+	}
+	return strings.TrimSpace(text)
 }
 

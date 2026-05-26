@@ -14,8 +14,28 @@ type DashboardStore interface {
 	CreateSource(src *SourceInfo) error
 	DeleteSource(sourceID string) error
 	GetCrawlLogs(limit int) ([]CrawlLogEntry, error)
-	GetCrawlLogsFiltered(startDate, endDate string, limit int) ([]CrawlLogEntry, error)
+	GetCrawlLogsFiltered(startDate, endDate, sourceType, sourceLevel, status string, limit int) ([]CrawlLogEntry, error)
+	GetExtractLogsFiltered(startDate, endDate, sourceType, sourceLevel, regionCode, status string, limit int) ([]ExtractLogEntry, error)
 	GetDashboardStats() (*DashboardStats, error)
+	GetPipeline() ([]PipelineEntry, error)
+}
+
+type PipelineEntry struct {
+	SourceID       string `json:"source_id"`
+	SourceName     string `json:"source_name"`
+	SourceLevel    string `json:"source_level"`
+	CrawlType      string `json:"crawl_type"`
+	Enabled        bool   `json:"enabled"`
+	LastCrawlAt    string `json:"last_crawl_at"`
+	CrawlStatus    string `json:"crawl_status"`
+	CrawlError     string `json:"crawl_error"`
+	HasRawText     bool   `json:"has_raw_text"`
+	LastExtractAt  string `json:"last_extract_at"`
+	ExtractStatus  string `json:"extract_status"`
+	ExtractError   string `json:"extract_error"`
+	ClaimID        string `json:"claim_id"`
+	ClaimStatus    string `json:"claim_status"`
+	Confidence     float64 `json:"confidence"`
 }
 
 type SourceInfo struct {
@@ -141,18 +161,64 @@ func SourceUpdateHandler(store DashboardStore) http.Handler {
 	})
 }
 
+type ExtractLogEntry struct {
+	ID             int    `json:"id"`
+	RawTextID      int64  `json:"raw_text_id"`
+	SourceID       string `json:"source_id"`
+	SourceName     string `json:"source_name"`
+	ClaimID        string `json:"claim_id"`
+	Title          string `json:"title"`
+	Status         string `json:"status"`
+	ErrorMessage   string `json:"error_message"`
+	ModelName      string `json:"model_name"`
+	CreatedAt      string `json:"created_at"`
+	ContentSummary string `json:"content_summary"`
+}
+
 func CrawlLogsHandler(store DashboardStore) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		startDate := r.URL.Query().Get("start_date")
 		endDate := r.URL.Query().Get("end_date")
-		limit := 5000 // 最多返回 5000 条
-		logs, err := store.GetCrawlLogsFiltered(startDate, endDate, limit)
+		sourceType := r.URL.Query().Get("source_type")
+		sourceLevel := r.URL.Query().Get("source_level")
+		status := r.URL.Query().Get("status")
+		limit := 5000
+		logs, err := store.GetCrawlLogsFiltered(startDate, endDate, sourceType, sourceLevel, status, limit)
 		if err != nil {
-			respondError(w, http.StatusInternalServerError, fmt.Sprintf("logs error: %v", err))
+			respondError(w, http.StatusInternalServerError, fmt.Sprintf("crawl logs error: %v", err))
+			return
+		}
+		respondJSON(w, http.StatusOK, map[string]interface{}{"code": 0, "data": logs})
+	})
+}
+func ExtractLogsHandler(store DashboardStore) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		startDate := r.URL.Query().Get("start_date")
+		endDate := r.URL.Query().Get("end_date")
+		sourceType := r.URL.Query().Get("source_type")
+		sourceLevel := r.URL.Query().Get("source_level")
+		regionCode := r.URL.Query().Get("region_code")
+		status := r.URL.Query().Get("status")
+		limit := 5000
+		logs, err := store.GetExtractLogsFiltered(startDate, endDate, sourceType, sourceLevel, regionCode, status, limit)
+		if err != nil {
+			respondError(w, http.StatusInternalServerError, fmt.Sprintf("extract logs error: %v", err))
 			return
 		}
 		respondJSON(w, http.StatusOK, map[string]interface{}{"code": 0, "data": logs})
 	})
 }
 
-
+func PipelineHandler(store DashboardStore) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		entries, err := store.GetPipeline()
+		if err != nil {
+			respondError(w, http.StatusInternalServerError, fmt.Sprintf("pipeline error: %v", err))
+			return
+		}
+		if entries == nil {
+			entries = []PipelineEntry{}
+		}
+		respondJSON(w, http.StatusOK, map[string]interface{}{"code": 0, "data": entries})
+	})
+}

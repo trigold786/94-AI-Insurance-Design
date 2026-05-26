@@ -50,27 +50,38 @@ func main() {
 
 	var embedProv embeddings.EmbeddingProvider
 	llmCfg, llmErr := store.GetLLMConfig()
-	if llmErr == nil && llmCfg.APIKey != "" {
-		embedBaseURL := "https://api.openai.com/v1/embeddings"
-		if llmCfg.Endpoint != "" {
-			endpoint := llmCfg.Endpoint
-			if idx := strings.Index(endpoint, "/chat/"); idx > 0 {
-				embedBaseURL = endpoint[:idx] + "/embeddings"
+	if llmErr == nil {
+		// 优先使用独立的 Embedding 配置（火山方舟 Doubao），否则回退到 LLM 配置
+		embedAPIKey := llmCfg.EmbeddingAPIKey
+		embedBaseURL := llmCfg.EmbeddingEndpoint
+		embedModel := llmCfg.EmbeddingModel
+		embedDims := llmCfg.EmbeddingDimensions
+
+		if embedAPIKey == "" {
+			embedAPIKey = llmCfg.APIKey
+		}
+		if embedBaseURL == "" {
+			embedBaseURL = "https://api.openai.com/v1/embeddings"
+			if llmCfg.Endpoint != "" {
+				if idx := strings.Index(llmCfg.Endpoint, "/chat/"); idx > 0 {
+					embedBaseURL = llmCfg.Endpoint[:idx] + "/embeddings"
+				}
 			}
 		}
-		embedModel := llmCfg.EmbeddingModel
 		if embedModel == "" {
 			embedModel = "text-embedding-3-small"
 		}
-		embedDims := llmCfg.EmbeddingDimensions
 		if embedDims <= 0 {
 			embedDims = 1536
 		}
-		embedProv = embeddings.NewProviderFromConfig(llmCfg.APIKey, embedBaseURL, embedModel, embedDims)
-		log.Printf("[embeddings] using %s provider (dims=%d)", embedProv.ModelName(), embedDims)
-	} else {
+		if embedAPIKey != "" {
+			embedProv = embeddings.NewProviderFromConfig(embedAPIKey, embedBaseURL, embedModel, embedDims)
+			log.Printf("[embeddings] using %s provider (dims=%d) via %s", embedProv.ModelName(), embedDims, embedBaseURL)
+		}
+	}
+	if embedProv == nil {
 		embedProv = embeddings.NewProviderFromConfig("", "", "", 1536)
-		log.Println("[embeddings] no LLM API key, using hash-bow fallback")
+		log.Println("[embeddings] no embedding API key, using hash-bow fallback")
 	}
 
 	searcher := embeddings.NewVectorSearcher(database, embedProv)
@@ -135,6 +146,8 @@ func main() {
 	mux.Handle("/admin/sources", adminAuth(admin.SourceListHandler(store)))
 	mux.Handle("/admin/sources/update", adminAuth(admin.SourceUpdateHandler(store)))
 	mux.Handle("/admin/logs", adminAuth(admin.CrawlLogsHandler(store)))
+	mux.Handle("/admin/extract-logs", adminAuth(admin.ExtractLogsHandler(store)))
+	mux.Handle("/admin/regions", adminAuth(admin.RegionsHandler()))
 	mux.Handle("/admin/claims", adminAuth(admin.ListClaimsHandler(store)))
 	mux.Handle("/admin/claims/batch", adminAuth(admin.BatchUpdateHandler(store)))
 	mux.Handle("/admin/claims/", adminAuth(admin.UpdateClaimHandler(store)))
@@ -150,6 +163,7 @@ func main() {
 	mux.Handle("/admin/llm/extract", adminAuth(middleware.RecoveryMiddleware()(admin.LLMExtractRunHandler(store, searcher, embedProv))))
 	mux.Handle("/admin/llm/pending", adminAuth(admin.LLMPendingHandler(store)))
 	mux.Handle("/admin/llm/progress", adminAuth(admin.LLMProgressHandler(store)))
+	mux.Handle("/admin/pipeline", adminAuth(admin.PipelineHandler(store)))
 	mux.Handle("/admin/llm/search", adminAuth(middleware.RecoveryMiddleware()(admin.AdminSearchHandler(searcher))))
 	mux.Handle("/admin/search_page", adminAuth(middleware.RecoveryMiddleware()(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")

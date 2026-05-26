@@ -129,6 +129,10 @@ func NewClient(cfg Config) *Client {
 	}
 }
 
+func (c *Client) ModelName() string {
+	return c.config.ModelName
+}
+
 // Chat 发送对话请求，返回文本响应
 func (c *Client) Chat(systemPrompt, userContent string) (string, error) {
 	switch c.config.Provider {

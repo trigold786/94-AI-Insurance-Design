@@ -39,7 +39,7 @@ td{padding:8px 10px;border-bottom:1px solid #F3F4F6}
 tr:hover{background:#F9FAFB}
 .badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:500}
 .bg-green{background:#D1FAE5;color:#059669}.bg-yellow{background:#FEF3C7;color:#D97706}
-.bg-red{background:#FEE2E2;color:#EF4444}.bg-blue{background:#DBEAFE;color:#1A56DB}
+.bg-red{background:#FEE2E2;color:#EF4444}.bg-blue{background:#DBEAFE;color:#1A56DB}.bg-purple{background:#EDE9FE;color:#7C3AED}
 .btn{padding:6px 14px;border:none;border-radius:6px;font-size:12px;cursor:pointer;font-weight:500}
 .btn-sm{padding:4px 10px;font-size:11px}
 .btn-primary{background:#1A56DB;color:#fff}
@@ -75,6 +75,8 @@ var navItems=[
   {id:'search',label:'\u8bed\u4e49\u641c\u7d22'},
   {id:'extract',label:'AI\u63d0\u53d6'},
   {id:'logs',label:'\u722c\u53d6\u65e5\u5fd7'},
+  {id:'pipeline',label:'\u6570\u636e\u6d41\u6c34\u7ebf'},
+  {id:'extractLogs',label:'\u63d0\u53d6\u65e5\u5fd7'},
   {id:'import',label:'+\u5bfc\u5165\u653f\u7b56',style:'color:#059669;font-weight:600'}
 ];
 var currentPanel='dashboard';
@@ -99,6 +101,8 @@ function switchPanel(id){
   else if(id==='search')loadSearch();
   else if(id==='extract')loadExtract();
   else if(id==='logs')loadLogs();
+  else if(id==='extractLogs')loadExtractLogs();
+  else if(id==='pipeline')loadPipeline();
   else if(id==='import')showImportForm();
 }
 
@@ -226,7 +230,7 @@ function renderSources(){
   var h='<div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;align-items:center">'+
     '<span style="font-size:12px;color:#6B7280">筛选:</span>'+
     '<select id="src_ft" onchange="renderSources()" style="padding:4px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:12px">'+
-    '<option value="">全部类型</option><option value="govsite"'+(ft==='govsite'?' selected':'')+'>政府网站</option><option value="rss"'+(ft==='rss'?' selected':'')+'>RSS</option><option value="douyin"'+(ft==='douyin'?' selected':'')+'>抖音</option><option value="manual"'+(ft==='manual'?' selected':'')+'>手动</option><option value="file"'+(ft==='file'?' selected':'')+'>文件</option></select>'+
+    '<option value="">全部类型</option>'+sourceTypeList.map(function(t){return '<option value="'+t.v+'"'+(ft===t.v?' selected':'')+'>'+t.l+'</option>'}).join('')+'</select>'+
     '<select id="src_fl" onchange="renderSources()" style="padding:4px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:12px">'+
     '<option value="">全部级别</option><option value="HIGH"'+(fl==='HIGH'?' selected':'')+'>HIGH</option><option value="MEDIUM"'+(fl==='MEDIUM'?' selected':'')+'>MEDIUM</option><option value="LOW"'+(fl==='LOW'?' selected':'')+'>LOW</option></select>'+
     '<select id="src_fr" onchange="renderSources()" style="padding:4px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:12px">'+
@@ -270,12 +274,14 @@ function renderSources(){
       '<div><label style="font-size:12px;color:#6B7280;display:block;margin-bottom:4px">数据源 ID</label><input id="sf_id" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px"></div>'+
       '<div><label style="font-size:12px;color:#6B7280;display:block;margin-bottom:4px">名称</label><input id="sf_name" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px"></div>'+
       '<div><label style="font-size:12px;color:#6B7280;display:block;margin-bottom:4px">类型</label><select id="sf_type" onchange="onTypeChange()" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px">'+
-      '<option value="govsite">政府网站</option><option value="file">文件</option><option value="rss">RSS</option><option value="manual">手动</option><option value="douyin">抖音</option></select></div>'+
+      sourceTypeList.map(function(t){return '<option value="'+t.v+'">'+t.l+'</option>'}).join('')+'</select></div>'+
       '<div><label style="font-size:12px;color:#6B7280;display:block;margin-bottom:4px">级别</label><select id="sf_level" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px">'+
       '<option value="HIGH">HIGH</option><option value="MEDIUM" selected>MEDIUM</option><option value="LOW">LOW</option></select></div>'+
       '<div id="sf_url_wrap" style="grid-column:1/3"><label style="font-size:12px;color:#6B7280;display:block;margin-bottom:4px">URL</label><input id="sf_url" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px" placeholder="https://..."></div>'+
       '<div id="sf_interval_wrap"><label style="font-size:12px;color:#6B7280;display:block;margin-bottom:4px">爬取间隔(秒)</label><input id="sf_interval" type="number" value="86400" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px"></div>'+
-      '<div><label style="font-size:12px;color:#6B7280;display:block;margin-bottom:4px">地区代码</label><input id="sf_region" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px" placeholder="310000"></div>'+
+      '<div><label style="font-size:12px;color:#6B7280;display:block;margin-bottom:4px">省份 <span style="color:#EF4444">*</span></label><select id="sf_province" onchange="onProvinceChange()" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px"></select></div>'+
+      '<div><label style="font-size:12px;color:#6B7280;display:block;margin-bottom:4px">城市</label><select id="sf_city" onchange="onCityChange()" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px"></select></div>'+
+      '<div id="sf_district_wrap"><label style="font-size:12px;color:#6B7280;display:block;margin-bottom:4px">区县</label><select id="sf_district" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px"></select></div>'+
       '</div>'+
       '<div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end">'+
       '<button class="btn btn-outline" onclick="closeSourceModal()">取消</button>'+
@@ -308,8 +314,9 @@ function toggleSource(el){
   .catch(function(){showToast('\u64cd\u4f5c\u5931\u8d25','error')});
 }
 
-var sourceTypeMap={'govsite':'政府网站','file':'文件','rss':'RSS','manual':'手动','douyin':'抖音'};
-var sourceTypeBadge={'govsite':'bg-blue','file':'bg-yellow','rss':'bg-green','manual':'bg-yellow','douyin':'bg-red'};
+var sourceTypeMap={'govsite':'政府网站','file':'文件','rss':'RSS','manual':'手动','douyin':'抖音','wechat':'微信公众号'};
+var sourceTypeBadge={'govsite':'bg-blue','file':'bg-yellow','rss':'bg-green','manual':'bg-yellow','douyin':'bg-red','wechat':'bg-purple'};
+var sourceTypeList=[{v:'govsite',l:'政府网站'},{v:'file',l:'文件'},{v:'rss',l:'RSS'},{v:'manual',l:'手动'},{v:'douyin',l:'抖音'},{v:'wechat',l:'微信公众号'}];
 var sourceLevelBadge={'HIGH':'bg-green','MEDIUM':'bg-yellow','LOW':'bg-blue'};
 var editingSourceId='';
 
@@ -326,11 +333,47 @@ function onTypeChange(){
   }
 }
 
+function onProvinceChange(){
+  var p=document.getElementById('sf_province').value;
+  var citySel=document.getElementById('sf_city');
+  var distSel=document.getElementById('sf_district');
+  citySel.innerHTML='<option value="">请选择城市</option>';
+  distSel.innerHTML='<option value="">请先选择城市</option>';
+  if(!p)return;
+  fetch('/admin/regions?parent='+p).then(function(r){return r.json()}).then(function(d){
+    if(d.code===0){
+      d.data.forEach(function(c){citySel.innerHTML+='<option value="'+c.code+'">'+c.name+'</option>'});
+    }
+  });
+}
+
+function onCityChange(){
+  var c=document.getElementById('sf_city').value;
+  var distSel=document.getElementById('sf_district');
+  distSel.innerHTML='<option value="">请选择区县</option>';
+  if(!c)return;
+  fetch('/admin/regions?parent='+c).then(function(r){return r.json()}).then(function(d){
+    if(d.code===0){
+      d.data.forEach(function(d2){distSel.innerHTML+='<option value="'+d2.code+'">'+d2.name+'</option>'});
+    }
+  });
+}
+
 function showSourceForm(id){
   editingSourceId=id||'';
   var modal=document.getElementById('sourceModal');
   document.getElementById('sourceModalTitle').textContent=id?'编辑数据源':'新增数据源';
   var idInput=document.getElementById('sf_id');
+  // 加载省份列表
+  fetch('/admin/regions').then(function(r){return r.json()}).then(function(d){
+    if(d.code===0){
+      var sel=document.getElementById('sf_province');
+      sel.innerHTML='<option value="">请选择省份</option>';
+      d.data.provinces.forEach(function(p){sel.innerHTML+='<option value="'+p.code+'">'+p.name+'</option>'});
+    }
+  });
+  document.getElementById('sf_city').innerHTML='<option value="">请先选择省份</option>';
+  document.getElementById('sf_district').innerHTML='<option value="">请先选择城市</option>';
   if(id){
     idInput.value=id;idInput.readOnly=true;
     fetch('/admin/sources').then(function(r){return r.json()}).then(function(d){
@@ -341,7 +384,33 @@ function showSourceForm(id){
         document.getElementById('sf_level').value=s.source_level;
         document.getElementById('sf_url').value=s.source_url;
         document.getElementById('sf_interval').value=s.interval_sec;
-        document.getElementById('sf_region').value=s.region_code;
+        // 加载并设置地区
+        var rc=s.region_code||'';
+        if(rc){
+          var provCode=rc.slice(0,2)+'0000';
+          var cityCode=rc.slice(0,4)+'00';
+          var distCode=rc;
+          fetch('/admin/regions?parent='+provCode).then(function(r){return r.json()}).then(function(d2){
+            if(d2.code===0){
+              var citySel=document.getElementById('sf_city');
+              citySel.innerHTML='<option value="">请选择城市</option>';
+              d2.data.forEach(function(c){citySel.innerHTML+='<option value="'+c.code+'"'+(c.code===cityCode?' selected':'')+'>'+c.name+'</option>'});
+              if(cityCode>=provCode){
+                fetch('/admin/regions?parent='+cityCode).then(function(r){return r.json()}).then(function(d3){
+                  if(d3.code===0){
+                    var distSel=document.getElementById('sf_district');
+                    distSel.innerHTML='<option value="">请选择区县</option>';
+                    d3.data.forEach(function(d){distSel.innerHTML+='<option value="'+d.code+'"'+(d.code===distCode?' selected':'')+'>'+d.name+'</option>'});
+                  }
+                });
+              }
+            }
+          });
+          var provSel=document.getElementById('sf_province');
+          setTimeout(function(){
+            for(var i=0;i<provSel.options.length;i++){if(provSel.options[i].value===provCode){provSel.selectedIndex=i;break}}
+          },100);
+        }
         onTypeChange();
       }
     });
@@ -352,7 +421,6 @@ function showSourceForm(id){
     document.getElementById('sf_level').value='MEDIUM';
     document.getElementById('sf_url').value='';
     document.getElementById('sf_interval').value='86400';
-    document.getElementById('sf_region').value='';
     onTypeChange();
   }
   modal.style.display='block';
@@ -364,13 +432,18 @@ function saveSource(){
   var id=document.getElementById('sf_id').value.trim();
   var name=document.getElementById('sf_name').value.trim();
   if(!id||!name){showToast('ID和名称不能为空','error');return}
+  // 从三级地区选择器组装 region_code
+  var prov=document.getElementById('sf_province').value;
+  var city=document.getElementById('sf_city').value;
+  var dist=document.getElementById('sf_district').value;
+  var region_code=dist||city||prov||'';
   var payload={
     source_id:id,source_name:name,
     crawl_type:document.getElementById('sf_type').value,
     source_level:document.getElementById('sf_level').value,
     source_url:document.getElementById('sf_url').value,
     interval_sec:parseInt(document.getElementById('sf_interval').value)||86400,
-    region_code:document.getElementById('sf_region').value
+    region_code:region_code
   };
   if(editingSourceId){
     payload.source_id=editingSourceId;
@@ -567,6 +640,18 @@ function loadExtract(){
     h+='<div style="text-align:right"><button class="btn btn-primary" onclick="saveLLMConfig()">保存配置</button></div>';
     h+='</div></div>';
 
+    // Embedding 配置（可独立于 LLM 配置，用于向量模型如火山方舟 Doubao Embedding）
+    h+='<div class="card" style="margin-top:12px"><h3 style="font-size:16px;margin-bottom:12px">Embedding 向量配置</h3>';
+    h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">';
+    h+='<div><label style="font-size:12px;color:#6B7280;display:block;margin-bottom:4px">向量模型</label>'+
+      '<input id="embModel" value="'+esc(cfg.embedding_model||'doubao-embedding-vision')+'" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px"></div>';
+    h+='<div><label style="font-size:12px;color:#6B7280;display:block;margin-bottom:4px">向量维度</label>'+
+      '<input id="embDims" type="number" value="'+(cfg.embedding_dimensions||1024)+'" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px"></div>';
+    h+='<div style="grid-column:1/3"><label style="font-size:12px;color:#6B7280;display:block;margin-bottom:4px">API 地址（火山方舟: https://ark.cn-beijing.volces.com/api/v3/embeddings）</label><input id="embEndpoint" value="'+esc(cfg.embedding_endpoint||'https://ark.cn-beijing.volces.com/api/v3/embeddings')+'" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px"></div>';
+    h+='<div style="grid-column:1/3"><label style="font-size:12px;color:#6B7280;display:block;margin-bottom:4px">API Key（留空则复用 LLM 配置的 Key）</label><input id="embKey" type="password" value="'+esc(cfg.embedding_api_key)+'" placeholder="留空则复用 LLM API Key" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px"></div>';
+    h+='<div style="text-align:right"><span style="font-size:12px;color:#9CA3AF;margin-right:8px">保存 LLM 配置时一起保存</span></div>';
+    h+='</div></div>';
+
     h+='<div class="card"><h3 style="font-size:16px;margin-bottom:12px">提取状态</h3>';
     h+='<div style="display:flex;gap:12px;flex-wrap:wrap">';
     h+='<div style="background:#F3F4F6;border-radius:8px;padding:12px 20px;text-align:center"><span style="font-size:24px;font-weight:700;color:#1A56DB;display:block">'+st.unprocessed+'</span><span style="font-size:12px;color:#6B7280">待提取原始文本</span></div>';
@@ -590,7 +675,7 @@ function loadExtract(){
         '<div style="display:flex;gap:6px;align-items:center">'+
         '<span style="font-size:12px;color:#6B7280">类型:</span>'+
         '<select id="ext_ft" onchange="filterExtract()" style="padding:3px 6px;border:1px solid #D1D5DB;border-radius:4px;font-size:12px">'+
-        '<option value="">全部</option><option value="govsite">政府网站</option><option value="rss">RSS</option><option value="douyin">抖音</option><option value="manual">手动</option><option value="file">文件</option></select>'+
+        '<option value="">全部</option>'+sourceTypeList.map(function(t){return '<option value="'+t.v+'">'+t.l+'</option>'}).join('')+'</select>'+
         '<span style="font-size:12px;color:#6B7280">级别:</span>'+
         '<select id="ext_fl" onchange="filterExtract()" style="padding:3px 6px;border:1px solid #D1D5DB;border-radius:4px;font-size:12px">'+
         '<option value="">全部</option><option value="HIGH">HIGH</option><option value="MEDIUM">MEDIUM</option><option value="LOW">LOW</option></select>'+
@@ -649,7 +734,11 @@ function saveLLMConfig(){
       endpoint:document.getElementById('llmEndpoint').value,
       model_name:document.getElementById('llmModel').value,
       max_tokens:4096,
-      enabled:!!document.getElementById('llmKey').value
+      enabled:!!document.getElementById('llmKey').value,
+      embedding_model:document.getElementById('embModel').value,
+      embedding_dimensions:parseInt(document.getElementById('embDims').value)||1024,
+      embedding_api_key:document.getElementById('embKey').value,
+      embedding_endpoint:document.getElementById('embEndpoint').value
     })}).then(function(r){return r.json()}).then(function(d){
     showToast('\u914d\u7f6e\u5df2\u4fdd\u5b58','success')
   }).catch(function(){showToast('\u4fdd\u5b58\u5931\u8d25','error')});
@@ -699,29 +788,40 @@ function loadSearch(){
     '<iframe src="/admin/search_page" style="width:100%;height:800px;border:none;" onload="var s=this.previousSibling;if(s)s.style.display=\'none\'"></iframe>';
 }
 
-var logStartDate='',logEndDate='';
+var logStartDate='',logEndDate='',logFt='',logFl='',logSt='';
 
 function loadLogs(){
   var app=document.getElementById('app');
   var today=new Date();var weekAgo=new Date(today);weekAgo.setDate(weekAgo.getDate()-7);
   var sd=logStartDate||weekAgo.toISOString().slice(0,10);
   var ed=logEndDate||today.toISOString().slice(0,10);
-  var url='/admin/logs?start_date='+sd+'&end_date='+ed;
+  var ft=logFt,vl=logFl,st=logSt;
+  var url='/admin/logs?start_date='+sd+'&end_date='+ed+'&source_type='+ft+'&source_level='+vl+'&status='+st;
   fetch(url).then(function(r){return r.json()}).then(function(d){
     if(d.code!==0)throw new Error(d.message||'error');
-    var h='<div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap">'+
-      '<span style="font-size:13px;color:#6B7280">起始</span>'+
-      '<input type="date" id="logStart" value="'+sd+'" style="padding:4px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px">'+
-      '<span style="font-size:13px;color:#6B7280">结束</span>'+
-      '<input type="date" id="logEnd" value="'+ed+'" style="padding:4px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px">'+
-      '<button class="btn btn-primary btn-sm" onclick="filterLogs()">\u67e5\u8be2</button>'+
-      '<span style="font-size:13px;color:#6B7280">\u5171 '+d.data.length+' \u6761\u8bb0\u5f55</span></div>'+
+    var items=d.data||[];
+    var h='<div style="display:flex;gap:6px;align-items:center;margin-bottom:10px;flex-wrap:wrap">'+
+      '<span style="font-size:12px;color:#6B7280">起始</span>'+
+      '<input type="date" id="logStart" value="'+sd+'" style="padding:4px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:12px">'+
+      '<span style="font-size:12px;color:#6B7280">结束</span>'+
+      '<input type="date" id="logEnd" value="'+ed+'" style="padding:4px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:12px">'+
+      '<span style="font-size:12px;color:#6B7280">类型:</span>'+
+      '<select id="logFt" onchange="filterLogs()" style="padding:3px 6px;border:1px solid #D1D5DB;border-radius:4px;font-size:12px">'+
+      '<option value="">全部</option>'+sourceTypeList.map(function(t){return '<option value="'+t.v+'"'+(ft===t.v?' selected':'')+'>'+t.l+'</option>'}).join('')+'</select>'+
+      '<span style="font-size:12px;color:#6B7280">级别:</span>'+
+      '<select id="logFl" onchange="filterLogs()" style="padding:3px 6px;border:1px solid #D1D5DB;border-radius:4px;font-size:12px">'+
+      '<option value="">全部</option><option value="HIGH"'+(vl==='HIGH'?' selected':'')+'>HIGH</option><option value="MEDIUM"'+(vl==='MEDIUM'?' selected':'')+'>MEDIUM</option><option value="LOW"'+(vl==='LOW'?' selected':'')+'>LOW</option></select>'+
+      '<span style="font-size:12px;color:#6B7280">状态:</span>'+
+      '<select id="logSt" onchange="filterLogs()" style="padding:3px 6px;border:1px solid #D1D5DB;border-radius:4px;font-size:12px">'+
+      '<option value="">全部</option><option value="true"'+(st==='true'?' selected':'')+'>成功</option><option value="false"'+(st==='false'?' selected':'')+'>失败</option></select>'+
+      '<button class="btn btn-primary btn-sm" onclick="filterLogs()">查询</button>'+
+      '<span style="font-size:13px;color:#6B7280">共 '+items.length+' 条记录</span></div>'+
       '<div style="overflow-x:auto"><table><tr><th>\u65f6\u95f4</th><th>\u6570\u636e\u6e90</th><th>\u72b6\u6001</th><th>\u63d0\u53d6ID</th><th>\u5185\u5bb9\u6982\u8981</th><th>\u9519\u8bef\u4fe1\u606f</th></tr>';
-    d.data.forEach(function(l){
+    items.forEach(function(l){
       var claimCell=l.extracted_claim_id?'<a href="#claims" onclick="loadClaims(undefined,undefined,undefined,undefined);return false" style="color:#1A56DB;text-decoration:none;font-size:12px">'+esc(l.extracted_claim_id)+'</a>':'-';
       var summaryCell=l.content_summary?'<span style="font-size:12px;color:#374151">'+esc(l.content_summary)+'</span>':'-';
       h+='<tr><td style="font-size:11px;color:#9CA3AF">'+esc(l.crawled_at)+'</td><td>'+esc(l.source_name||l.source_id)+'</td>'+
-      '<td>'+(l.status==='success'?'<span class="badge bg-green">\u6210\u529f</span>':'<span class="badge bg-red">\u5931\u8d25</span>')+'</td>'+
+      '<td>'+(l.status==='true'||l.status===true?'<span class="badge bg-green">\u6210\u529f</span>':'<span class="badge bg-red">\u5931\u8d25</span>')+'</td>'+
       '<td>'+claimCell+'</td>'+
       '<td style="max-width:250px;overflow:hidden;text-overflow:ellipsis">'+summaryCell+'</td>'+
       '<td style="font-size:12px;color:#EF4444;max-width:200px;overflow:hidden;text-overflow:ellipsis" title="'+esc(l.error_message)+'">'+esc(l.error_message||'-')+'</td></tr>'
@@ -733,7 +833,115 @@ function loadLogs(){
 function filterLogs(){
   logStartDate=document.getElementById('logStart').value;
   logEndDate=document.getElementById('logEnd').value;
+  logFt=document.getElementById('logFt').value;
+  logFl=document.getElementById('logFl').value;
+  logSt=document.getElementById('logSt').value;
   loadLogs();
+}
+
+var extLogStartDate='',extLogEndDate='',extLogFt='',extLogFl='',extLogFr='',extLogSt='';
+
+function loadExtractLogs(){
+  var app=document.getElementById('app');
+  var today=new Date();var weekAgo=new Date(today);weekAgo.setDate(weekAgo.getDate()-7);
+  var sd=extLogStartDate||weekAgo.toISOString().slice(0,10);
+  var ed=extLogEndDate||today.toISOString().slice(0,10);
+  var ft=extLogFt,vl=extLogFl,rc=extLogFr,st=extLogSt;
+  var url='/admin/extract-logs?start_date='+sd+'&end_date='+ed+'&source_type='+ft+'&source_level='+vl+'&region_code='+rc+'&status='+st;
+  fetch(url).then(function(r){return r.json()}).then(function(d){
+    if(d.code!==0)throw new Error(d.message||'error');
+    var items=d.data||[];
+    var succ=0,fail=0;items.forEach(function(l){if(l.status==='success')succ++;else fail++});
+    // 生成筛选栏
+    var h='<div style="display:flex;gap:6px;align-items:center;margin-bottom:10px;flex-wrap:wrap">'+
+      '<span style="font-size:12px;color:#6B7280">起始</span>'+
+      '<input type="date" id="extLogStart" value="'+sd+'" style="padding:4px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:12px">'+
+      '<span style="font-size:12px;color:#6B7280">结束</span>'+
+      '<input type="date" id="extLogEnd" value="'+ed+'" style="padding:4px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:12px">'+
+      '<span style="font-size:12px;color:#6B7280">类型:</span>'+
+      '<select id="extLogFt" onchange="filterExtractLogs()" style="padding:3px 6px;border:1px solid #D1D5DB;border-radius:4px;font-size:12px">'+
+      '<option value="">全部</option>'+sourceTypeList.map(function(t){return '<option value="'+t.v+'"'+(ft===t.v?' selected':'')+'>'+t.l+'</option>'}).join('')+'</select>'+
+      '<span style="font-size:12px;color:#6B7280">级别:</span>'+
+      '<select id="extLogFl" onchange="filterExtractLogs()" style="padding:3px 6px;border:1px solid #D1D5DB;border-radius:4px;font-size:12px">'+
+      '<option value="">全部</option><option value="HIGH"'+(vl==='HIGH'?' selected':'')+'>HIGH</option><option value="MEDIUM"'+(vl==='MEDIUM'?' selected':'')+'>MEDIUM</option><option value="LOW"'+(vl==='LOW'?' selected':'')+'>LOW</option></select>'+
+      '<span style="font-size:12px;color:#6B7280">状态:</span>'+
+      '<select id="extLogSt" onchange="filterExtractLogs()" style="padding:3px 6px;border:1px solid #D1D5DB;border-radius:4px;font-size:12px">'+
+      '<option value="">全部</option><option value="success"'+(st==='success'?' selected':'')+'>成功</option><option value="failed"'+(st==='failed'?' selected':'')+'>失败</option></select>'+
+      '<button class="btn btn-primary btn-sm" onclick="filterExtractLogs()">查询</button>'+
+      '<span class="badge bg-green">成功 '+succ+'</span>'+
+      '<span class="badge bg-red">失败 '+fail+'</span>'+
+      '<span style="font-size:13px;color:#6B7280">共 '+items.length+' 条</span></div>'+
+      '<div style="overflow-x:auto"><table><tr><th>\u65f6\u95f4</th><th>\u6570\u636e\u6e90</th><th>\u6a21\u578b</th><th>\u6807\u9898</th><th>\u63d0\u53d6\u5185\u5bb9\u6982\u8981</th><th>\u63d0\u53d6ID</th><th>\u72b6\u6001</th><th>\u4fe1\u606f</th></tr>';
+    items.forEach(function(l){
+      var claimCell=l.claim_id?'<span style="font-size:11px;color:#1A56DB">'+esc(l.claim_id)+'</span>':'-';
+      var titleCell=l.title?'<span style="font-size:12px;color:#374151;max-width:150px;display:inline-block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(l.title)+'</span>':'-';
+      var summaryCell=l.content_summary?'<span style="font-size:12px;color:#374151">'+esc(l.content_summary)+'</span>':'-';
+      h+='<tr><td style="font-size:11px;color:#9CA3AF">'+esc(l.created_at)+'</td>'+
+      '<td style="font-size:12px">'+esc(l.source_name||l.source_id)+'</td>'+
+      '<td style="font-size:11px;color:#6B7280">'+esc(l.model_name||'-')+'</td>'+
+      '<td>'+titleCell+'</td>'+
+      '<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis">'+summaryCell+'</td>'+
+      '<td>'+claimCell+'</td>'+
+      '<td>'+(l.status==='success'?'<span class="badge bg-green">\u6210\u529f</span>':'<span class="badge bg-red">\u5931\u8d25</span>')+'</td>'+
+      '<td style="font-size:12px;color:'+(l.status==='success'?'#059669':'#EF4444')+';max-width:250px;overflow:hidden;text-overflow:ellipsis" title="'+esc(l.error_message)+'">'+esc(l.error_message||'-')+'</td></tr>'
+    });
+    h+='</table></div>';app.innerHTML=h;
+  }).catch(function(e){app.innerHTML='<div class="card"><h3>\u52a0\u8f7d\u5931\u8d25</h3><p>'+esc(e.message)+'</p></div>'});
+}
+
+function filterExtractLogs(){
+  extLogStartDate=document.getElementById('extLogStart').value;
+  extLogEndDate=document.getElementById('extLogEnd').value;
+  extLogFt=document.getElementById('extLogFt').value;
+  extLogFl=document.getElementById('extLogFl').value;
+  extLogSt=document.getElementById('extLogSt').value;
+  loadExtractLogs();
+}
+
+function loadPipeline(){
+  var app=document.getElementById('app');
+  app.innerHTML='<div class="card" style="text-align:center;padding:40px"><div class="spinner"></div>\u52a0\u8f7d\u4e2d...</div>';
+  fetch('/admin/pipeline').then(function(r){return r.json()}).then(function(d){
+    if(d.code!==0)throw new Error(d.message||'error');
+    var items=d.data||[];
+    var succ=0,fail=0,total=0;
+    items.forEach(function(e){
+      if(e.enabled)total++;
+      if(e.crawl_status==='success')succ++;
+      if(e.crawl_status==='failed')fail++;
+    });
+    var h='<div class="stat-row" style="margin-bottom:12px">'+
+      '<div class="stat-card"><span class="stat-num c-blue">'+items.length+'</span><span class="stat-label">数据源</span></div>'+
+      '<div class="stat-card"><span class="stat-num c-blue">'+total+'</span><span class="stat-label">启用的</span></div>'+
+      '<div class="stat-card"><span class="stat-num c-green">'+succ+'</span><span class="stat-label">爬取成功</span></div>'+
+      '<div class="stat-card"><span class="stat-num c-red">'+fail+'</span><span class="stat-label">爬取失败</span></div>'+
+      '</div>';
+    items.forEach(function(e){
+      var crawlBadge=e.crawl_status==='success'?'<span class="badge bg-green">成功</span>':
+        e.crawl_status==='failed'?'<span class="badge bg-red">失败</span>':
+        e.crawl_status==='never'?'<span class="badge bg-yellow">从未</span>':'<span class="badge bg-yellow">'+esc(e.crawl_status)+'</span>';
+      var extractBadge=e.extract_status==='success'?'<span class="badge bg-green">成功</span>':
+        e.extract_status==='failed'?'<span class="badge bg-red">失败</span>':'<span class="badge bg-yellow">未处理</span>';
+      var claimBadge=e.claim_status==='verified'?'<span class="badge bg-green">已通过</span>':
+        e.claim_status==='unverified'?'<span class="badge bg-red">已驳回</span>':
+        e.claim_status==='pending_review'?'<span class="badge bg-yellow">待审核</span>':'<span class="badge bg-yellow">无</span>';
+      var rawIcon=e.has_raw_text?'<span style="color:#059669">\u2713</span>':'<span style="color:#EF4444">\u2717</span>';
+      h+='<div class="card" style="margin-bottom:8px;padding:12px 16px">'+
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">'+
+        '<span style="font-weight:600;font-size:14px">'+esc(e.source_name||e.source_id)+' <span style="font-size:11px;color:#6B7280;font-weight:normal">('+esc(e.crawl_type)+', '+esc(e.source_level)+')</span></span>'+
+        '<span>'+(e.enabled?'<span class="badge bg-green">启用</span>':'<span class="badge bg-red">禁用</span>')+'</span></div>'+
+        '<div style="display:flex;gap:16px;font-size:12px;color:#6B7280;flex-wrap:wrap">'+
+        '<div><span style="color:#374151;font-weight:500">爬取:</span> '+crawlBadge+' <span style="color:#9CA3AF">'+esc(e.last_crawl_at||'')+'</span><br>'+
+        '<span style="font-size:11px;color:#EF4444">'+esc(e.crawl_error)+'</span></div>'+
+        '<div><span style="color:#374151;font-weight:500">原文:</span> '+rawIcon+'</div>'+
+        '<div><span style="color:#374151;font-weight:500">提取:</span> '+extractBadge+' <span style="color:#9CA3AF">'+esc(e.last_extract_at||'')+'</span></div>'+
+        '<div><span style="color:#374151;font-weight:500">政策:</span> '+claimBadge+' '+
+        (e.claim_id?'<span style="font-size:11px;color:#1A56DB">'+esc(e.claim_id)+'</span>':'')+
+        (e.confidence>0?' <span style="font-size:11px;color:#D97706">'+(Math.round(e.confidence*100))+'%</span>':'')+
+        '</div></div></div>';
+    });
+    app.innerHTML=h;
+  }).catch(function(e){app.innerHTML='<div class="card"><h3>\u52a0\u8f7d\u5931\u8d25</h3><p>'+esc(e.message)+'</p></div>'});
 }
 
 function showImportForm(){
@@ -763,8 +971,8 @@ function doImport(){
   .then(function(r){return r.json()}).then(function(d){
     if(d.code===0){showToast('\u5bfc\u5165\u6210\u529f\uff0c\u5f85\u5ba1\u6838','success');document.getElementById('policyText').value=''}
     else{showToast('\u5bfc\u5165\u5931\u8d25: '+(d.error||d.message||''),'error')}
-  }).catch(function(){showToast('\u8bf7\u6c42\u5931\u8d25','error')});
-  btn.disabled=false;btn.textContent='\u89e3\u6790\u5e76\u5bfc\u5165';
+    btn.disabled=false;btn.textContent='\u89e3\u6790\u5e76\u5bfc\u5165';
+  }).catch(function(){showToast('\u8bf7\u6c42\u5931\u8d25','error');btn.disabled=false;btn.textContent='\u89e3\u6790\u5e76\u5bfc\u5165'});
 }
 
 </script>

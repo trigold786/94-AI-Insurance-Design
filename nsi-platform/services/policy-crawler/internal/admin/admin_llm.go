@@ -13,14 +13,16 @@ import (
 )
 
 type LLMConfig struct {
-	Provider           string `json:"provider"`
-	APIKey             string `json:"api_key"`
-	Endpoint           string `json:"endpoint"`
-	ModelName          string `json:"model_name"`
-	MaxTokens          int    `json:"max_tokens"`
-	Enabled            bool   `json:"enabled"`
-	EmbeddingModel     string `json:"embedding_model"`
-	EmbeddingDimensions int   `json:"embedding_dimensions"`
+	Provider            string `json:"provider"`
+	APIKey              string `json:"api_key"`
+	Endpoint            string `json:"endpoint"`
+	ModelName           string `json:"model_name"`
+	MaxTokens           int    `json:"max_tokens"`
+	Enabled             bool   `json:"enabled"`
+	EmbeddingModel      string `json:"embedding_model"`
+	EmbeddingDimensions int    `json:"embedding_dimensions"`
+	EmbeddingAPIKey     string `json:"embedding_api_key"`
+	EmbeddingEndpoint   string `json:"embedding_endpoint"`
 }
 
 type LLMStore interface {
@@ -47,6 +49,7 @@ func LLMConfigGetHandler(store LLMStore) http.Handler {
 		}
 		masked := *cfg
 		masked.APIKey = maskAPIKey(cfg.APIKey)
+		masked.EmbeddingAPIKey = maskAPIKey(cfg.EmbeddingAPIKey)
 		respondJSON(w, http.StatusOK, map[string]interface{}{"code": 0, "data": masked})
 	})
 }
@@ -67,6 +70,12 @@ func LLMConfigSaveHandler(store LLMStore) http.Handler {
 			existing, err := store.GetLLMConfig()
 			if err == nil && existing != nil {
 				cfg.APIKey = existing.APIKey
+			}
+		}
+		if strings.Contains(cfg.EmbeddingAPIKey, "****") {
+			existing, err := store.GetLLMConfig()
+			if err == nil && existing != nil {
+				cfg.EmbeddingAPIKey = existing.EmbeddingAPIKey
 			}
 		}
 		if err := store.SaveLLMConfig(&cfg); err != nil {

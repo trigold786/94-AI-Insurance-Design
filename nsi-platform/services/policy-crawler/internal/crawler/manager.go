@@ -61,6 +61,12 @@ func (m *CrawlerManager) Init(sources []SourceConfig, watchDir string) {
 				dc.SetRenderer(m.renderer)
 			}
 			s = dc
+		case "wechat":
+			wc := NewWeChatCrawler(cfg)
+			if m.renderer != nil {
+				wc.SetRenderer(m.renderer)
+			}
+			s = wc
 		default:
 			log.Printf("[crawler] unknown crawl type %q for source %s", cfg.CrawlType, cfg.SourceID)
 			continue
@@ -132,6 +138,12 @@ func (m *CrawlerManager) loadAndRegisterSource(sourceID string) (Source, error) 
 				dc.SetRenderer(m.renderer)
 			}
 			s = dc
+		case "wechat":
+			wc := NewWeChatCrawler(cfg)
+			if m.renderer != nil {
+				wc.SetRenderer(m.renderer)
+			}
+			s = wc
 		default:
 			return nil, fmt.Errorf("unknown crawl type %q", cfg.CrawlType)
 		}
@@ -156,6 +168,7 @@ func (m *CrawlerManager) crawlAndProcess(s Source) {
 		return
 	}
 	if len(results) == 0 {
+		m.store.SaveCrawlLogWithDetails(s.SourceID(), true, "no new content", "", "")
 		return // 没有新内容
 	}
 
@@ -234,17 +247,20 @@ func (m *CrawlerManager) crawlAndProcess(s Source) {
 	}
 }
 
-// calculateConfidence 置信度评分 (PRD §4.2.2)
+// calculateConfidence 多因子加权置信度评分
 func truncateSummary(s string, maxLen int) string {
 	s = strings.TrimSpace(s)
 	s = strings.Join(strings.Fields(s), " ")
-	if len(s) <= maxLen {
+	runes := []rune(s)
+	if len(runes) <= maxLen {
 		return s
 	}
-	return s[:maxLen] + "..."
+	return string(runes[:maxLen]) + "..."
 }
 
+// 因子: 数据源权威性(0.30) + 交叉验证匹配(0.25) + 内容结构化程度(0.20) + 数据完整性(0.15) + 时效性(0.10)
 func (m *CrawlerManager) calculateConfidence(sourceLevel string, claim *parser.PolicyClaim) float64 {
+	// 1. 数据源权威性权重 (0.30)
 	var wSource float64
 	switch sourceLevel {
 	case "HIGH":
@@ -256,22 +272,85 @@ func (m *CrawlerManager) calculateConfidence(sourceLevel string, claim *parser.P
 	default:
 		wSource = 0.5
 	}
+	sourceScore := wSource
 
-	// 尝试交叉验证：查找同 region + 同 type 的已有政策
-	var matchCount, conflictCount int
+	// 2. 交叉验证匹配度 (0.25)
+	// 同 region + 同 type 的已有政策中已通过的比例越高越可信
+	var matchRate float64
 	if m.claimDB != nil {
 		existing, err := m.claimDB.ListByRegionAndType(claim.RegionCode, claim.PolicyType)
-		if err == nil {
+		if err == nil && len(existing) > 0 {
+			var verifiedCount int
 			for _, e := range existing {
-				if e.Status != "unverified" {
-					matchCount++
+				if e.Status == "verified" {
+					verifiedCount++
 				}
 			}
+			matchRate = float64(verifiedCount) / float64(len(existing))
+			// 如果全部通过则满分，否则按比例降分
+			if verifiedCount == 0 {
+				matchRate = 0.1 // 至少给一点分表示存在同类政策
+			}
+		} else if err == nil {
+			matchRate = 0.5 // 暂无同类政策可对比，给中间分
 		}
 	}
+	crossScore := matchRate
 
-	// 简化评分公式 (PRD §4.2.2 完整公式需分布式权重配置)
-	score := (0.4*wSource + 0.3*float64(matchCount)*0.1 - 0.1*float64(conflictCount)*0.1 + 0.2*0.8 + 0.1*0) / 0.7
+	// 3. 内容结构化程度 (0.20)
+	// 解析出的字段越完整分数越高
+	var fieldScore float64
+	fields := 0
+	totalFields := 6
+	if claim.PolicyID != "" {
+		fields++
+	}
+	if claim.RegionCode != "" && claim.RegionCode != "000000" {
+		fields++
+	}
+	if claim.PolicyType != "" {
+		fields++
+	}
+	if claim.TargetGroups != nil && len(claim.TargetGroups) > 0 {
+		fields++
+	}
+	if claim.SubsidyCalcMethod != "" {
+		fields++
+	}
+	if claim.AmountMin != nil || claim.AmountMax != nil {
+		fields++
+	}
+	fieldScore = float64(fields) / float64(totalFields)
+	if fieldScore < 0.3 {
+		fieldScore = 0.3 // 最小保证分
+	}
+
+	// 4. 数据完整性 (0.15)
+	// 有效的金额范围和期限信息
+	var completeness float64
+	compFields := 0
+	if claim.AmountMin != nil && *claim.AmountMin > 0 {
+		compFields++
+	}
+	if claim.SubsidyDuration != nil && *claim.SubsidyDuration > 0 {
+		compFields++
+	}
+	if claim.EffectiveDate != "" {
+		compFields++
+	}
+	completeness = float64(compFields) / 3.0
+
+	// 5. 时效性 (0.10)
+	// 新的政策比旧的政策更可信
+	var timeliness float64 = 0.5
+	if claim.EffectiveDate != "" {
+		timeliness = 0.8 // 有生效日期的相对可靠
+	}
+
+	// 加权综合评分
+	score := 0.30*sourceScore + 0.25*crossScore + 0.20*fieldScore + 0.15*completeness + 0.10*timeliness
+
+	// 边界裁剪
 	if score > 1.0 {
 		score = 1.0
 	}

@@ -309,11 +309,24 @@ func (s *DBStore) CreateSource(src *admin.SourceInfo) error {
 }
 
 func (s *DBStore) DeleteSource(sourceID string) error {
-	_, err := s.db.Exec(`DELETE FROM policy_sources WHERE source_id = $1`, sourceID)
-	return err
+	tx, err := s.db.Begin()
+	if err != nil {
+		return fmt.Errorf("begin tx: %w", err)
+	}
+	defer tx.Rollback()
+
+	tx.Exec(`DELETE FROM crawl_logs WHERE source_id = $1`, sourceID)
+	tx.Exec(`DELETE FROM policy_raw_texts WHERE source_id = $1`, sourceID)
+	tx.Exec(`DELETE FROM extract_logs WHERE source_id = $1`, sourceID)
+	tx.Exec(`UPDATE policy_claims SET source_id = '' WHERE source_id = $1`, sourceID)
+	_, err = tx.Exec(`DELETE FROM policy_sources WHERE source_id = $1`, sourceID)
+	if err != nil {
+		return fmt.Errorf("delete source: %w", err)
+	}
+	return tx.Commit()
 }
 
-func (s *DBStore) GetCrawlLogsFiltered(startDate, endDate string, limit int) ([]admin.CrawlLogEntry, error) {
+func (s *DBStore) GetCrawlLogsFiltered(startDate, endDate, sourceType, sourceLevel, status string, limit int) ([]admin.CrawlLogEntry, error) {
 	query := `SELECT cl.id, cl.source_id, COALESCE(ps.source_name, cl.source_id), cl.status, cl.error_message, cl.crawled_at::text,
 		COALESCE(cl.extracted_claim_id,''), COALESCE(cl.content_summary,'')
 		FROM crawl_logs cl LEFT JOIN policy_sources ps ON cl.source_id = ps.source_id WHERE 1=1`
@@ -327,6 +340,21 @@ func (s *DBStore) GetCrawlLogsFiltered(startDate, endDate string, limit int) ([]
 	if endDate != "" {
 		query += fmt.Sprintf(" AND cl.crawled_at <= $%d::timestamp + interval '1 day'", argIdx)
 		args = append(args, endDate)
+		argIdx++
+	}
+	if sourceType != "" {
+		query += fmt.Sprintf(" AND ps.crawl_type = $%d", argIdx)
+		args = append(args, sourceType)
+		argIdx++
+	}
+	if sourceLevel != "" {
+		query += fmt.Sprintf(" AND ps.source_level = $%d", argIdx)
+		args = append(args, sourceLevel)
+		argIdx++
+	}
+	if status != "" {
+		query += fmt.Sprintf(" AND cl.status = $%d", argIdx)
+		args = append(args, status)
 		argIdx++
 	}
 	query += fmt.Sprintf(" ORDER BY cl.crawled_at DESC LIMIT $%d", argIdx)
@@ -440,10 +468,12 @@ func (s *DBStore) GetDashboardStats() (*admin.DashboardStats, error) {
 func (s *DBStore) GetLLMConfig() (*admin.LLMConfig, error) {
 	var cfg admin.LLMConfig
 	err := s.db.QueryRow(`SELECT provider, api_key, endpoint, model_name, max_tokens, enabled,
-		COALESCE(embedding_model, 'text-embedding-3-small'), COALESCE(embedding_dimensions, 1536)
+		COALESCE(embedding_model, 'text-embedding-3-small'), COALESCE(embedding_dimensions, 1536),
+		COALESCE(embedding_api_key, ''), COALESCE(embedding_endpoint, '')
 		FROM llm_configs ORDER BY id DESC LIMIT 1`).Scan(
 		&cfg.Provider, &cfg.APIKey, &cfg.Endpoint, &cfg.ModelName, &cfg.MaxTokens, &cfg.Enabled,
-		&cfg.EmbeddingModel, &cfg.EmbeddingDimensions)
+		&cfg.EmbeddingModel, &cfg.EmbeddingDimensions,
+		&cfg.EmbeddingAPIKey, &cfg.EmbeddingEndpoint)
 	if err != nil {
 		return nil, fmt.Errorf("query llm config: %w", err)
 	}
@@ -460,8 +490,9 @@ func (s *DBStore) SaveLLMConfig(cfg *admin.LLMConfig) error {
 	if err != nil {
 		return err
 	}
-	_, err = tx.Exec(`INSERT INTO llm_configs (provider, api_key, endpoint, model_name, max_tokens, enabled) VALUES ($1,$2,$3,$4,$5,$6)`,
-		cfg.Provider, cfg.APIKey, cfg.Endpoint, cfg.ModelName, cfg.MaxTokens, cfg.Enabled)
+	_, err = tx.Exec(`INSERT INTO llm_configs (provider, api_key, endpoint, model_name, max_tokens, enabled, embedding_model, embedding_dimensions, embedding_api_key, embedding_endpoint) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+		cfg.Provider, cfg.APIKey, cfg.Endpoint, cfg.ModelName, cfg.MaxTokens, cfg.Enabled,
+		cfg.EmbeddingModel, cfg.EmbeddingDimensions, cfg.EmbeddingAPIKey, cfg.EmbeddingEndpoint)
 	if err != nil {
 		return err
 	}
@@ -470,7 +501,8 @@ func (s *DBStore) SaveLLMConfig(cfg *admin.LLMConfig) error {
 
 // --- LLM 提取 ---
 func (s *DBStore) GetUnprocessedRawTexts(limit int) ([]extractor.RawTextEntry, error) {
-	rows, err := s.db.Query(`SELECT prt.id, prt.source_id, prt.content, COALESCE(prt.source_url,''), COALESCE(ps.source_name,'')
+	rows, err := s.db.Query(`SELECT prt.id, prt.source_id, prt.content, COALESCE(prt.source_url,''), COALESCE(ps.source_name,''),
+		COALESCE(prt.title,'')
 		FROM policy_raw_texts prt
 		LEFT JOIN policy_sources ps ON ps.source_id = prt.source_id
 		WHERE NOT prt.extracted ORDER BY prt.id ASC LIMIT $1`, limit)
@@ -482,7 +514,7 @@ func (s *DBStore) GetUnprocessedRawTexts(limit int) ([]extractor.RawTextEntry, e
 	var entries []extractor.RawTextEntry
 	for rows.Next() {
 		var e extractor.RawTextEntry
-		if err := rows.Scan(&e.ID, &e.SourceID, &e.Content, &e.SourceURL, &e.SourceName); err != nil {
+		if err := rows.Scan(&e.ID, &e.SourceID, &e.Content, &e.SourceURL, &e.SourceName, &e.Title); err != nil {
 			return nil, err
 		}
 		entries = append(entries, e)
@@ -526,6 +558,74 @@ func (s *DBStore) SaveExtractLog(sourceID string, success bool, msg string) {
 		status = "success"
 	}
 	s.db.Exec(`INSERT INTO extract_logs (source_id, status, message) VALUES ($1,$2,$3)`, sourceID, status, msg)
+}
+
+func (s *DBStore) SaveExtractLogDetailed(rawTextID int64, sourceID string, success bool, msg string, claimID string, title string, modelName string, summary string) {
+	status := "failed"
+	if success {
+		status = "success"
+	}
+	s.db.Exec(`INSERT INTO extract_logs (source_id, status, message, raw_text_id, claim_id, title, model_name, content_summary) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+		sourceID, status, msg, rawTextID, claimID, title, modelName, summary)
+}
+
+func (s *DBStore) GetExtractLogsFiltered(startDate, endDate, sourceType, sourceLevel, regionCode, status string, limit int) ([]admin.ExtractLogEntry, error) {
+	query := `SELECT el.id, el.raw_text_id, el.source_id, COALESCE(ps.source_name, el.source_id),
+		COALESCE(el.claim_id,''), COALESCE(el.title,''), el.status, el.message,
+		COALESCE(el.model_name,''), el.created_at::text, COALESCE(el.content_summary,'')
+		FROM extract_logs el LEFT JOIN policy_sources ps ON el.source_id = ps.source_id WHERE 1=1`
+	var args []interface{}
+	argIdx := 1
+	if startDate != "" {
+		query += fmt.Sprintf(" AND el.created_at >= $%d::timestamp", argIdx)
+		args = append(args, startDate)
+		argIdx++
+	}
+	if endDate != "" {
+		query += fmt.Sprintf(" AND el.created_at <= $%d::timestamp + interval '1 day'", argIdx)
+		args = append(args, endDate)
+		argIdx++
+	}
+	if sourceType != "" {
+		query += fmt.Sprintf(" AND ps.crawl_type = $%d", argIdx)
+		args = append(args, sourceType)
+		argIdx++
+	}
+	if sourceLevel != "" {
+		query += fmt.Sprintf(" AND ps.source_level = $%d", argIdx)
+		args = append(args, sourceLevel)
+		argIdx++
+	}
+	if regionCode != "" {
+		query += fmt.Sprintf(" AND ps.region_code = $%d", argIdx)
+		args = append(args, regionCode)
+		argIdx++
+	}
+	if status != "" {
+		query += fmt.Sprintf(" AND el.status = $%d", argIdx)
+		args = append(args, status)
+		argIdx++
+	}
+	query += fmt.Sprintf(" ORDER BY el.created_at DESC LIMIT $%d", argIdx)
+	args = append(args, limit)
+
+	rows, err := s.db.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var logs []admin.ExtractLogEntry
+	for rows.Next() {
+		var l admin.ExtractLogEntry
+		if err := rows.Scan(&l.ID, &l.RawTextID, &l.SourceID, &l.SourceName,
+			&l.ClaimID, &l.Title, &l.Status, &l.ErrorMessage,
+			&l.ModelName, &l.CreatedAt, &l.ContentSummary); err != nil {
+			return nil, err
+		}
+		logs = append(logs, l)
+	}
+	return logs, rows.Err()
 }
 
 func (s *DBStore) SaveEmbedding(claimID string, embedding []float64) error {
@@ -641,4 +741,71 @@ func (s *DBStore) UpdateStatus(claimID, status string, confidence float64) error
 		return errors.NewNotFound("claim", claimID)
 	}
 	return nil
+}
+
+func (s *DBStore) GetPipeline() ([]admin.PipelineEntry, error) {
+	query := `
+	SELECT
+		ps.source_id,
+		COALESCE(ps.source_name, ps.source_id),
+		ps.source_level,
+		ps.crawl_type,
+		ps.enabled,
+		COALESCE(cl.crawled_at::text, ''),
+		CASE WHEN cl.status IS NULL THEN 'never'
+			 WHEN cl.status = 'true' THEN 'success'
+			 WHEN cl.status = 'false' THEN 'failed'
+			 ELSE cl.status::text END,
+		COALESCE(cl.error_message, ''),
+		CASE WHEN rt.id IS NOT NULL THEN true ELSE false END,
+		COALESCE(el.created_at::text, ''),
+		COALESCE(el.status, ''),
+		COALESCE(el.message, ''),
+		COALESCE(pc.claim_id, ''),
+		COALESCE(pc.status, ''),
+		COALESCE(pc.confidence_score, 0)
+	FROM policy_sources ps
+	LEFT JOIN LATERAL (
+		SELECT cl.crawled_at, cl.status, cl.error_message
+		FROM crawl_logs cl
+		WHERE cl.source_id = ps.source_id
+		ORDER BY cl.crawled_at DESC LIMIT 1
+	) cl ON true
+	LEFT JOIN LATERAL (
+		SELECT id FROM policy_raw_texts
+		WHERE source_id = ps.source_id
+		LIMIT 1
+	) rt ON true
+	LEFT JOIN LATERAL (
+		SELECT el.created_at, el.status, el.message
+		FROM extract_logs el
+		WHERE el.source_id = ps.source_id
+		ORDER BY el.created_at DESC LIMIT 1
+	) el ON true
+	LEFT JOIN LATERAL (
+		SELECT pc.claim_id, pc.status, pc.confidence_score
+		FROM policy_claims pc
+		WHERE pc.source_id = ps.source_id
+		ORDER BY pc.version_number DESC LIMIT 1
+	) pc ON true
+	ORDER BY ps.source_id`
+
+	rows, err := s.db.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var entries []admin.PipelineEntry
+	for rows.Next() {
+		var e admin.PipelineEntry
+		if err := rows.Scan(&e.SourceID, &e.SourceName, &e.SourceLevel, &e.CrawlType,
+			&e.Enabled, &e.LastCrawlAt, &e.CrawlStatus, &e.CrawlError,
+			&e.HasRawText, &e.LastExtractAt, &e.ExtractStatus, &e.ExtractError,
+			&e.ClaimID, &e.ClaimStatus, &e.Confidence); err != nil {
+			return nil, err
+		}
+		entries = append(entries, e)
+	}
+	return entries, rows.Err()
 }

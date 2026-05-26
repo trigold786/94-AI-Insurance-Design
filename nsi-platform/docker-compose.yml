@@ -67,6 +67,7 @@ services:
       DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@postgres:5432/nsi_crawler?sslmode=disable
       ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-changeme}
+      CHROME_ENABLED: "true"
     depends_on:
       postgres:
         condition: service_healthy
@@ -107,22 +108,8 @@ services:
     volumes:
       - ./services/api-server/migrations:/migrations/api:ro
       - ./services/policy-crawler/migrations:/migrations/crawler:ro
-    entrypoint: >
-      sh -c "
-        until pg_isready -h postgres -U postgres; do sleep 1; done;
-        echo 'Running api-server migrations...';
-        for f in /migrations/api/*.sql; do
-          echo \"  $$(basename $$f)\";
-          psql -h postgres -U postgres -d nsi_api -f \"$$f\" 2>&1 | grep -v 'NOTICE\|already exists, skipping';
-        done;
-        echo 'Running crawler migrations...';
-        for f in /migrations/crawler/*.sql; do
-          echo \"  $$(basename $$f)\";
-          psql -h postgres -U postgres -d nsi_crawler -f \"$$f\" 2>&1 | grep -v 'NOTICE\|already exists, skipping';
-        done;
-        psql -h postgres -U postgres -d nsi_api -c \"INSERT INTO users (user_id) VALUES ('default-user') ON CONFLICT DO NOTHING;\" 2>/dev/null;
-        echo 'Migrations complete.';
-      "
+      - ./scripts/migrate.sh:/migrate.sh:ro
+    entrypoint: ["sh", "/migrate.sh"]
     depends_on:
       postgres:
         condition: service_healthy
