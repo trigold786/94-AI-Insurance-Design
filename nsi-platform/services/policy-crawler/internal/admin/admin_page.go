@@ -451,15 +451,21 @@ function doSourceImport(){
 var claimFilter='';
 var claimRegion='';
 var claimSource='';
+var claimType='';
+var claimLevel='';
 
-function loadClaims(filter,region,source){
+function loadClaims(filter,region,source,ptype,plevel){
   if(filter!==undefined)claimFilter=filter;
   if(region!==undefined)claimRegion=region;
   if(source!==undefined)claimSource=source;
+  if(ptype!==undefined)claimType=ptype;
+  if(plevel!==undefined)claimLevel=plevel;
   var params=[];
   if(claimFilter)params.push('status='+claimFilter);
   if(claimRegion)params.push('region_code='+claimRegion);
   if(claimSource)params.push('source_id='+encodeURIComponent(claimSource));
+  if(claimType)params.push('policy_type='+claimType);
+  if(claimLevel)params.push('source_level='+claimLevel);
   var url='/admin/claims'+(params.length?'?'+params.join('&'):'');
   Promise.all([
     fetch(url).then(function(r){return r.json()}),
@@ -469,12 +475,26 @@ function loadClaims(filter,region,source){
     var claims=d.data||d.claims||[];
     var sources=(srcD.data||[]).sort(function(a,b){return (a.source_name||a.source_id).localeCompare(b.source_name||b.source_id)});
     var regionMap={'':'全部地区','110000':'北京','310000':'上海','330100':'杭州','440100':'广州','440300':'深圳'};
+    var typeMap={'':'全部类型','subsidy':'补贴','pension':'养老','medical':'医疗','unemployment':'失业','injury':'工伤','maternity':'生育','housing_fund':'公积金','training':'培训'};
+    var levelMap={'':'全部级别','HIGH':'HIGH','MEDIUM':'MEDIUM','LOW':'LOW'};
     var h='<div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;align-items:center">'+
       '<button class="btn '+(claimFilter===''?'btn-primary':'btn-outline')+'" onclick="loadClaims(\'\')">全部 ('+claims.length+')</button>'+
       '<button class="btn '+(claimFilter==='pending_review'?'btn-primary':'btn-outline')+'" onclick="loadClaims(\'pending_review\')">待审核</button>'+
       '<button class="btn '+(claimFilter==='verified'?'btn-primary':'btn-outline')+'" onclick="loadClaims(\'verified\')">已通过</button>'+
       '<button class="btn '+(claimFilter==='unverified'?'btn-primary':'btn-outline')+'" onclick="loadClaims(\'unverified\')">已驳回</button>'+
       '<span style="width:1px;height:24px;background:#E5E7EB;margin:0 4px"></span>'+
+      '<span style="font-size:12px;color:#6B7280">类型:</span> '+
+      '<select onchange="loadClaims(undefined,undefined,undefined,this.value)" style="padding:4px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px">';
+    Object.keys(typeMap).forEach(function(k){
+      h+='<option value="'+k+'" '+(claimType===k?'selected':'')+'>'+typeMap[k]+'</option>';
+    });
+    h+='</select>'+
+      '<span style="font-size:12px;color:#6B7280">级别:</span> '+
+      '<select onchange="loadClaims(undefined,undefined,undefined,undefined,this.value)" style="padding:4px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px">';
+    Object.keys(levelMap).forEach(function(k){
+      h+='<option value="'+k+'" '+(claimLevel===k?'selected':'')+'>'+levelMap[k]+'</option>';
+    });
+    h+='</select>'+
       '<span style="font-size:12px;color:#6B7280">地区:</span> '+
       '<select onchange="loadClaims(undefined,this.value)" style="padding:4px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px">';
     Object.keys(regionMap).forEach(function(k){
@@ -565,16 +585,30 @@ function loadExtract(){
 
     // 待提取列表
     if(pending.length>0){
-      h+='<div class="card"><h3 style="font-size:15px;margin-bottom:8px">待提取列表 ('+pending.length+' 条)</h3>'+
-        '<div style="overflow-x:auto"><table><tr><th>来源</th><th>标题</th><th>URL</th><th>抓取时间</th></tr>';
+      h+='<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">'+
+        '<h3 style="font-size:15px">待提取列表 ('+pending.length+' 条)</h3>'+
+        '<div style="display:flex;gap:6px;align-items:center">'+
+        '<span style="font-size:12px;color:#6B7280">类型:</span>'+
+        '<select id="ext_ft" onchange="filterExtract()" style="padding:3px 6px;border:1px solid #D1D5DB;border-radius:4px;font-size:12px">'+
+        '<option value="">全部</option><option value="govsite">政府网站</option><option value="rss">RSS</option><option value="douyin">抖音</option><option value="manual">手动</option><option value="file">文件</option></select>'+
+        '<span style="font-size:12px;color:#6B7280">级别:</span>'+
+        '<select id="ext_fl" onchange="filterExtract()" style="padding:3px 6px;border:1px solid #D1D5DB;border-radius:4px;font-size:12px">'+
+        '<option value="">全部</option><option value="HIGH">HIGH</option><option value="MEDIUM">MEDIUM</option><option value="LOW">LOW</option></select>'+
+        '<span style="font-size:12px;color:#6B7280">地区:</span>'+
+        '<select id="ext_fr" onchange="filterExtract()" style="padding:3px 6px;border:1px solid #D1D5DB;border-radius:4px;font-size:12px">'+
+        '<option value="">全部</option>';
+      var extRegions=[];pending.forEach(function(p){if(p.region_code && extRegions.indexOf(p.region_code)<0)extRegions.push(p.region_code)});
+      extRegions.sort().forEach(function(r){h+='<option value="'+r+'">'+r+'</option>'});
+      h+='</select></div></div>'+
+        '<div id="extListWrap"><div style="overflow-x:auto"><table><tr><th>来源</th><th>标题</th><th>URL</th><th>抓取时间</th></tr>';
       pending.forEach(function(p){
-        h+='<tr><td style="font-weight:600;font-size:13px">'+esc(p.source_name||p.source_id)+'</td>'+
+        h+='<tr data-ct="'+esc(p.crawl_type)+'" data-sl="'+esc(p.source_level)+'" data-rc="'+esc(p.region_code)+'"><td style="font-weight:600;font-size:13px">'+esc(p.source_name||p.source_id)+'</td>'+
           '<td>'+esc(p.title||p.source_url)+'</td>'+
           '<td style="font-size:11px;max-width:200px;overflow:hidden;text-overflow:ellipsis">'+
           '<a href="'+esc(p.source_url)+'" target="_blank" style="color:#1A56DB;text-decoration:none">[链接]</a></td>'+
           '<td style="font-size:11px;color:#9CA3AF">'+esc(p.fetched_at)+'</td></tr>';
       });
-      h+='</table></div></div>';
+      h+='</table></div></div></div>';
     }else if(st.unprocessed>0){
       h+='<div class="card" style="padding:12px;text-align:center;color:#9CA3AF;font-size:13px">共有 '+st.unprocessed+' 条待提取，详细信息请启动提取后查看进度</div>';
     }
@@ -588,6 +622,22 @@ function updateLLMEndpoint(){
   var info=extractProviderMap[p]||extractProviderMap['deepseek'];
   document.getElementById('llmEndpoint').value=info.endpoint;
   document.getElementById('llmModel').value=info.model;
+}
+
+function filterExtract(){
+  var ft=document.getElementById('ext_ft').value;
+  var fl=document.getElementById('ext_fl').value;
+  var fr=document.getElementById('ext_fr').value;
+  var rows=document.querySelectorAll('#extListWrap tr[data-ct]');
+  var vis=0;
+  rows.forEach(function(r){
+    var show=true;
+    if(ft && r.dataset.ct!==ft)show=false;
+    if(fl && r.dataset.sl!==fl)show=false;
+    if(fr && r.dataset.rc!==fr)show=false;
+    r.style.display=show?'':'none';
+    if(show)vis++;
+  });
 }
 
 function saveLLMConfig(){
@@ -666,11 +716,15 @@ function loadLogs(){
       '<input type="date" id="logEnd" value="'+ed+'" style="padding:4px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px">'+
       '<button class="btn btn-primary btn-sm" onclick="filterLogs()">\u67e5\u8be2</button>'+
       '<span style="font-size:13px;color:#6B7280">\u5171 '+d.data.length+' \u6761\u8bb0\u5f55</span></div>'+
-      '<div style="overflow-x:auto"><table><tr><th>\u65f6\u95f4</th><th>\u6570\u636e\u6e90</th><th>\u72b6\u6001</th><th>\u9519\u8bef\u4fe1\u606f</th></tr>';
+      '<div style="overflow-x:auto"><table><tr><th>\u65f6\u95f4</th><th>\u6570\u636e\u6e90</th><th>\u72b6\u6001</th><th>\u63d0\u53d6ID</th><th>\u5185\u5bb9\u6982\u8981</th><th>\u9519\u8bef\u4fe1\u606f</th></tr>';
     d.data.forEach(function(l){
+      var claimCell=l.extracted_claim_id?'<a href="#claims" onclick="loadClaims(undefined,undefined,undefined,undefined);return false" style="color:#1A56DB;text-decoration:none;font-size:12px">'+esc(l.extracted_claim_id)+'</a>':'-';
+      var summaryCell=l.content_summary?'<span style="font-size:12px;color:#374151">'+esc(l.content_summary)+'</span>':'-';
       h+='<tr><td style="font-size:11px;color:#9CA3AF">'+esc(l.crawled_at)+'</td><td>'+esc(l.source_name||l.source_id)+'</td>'+
       '<td>'+(l.status==='success'?'<span class="badge bg-green">\u6210\u529f</span>':'<span class="badge bg-red">\u5931\u8d25</span>')+'</td>'+
-      '<td style="font-size:12px;color:#EF4444;max-width:300px">'+esc(l.error_message||'-')+'</td></tr>'
+      '<td>'+claimCell+'</td>'+
+      '<td style="max-width:250px;overflow:hidden;text-overflow:ellipsis">'+summaryCell+'</td>'+
+      '<td style="font-size:12px;color:#EF4444;max-width:200px;overflow:hidden;text-overflow:ellipsis" title="'+esc(l.error_message)+'">'+esc(l.error_message||'-')+'</td></tr>'
     });
     h+='</table></div>';app.innerHTML=h;
   }).catch(function(e){app.innerHTML='<div class="card"><h3>\u52a0\u8f7d\u5931\u8d25</h3><p>'+esc(e.message)+'</p></div>'});

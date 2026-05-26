@@ -82,6 +82,22 @@ func (s *DBStore) SaveCrawlLog(sourceID string, success bool, errMsg string) {
 	}
 }
 
+func (s *DBStore) SaveCrawlLogWithDetails(sourceID string, success bool, errMsg string, claimID string, summary string) {
+	status := "success"
+	msg := ""
+	if !success {
+		status = "failed"
+		msg = errMsg
+	}
+	_, err := s.db.Exec(
+		`INSERT INTO crawl_logs (source_id, status, error_message, crawled_at, extracted_claim_id, content_summary) VALUES ($1,$2,$3,$4,$5,$6)`,
+		sourceID, status, msg, time.Now(), claimID, summary,
+	)
+	if err != nil {
+		log.Printf("[crawler] failed to save crawl log: %v", err)
+	}
+}
+
 // ClaimDB 实现
 func (s *DBStore) Ingest(claim *models.PolicyClaim) error {
 	condJSON := ""
@@ -133,35 +149,48 @@ func (s *DBStore) ListByRegionAndType(regionCode, policyType string) ([]models.P
 }
 
 // admin.ClaimStore 接口方法
-func (s *DBStore) ListByStatus(status string, regionCode string, sourceID string) ([]models.PolicyClaim, error) {
-	query := `SELECT claim_id, policy_id, region_code, policy_type, target_group_tags,
-		subsidy_calc_method, subsidy_amount_min, subsidy_amount_max, subsidy_duration,
-		effective_date, expire_date, confidence_score, status, version_number,
-		COALESCE(conditions::text,''), COALESCE(required_documents::text,''),
-		COALESCE(source_id,''), COALESCE(source_name,''), COALESCE(source_url,''), COALESCE(policy_url,'')
-		FROM policy_claims`
+func (s *DBStore) ListByStatus(status string, regionCode string, sourceID string, policyType string, sourceLevel string) ([]models.PolicyClaim, error) {
+	query := `SELECT pc.claim_id, pc.policy_id, pc.region_code, pc.policy_type, pc.target_group_tags,
+		pc.subsidy_calc_method, pc.subsidy_amount_min, pc.subsidy_amount_max, pc.subsidy_duration,
+		pc.effective_date, pc.expire_date, pc.confidence_score, pc.status, pc.version_number,
+		COALESCE(pc.conditions::text,''), COALESCE(pc.required_documents::text,''),
+		COALESCE(pc.source_id,''), COALESCE(pc.source_name,''), COALESCE(pc.source_url,''), COALESCE(pc.policy_url,'')
+		FROM policy_claims pc`
+	if sourceLevel != "" {
+		query += ` JOIN policy_sources ps ON ps.source_id = pc.source_id`
+	}
 	var args []interface{}
 	var conditions []string
 	argIdx := 0
 	if status != "" {
 		argIdx++
-		conditions = append(conditions, fmt.Sprintf(`status = $%d`, argIdx))
+		conditions = append(conditions, fmt.Sprintf(`pc.status = $%d`, argIdx))
 		args = append(args, status)
 	}
 	if regionCode != "" {
 		argIdx++
-		conditions = append(conditions, fmt.Sprintf(`region_code = $%d`, argIdx))
+		conditions = append(conditions, fmt.Sprintf(`pc.region_code = $%d`, argIdx))
 		args = append(args, regionCode)
 	}
 	if sourceID != "" {
 		argIdx++
-		conditions = append(conditions, fmt.Sprintf(`source_id = $%d`, argIdx))
+		conditions = append(conditions, fmt.Sprintf(`pc.source_id = $%d`, argIdx))
 		args = append(args, sourceID)
+	}
+	if policyType != "" {
+		argIdx++
+		conditions = append(conditions, fmt.Sprintf(`pc.policy_type = $%d`, argIdx))
+		args = append(args, policyType)
+	}
+	if sourceLevel != "" {
+		argIdx++
+		conditions = append(conditions, fmt.Sprintf(`ps.source_level = $%d`, argIdx))
+		args = append(args, sourceLevel)
 	}
 	if len(conditions) > 0 {
 		query += ` WHERE ` + strings.Join(conditions, ` AND `)
 	}
-	query += ` ORDER BY updated_at DESC`
+	query += ` ORDER BY pc.updated_at DESC`
 
 	rows, err := s.db.Query(query, args...)
 	if err != nil {
@@ -285,7 +314,8 @@ func (s *DBStore) DeleteSource(sourceID string) error {
 }
 
 func (s *DBStore) GetCrawlLogsFiltered(startDate, endDate string, limit int) ([]admin.CrawlLogEntry, error) {
-	query := `SELECT cl.id, cl.source_id, COALESCE(ps.source_name, cl.source_id), cl.status, cl.error_message, cl.crawled_at::text
+	query := `SELECT cl.id, cl.source_id, COALESCE(ps.source_name, cl.source_id), cl.status, cl.error_message, cl.crawled_at::text,
+		COALESCE(cl.extracted_claim_id,''), COALESCE(cl.content_summary,'')
 		FROM crawl_logs cl LEFT JOIN policy_sources ps ON cl.source_id = ps.source_id WHERE 1=1`
 	var args []interface{}
 	argIdx := 1
@@ -311,7 +341,8 @@ func (s *DBStore) GetCrawlLogsFiltered(startDate, endDate string, limit int) ([]
 	var logs []admin.CrawlLogEntry
 	for rows.Next() {
 		var l admin.CrawlLogEntry
-		if err := rows.Scan(&l.ID, &l.SourceID, &l.SourceName, &l.Status, &l.ErrorMessage, &l.CrawledAt); err != nil {
+		if err := rows.Scan(&l.ID, &l.SourceID, &l.SourceName, &l.Status, &l.ErrorMessage, &l.CrawledAt,
+			&l.ExtractedClaimID, &l.ContentSummary); err != nil {
 			return nil, err
 		}
 		logs = append(logs, l)
@@ -321,7 +352,8 @@ func (s *DBStore) GetCrawlLogsFiltered(startDate, endDate string, limit int) ([]
 
 func (s *DBStore) GetCrawlLogs(limit int) ([]admin.CrawlLogEntry, error) {
 	rows, err := s.db.Query(`
-		SELECT cl.id, cl.source_id, COALESCE(ps.source_name, cl.source_id), cl.status, cl.error_message, cl.crawled_at::text
+		SELECT cl.id, cl.source_id, COALESCE(ps.source_name, cl.source_id), cl.status, cl.error_message, cl.crawled_at::text,
+		COALESCE(cl.extracted_claim_id,''), COALESCE(cl.content_summary,'')
 		FROM crawl_logs cl LEFT JOIN policy_sources ps ON cl.source_id = ps.source_id
 		ORDER BY cl.crawled_at DESC LIMIT $1`, limit)
 	if err != nil {
@@ -332,7 +364,8 @@ func (s *DBStore) GetCrawlLogs(limit int) ([]admin.CrawlLogEntry, error) {
 	var logs []admin.CrawlLogEntry
 	for rows.Next() {
 		var l admin.CrawlLogEntry
-		if err := rows.Scan(&l.ID, &l.SourceID, &l.SourceName, &l.Status, &l.ErrorMessage, &l.CrawledAt); err != nil {
+		if err := rows.Scan(&l.ID, &l.SourceID, &l.SourceName, &l.Status, &l.ErrorMessage, &l.CrawledAt,
+			&l.ExtractedClaimID, &l.ContentSummary); err != nil {
 			return nil, err
 		}
 		logs = append(logs, l)
@@ -557,7 +590,8 @@ func (s *DBStore) GetUnprocessedCount() (int, error) {
 
 func (s *DBStore) GetPendingRawTexts(limit int) ([]admin.PendingRawText, error) {
 	rows, err := s.db.Query(`SELECT prt.id, prt.source_id, COALESCE(ps.source_name,''),
-		COALESCE(prt.title,''), COALESCE(prt.source_url,''), prt.fetch_time::text
+		COALESCE(prt.title,''), COALESCE(prt.source_url,''), prt.fetch_time::text,
+		COALESCE(ps.crawl_type,''), COALESCE(ps.source_level,''), COALESCE(ps.region_code,'')
 		FROM policy_raw_texts prt
 		LEFT JOIN policy_sources ps ON ps.source_id = prt.source_id
 		WHERE NOT prt.extracted ORDER BY prt.id ASC LIMIT $1`, limit)
@@ -569,7 +603,8 @@ func (s *DBStore) GetPendingRawTexts(limit int) ([]admin.PendingRawText, error) 
 	var items []admin.PendingRawText
 	for rows.Next() {
 		var item admin.PendingRawText
-		if err := rows.Scan(&item.ID, &item.SourceID, &item.SourceName, &item.Title, &item.SourceURL, &item.FetchedAt); err != nil {
+		if err := rows.Scan(&item.ID, &item.SourceID, &item.SourceName, &item.Title, &item.SourceURL, &item.FetchedAt,
+			&item.CrawlType, &item.SourceLevel, &item.RegionCode); err != nil {
 			return nil, err
 		}
 		items = append(items, item)

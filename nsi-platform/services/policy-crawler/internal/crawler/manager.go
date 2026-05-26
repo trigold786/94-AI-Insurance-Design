@@ -176,7 +176,11 @@ func (m *CrawlerManager) crawlAndProcess(s Source) {
 
 		if isHTML {
 			log.Printf("[crawler] %s returned HTML page (gov site), stored raw. LLM extraction pending.", s.SourceID())
-			m.store.SaveCrawlLog(s.SourceID(), true, "HTML stored, awaiting LLM extraction")
+			summary := truncateSummary(result.Title, 120)
+			if summary == "" {
+				summary = truncateSummary(result.SourceURL, 120)
+			}
+			m.store.SaveCrawlLogWithDetails(s.SourceID(), true, "HTML stored, awaiting LLM extraction", "", summary)
 			continue
 		}
 
@@ -225,12 +229,21 @@ func (m *CrawlerManager) crawlAndProcess(s Source) {
 			continue
 		}
 
-		m.store.SaveCrawlLog(s.SourceID(), true, "")
+		m.store.SaveCrawlLogWithDetails(s.SourceID(), true, "", claim.ClaimID, truncateSummary(claim.SubsidyCalcMethod, 120))
 		log.Printf("[crawler] stored claim %s (confidence=%.2f, status=%s)", claim.ClaimID, confidence, status)
 	}
 }
 
 // calculateConfidence 置信度评分 (PRD §4.2.2)
+func truncateSummary(s string, maxLen int) string {
+	s = strings.TrimSpace(s)
+	s = strings.Join(strings.Fields(s), " ")
+	if len(s) <= maxLen {
+		return s
+	}
+	return s[:maxLen] + "..."
+}
+
 func (m *CrawlerManager) calculateConfidence(sourceLevel string, claim *parser.PolicyClaim) float64 {
 	var wSource float64
 	switch sourceLevel {

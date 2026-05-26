@@ -24,6 +24,9 @@ type PendingRawText struct {
 	Title      string `json:"title"`
 	SourceURL  string `json:"source_url"`
 	FetchedAt  string `json:"fetched_at"`
+	CrawlType  string `json:"crawl_type"`
+	SourceLevel string `json:"source_level"`
+	RegionCode string `json:"region_code"`
 }
 
 // ExtProgress 提取进度
@@ -45,7 +48,7 @@ func (p *ExtProgress) Lock()   { p.mu.Lock() }
 func (p *ExtProgress) Unlock() { p.mu.Unlock() }
 
 type ClaimStore interface {
-	ListByStatus(status string, regionCode string, sourceID string) ([]models.PolicyClaim, error)
+	ListByStatus(status string, regionCode string, sourceID string, policyType string, sourceLevel string) ([]models.PolicyClaim, error)
 	UpdateStatus(claimID, status string, confidence float64) error
 	Ingest(claim *models.PolicyClaim) error
 }
@@ -140,6 +143,8 @@ func ListClaimsHandler(store ClaimStore) http.Handler {
 		status := r.URL.Query().Get("status")
 		regionCode := r.URL.Query().Get("region_code")
 		sourceID := r.URL.Query().Get("source_id")
+		policyType := r.URL.Query().Get("policy_type")
+		sourceLevel := r.URL.Query().Get("source_level")
 
 		validStatuses := map[string]bool{
 			"": true, "verified": true, "pending_review": true, "unverified": true,
@@ -154,7 +159,7 @@ func ListClaimsHandler(store ClaimStore) http.Handler {
 			return
 		}
 
-		claims, err := store.ListByStatus(status, regionCode, sourceID)
+		claims, err := store.ListByStatus(status, regionCode, sourceID, policyType, sourceLevel)
 		if err != nil {
 			respondError(w, http.StatusInternalServerError, "failed to list claims")
 			return

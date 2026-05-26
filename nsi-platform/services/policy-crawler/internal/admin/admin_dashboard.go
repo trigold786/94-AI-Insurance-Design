@@ -33,12 +33,14 @@ type SourceInfo struct {
 }
 
 type CrawlLogEntry struct {
-	ID           int    `json:"id"`
-	SourceID     string `json:"source_id"`
-	SourceName   string `json:"source_name"`
-	Status       string `json:"status"`
-	ErrorMessage string `json:"error_message"`
-	CrawledAt    string `json:"crawled_at"`
+	ID                int    `json:"id"`
+	SourceID          string `json:"source_id"`
+	SourceName        string `json:"source_name"`
+	Status            string `json:"status"`
+	ErrorMessage      string `json:"error_message"`
+	CrawledAt         string `json:"crawled_at"`
+	ExtractedClaimID  string `json:"extracted_claim_id"`
+	ContentSummary    string `json:"content_summary"`
 }
 
 type DashboardStats struct {

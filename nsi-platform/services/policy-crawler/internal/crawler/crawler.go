@@ -39,4 +39,5 @@ type Store interface {
 	ListEnabledSources() ([]SourceConfig, error)
 	SaveRawText(sourceID, title, content, sourceURL, versionHash string) error
 	SaveCrawlLog(sourceID string, success bool, errMsg string)
+	SaveCrawlLogWithDetails(sourceID string, success bool, errMsg string, claimID string, summary string)
 }
