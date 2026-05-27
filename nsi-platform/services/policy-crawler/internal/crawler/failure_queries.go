@@ -207,9 +207,18 @@ func (s *DBStore) GetFailedRawTexts(sourceID string, failureType string, limit i
 }
 
 func (s *DBStore) RetryRawText(id int64) error {
-	_, err := s.db.Exec(`UPDATE policy_raw_texts SET extracted = false, video_extract_status = NULL WHERE id = $1`, id)
-	if err != nil {
-		return fmt.Errorf("retry raw text %d: %w", id, err)
+	var videoStatus string
+	s.db.QueryRow(`SELECT COALESCE(video_extract_status,'') FROM policy_raw_texts WHERE id = $1`, id).Scan(&videoStatus)
+	if videoStatus == "failed" {
+		_, err := s.db.Exec(`UPDATE policy_raw_texts SET video_extract_status = 'pending' WHERE id = $1`, id)
+		if err != nil {
+			return fmt.Errorf("retry video for %d: %w", id, err)
+		}
+	} else {
+		_, err := s.db.Exec(`UPDATE policy_raw_texts SET extracted = false WHERE id = $1`, id)
+		if err != nil {
+			return fmt.Errorf("retry extract for %d: %w", id, err)
+		}
 	}
 	return nil
 }

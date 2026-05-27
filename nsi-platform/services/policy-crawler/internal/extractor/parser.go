@@ -42,7 +42,7 @@ func tryStandardParse(input string) (*ExtractionResult, error) {
 func tryRepairParse(input string) (*ExtractionResult, error) {
 	cleaned := input
 
-	cbMatch := regexp.MustCompile("(?s)```(?:json)?\\s*\\n?(.*?)\\n?```").FindStringSubmatch(cleaned)
+	cbMatch := reCodeBlock.FindStringSubmatch(cleaned)
 	if len(cbMatch) > 1 {
 		cleaned = cbMatch[1]
 	}
@@ -54,8 +54,8 @@ func tryRepairParse(input string) (*ExtractionResult, error) {
 	}
 	jsonStr := cleaned[start : end+1]
 
-	jsonStr = regexp.MustCompile(`,\s*}`).ReplaceAllString(jsonStr, "}")
-	jsonStr = regexp.MustCompile(`,\s*]`).ReplaceAllString(jsonStr, "]")
+	jsonStr = reTrailingCommaObj.ReplaceAllString(jsonStr, "}")
+	jsonStr = reTrailingCommaArr.ReplaceAllString(jsonStr, "]")
 
 	var result ExtractionResult
 	if err := json.Unmarshal([]byte(jsonStr), &result); err != nil {
@@ -65,6 +65,9 @@ func tryRepairParse(input string) (*ExtractionResult, error) {
 }
 
 var (
+	reCodeBlock       = regexp.MustCompile("(?s)```(?:json)?\\s*\\n?(.*?)\\n?```")
+	reTrailingCommaObj = regexp.MustCompile(`,\s*}`)
+	reTrailingCommaArr = regexp.MustCompile(`,\s*]`)
 	rePolicyID    = regexp.MustCompile(`policy[_ ]?id[：:"是为]?\s*["']?([A-Za-z0-9\-_]+)`)
 	reRegionCode  = regexp.MustCompile(`(?:地区代码|region[_ ]?code)[：:"]?\s*["']?(\d{6})`)
 	rePolicyType  = regexp.MustCompile(`(?:政策类型|policy[_ ]?type)[：:"]?\s*["']?(pension|medical|unemployment|injury|maternity|housing_fund|subsidy|training)`)

@@ -1,6 +1,7 @@
 package extractor
 
 import (
+	"log"
 	"strings"
 )
 
@@ -38,6 +39,11 @@ func splitDocument(text string, maxChunkSize int) []string {
 	}
 
 	if len(chunks) > 5 {
+		lost := 0
+		for _, c := range chunks[5:] {
+			lost += len(c)
+		}
+		log.Printf("[splitter] truncating from %d to 5 chunks, losing %d bytes", len(chunks), lost)
 		chunks = chunks[:5]
 	}
 

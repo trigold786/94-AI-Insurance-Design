@@ -23,8 +23,11 @@ func FailureTrendHandler(store DashboardStore) http.Handler {
 		days := 7
 		if d := r.URL.Query().Get("days"); d != "" {
 			if parsed, err := strconv.Atoi(d); err == nil && parsed > 0 {
-				days = parsed
+			days = parsed
+			if days > 90 {
+				days = 90
 			}
+		}
 		}
 		points, err := store.GetFailureTrend(days)
 		if err != nil {
@@ -52,6 +55,9 @@ func FailureTopReasonsHandler(store DashboardStore) http.Handler {
 		if l := r.URL.Query().Get("limit"); l != "" {
 			if parsed, err := strconv.Atoi(l); err == nil && parsed > 0 {
 				limit = parsed
+				if limit > 100 {
+					limit = 100
+				}
 			}
 		}
 		reasons, err := store.GetTopFailureReasons(limit)
@@ -71,6 +77,9 @@ func FailureRawTextsHandler(store DashboardStore) http.Handler {
 		if l := r.URL.Query().Get("limit"); l != "" {
 			if parsed, err := strconv.Atoi(l); err == nil && parsed > 0 {
 				limit = parsed
+				if limit > 500 {
+					limit = 500
+				}
 			}
 		}
 		entries, err := store.GetFailedRawTexts(sourceID, failureType, limit)
