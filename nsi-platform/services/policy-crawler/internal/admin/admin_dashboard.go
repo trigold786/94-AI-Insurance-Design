@@ -19,6 +19,13 @@ type DashboardStore interface {
 	GetDashboardStats() (*DashboardStats, error)
 	GetPipeline() ([]PipelineEntry, error)
 	GetFailureAnalysis() (*FailureAnalysis, error)
+	GetFailureSummary() (*FailureSummary, error)
+	GetFailureTrend(days int) ([]FailureTrendPoint, error)
+	GetFailureBySource() ([]FailureBySourceEntry, error)
+	GetTopFailureReasons(limit int) ([]TopFailureReason, error)
+	GetFailedRawTexts(sourceID string, failureType string, limit int) ([]FailedRawTextEntry, error)
+	RetryRawText(id int64) error
+	RetryAllFailed(sourceID string) (int, error)
 }
 
 type PipelineEntry struct {
@@ -249,4 +256,40 @@ func PipelineHandler(store DashboardStore) http.Handler {
 		}
 		respondJSON(w, http.StatusOK, map[string]interface{}{"code": 0, "data": entries})
 	})
+}
+
+type FailureSummary struct {
+	CrawlFailures   int `json:"crawl_failures"`
+	ExtractFailures int `json:"extract_failures"`
+	VideoFailures   int `json:"video_failures"`
+}
+
+type FailureTrendPoint struct {
+	Date            string `json:"date"`
+	CrawlFailures   int    `json:"crawl_failures"`
+	ExtractFailures int    `json:"extract_failures"`
+	VideoFailures   int    `json:"video_failures"`
+}
+
+type FailureBySourceEntry struct {
+	SourceID        string `json:"source_id"`
+	SourceName      string `json:"source_name"`
+	CrawlFailures   int    `json:"crawl_failures"`
+	ExtractFailures int    `json:"extract_failures"`
+	VideoFailures   int    `json:"video_failures"`
+}
+
+type TopFailureReason struct {
+	Reason string `json:"reason"`
+	Count  int    `json:"count"`
+}
+
+type FailedRawTextEntry struct {
+	ID          int64  `json:"id"`
+	SourceID    string `json:"source_id"`
+	SourceName  string `json:"source_name"`
+	Title       string `json:"title"`
+	ErrorReason string `json:"error_reason"`
+	FailedAt    string `json:"failed_at"`
+	FailureType string `json:"failure_type"`
 }
