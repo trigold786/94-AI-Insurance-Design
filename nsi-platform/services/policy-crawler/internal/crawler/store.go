@@ -113,8 +113,11 @@ func (s *DBStore) Ingest(claim *models.PolicyClaim) error {
 		INSERT INTO policy_claims (claim_id, policy_id, region_code, policy_type, target_group_tags,
 			subsidy_calc_method, subsidy_amount_min, subsidy_amount_max, subsidy_duration,
 			effective_date, expire_date, confidence_score, status, version_number,
-			conditions, required_documents, source_id, source_name, source_url, policy_url)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)`,
+			conditions, required_documents, source_id, source_name, source_url, policy_url,
+			policy_title, issuing_authority, document_number, application_process,
+			contact_info, source_type, extraction_method, raw_text_length, split_count)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,
+			$21,$22,$23,$24,$25,$26,$27,$28,$29)`,
 		claim.ClaimID, claim.PolicyID, claim.RegionCode, claim.PolicyType,
 		claim.TargetGroupTags,
 		claim.SubsidyCalcMethod, claim.SubsidyAmountMin, claim.SubsidyAmountMax,
@@ -122,6 +125,8 @@ func (s *DBStore) Ingest(claim *models.PolicyClaim) error {
 		claim.ConfidenceScore, claim.Status, claim.VersionNumber,
 		condJSON, docJSON,
 		claim.SourceID, claim.SourceName, claim.SourceURL, claim.PolicyURL,
+		claim.PolicyTitle, claim.IssuingAuthority, claim.DocumentNumber, claim.ApplicationProcess,
+		claim.ContactInfo, claim.SourceType, claim.ExtractionMethod, claim.RawTextLength, claim.SplitCount,
 	)
 	return err
 }
@@ -154,7 +159,10 @@ func (s *DBStore) ListByStatus(status string, regionCode string, sourceID string
 		pc.subsidy_calc_method, pc.subsidy_amount_min, pc.subsidy_amount_max, pc.subsidy_duration,
 		pc.effective_date, pc.expire_date, pc.confidence_score, pc.status, pc.version_number,
 		COALESCE(pc.conditions::text,''), COALESCE(pc.required_documents::text,''),
-		COALESCE(pc.source_id,''), COALESCE(pc.source_name,''), COALESCE(pc.source_url,''), COALESCE(pc.policy_url,'')
+		COALESCE(pc.source_id,''), COALESCE(pc.source_name,''), COALESCE(pc.source_url,''), COALESCE(pc.policy_url,''),
+		COALESCE(pc.policy_title,''), COALESCE(pc.issuing_authority,''), COALESCE(pc.document_number,''),
+		COALESCE(pc.application_process::text,''), COALESCE(pc.contact_info,''), COALESCE(pc.source_type,''),
+		COALESCE(pc.extraction_method,'full'), COALESCE(pc.raw_text_length,0), COALESCE(pc.split_count,0)
 		FROM policy_claims pc`
 	if sourceLevel != "" {
 		query += ` JOIN policy_sources ps ON ps.source_id = pc.source_id`
@@ -202,7 +210,7 @@ func (s *DBStore) ListByStatus(status string, regionCode string, sourceID string
 	for rows.Next() {
 		var c models.PolicyClaim
 		tags := []string{}
-		var condStr, docStr string
+		var condStr, docStr, appProcStr string
 		err := rows.Scan(
 			&c.ClaimID, &c.PolicyID, &c.RegionCode, &c.PolicyType, pq.Array(&tags),
 			&c.SubsidyCalcMethod, &c.SubsidyAmountMin, &c.SubsidyAmountMax,
@@ -210,6 +218,9 @@ func (s *DBStore) ListByStatus(status string, regionCode string, sourceID string
 			&c.ConfidenceScore, &c.Status, &c.VersionNumber,
 			&condStr, &docStr,
 			&c.SourceID, &c.SourceName, &c.SourceURL, &c.PolicyURL,
+			&c.PolicyTitle, &c.IssuingAuthority, &c.DocumentNumber,
+			&appProcStr, &c.ContactInfo, &c.SourceType,
+			&c.ExtractionMethod, &c.RawTextLength, &c.SplitCount,
 		)
 		if err != nil {
 			return nil, errors.NewInternal(fmt.Sprintf("failed to scan claim: %v", err))
@@ -219,6 +230,9 @@ func (s *DBStore) ListByStatus(status string, regionCode string, sourceID string
 		}
 		if docStr != "" {
 			c.RequiredDocuments = []byte(docStr)
+		}
+		if appProcStr != "" {
+			c.ApplicationProcess = []byte(appProcStr)
 		}
 		c.TargetGroupTags = tags
 		claims = append(claims, c)
@@ -617,19 +631,28 @@ func (s *DBStore) InsertClaim(claim *models.PolicyClaim) error {
 	if len(claim.RequiredDocuments) > 0 {
 		docJSON = string(claim.RequiredDocuments)
 	}
+	appProcJSON := ""
+	if len(claim.ApplicationProcess) > 0 {
+		appProcJSON = string(claim.ApplicationProcess)
+	}
 	_, err := s.db.Exec(`
 		INSERT INTO policy_claims (claim_id, policy_id, region_code, policy_type, target_group_tags,
 			subsidy_calc_method, subsidy_amount_min, subsidy_amount_max, subsidy_duration,
 			effective_date, expire_date, confidence_score, status, version_number,
-			conditions, required_documents, source_id, source_name, source_url, policy_url)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)`,
+			conditions, required_documents, source_id, source_name, source_url, policy_url,
+			policy_title, issuing_authority, document_number, application_process,
+			contact_info, source_type, extraction_method, raw_text_length, split_count)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,
+			$21,$22,$23,$24,$25,$26,$27,$28,$29)`,
 		claim.ClaimID, claim.PolicyID, claim.RegionCode, claim.PolicyType,
 		pq.Array(claim.TargetGroupTags),
 		claim.SubsidyCalcMethod, claim.SubsidyAmountMin, claim.SubsidyAmountMax,
 		claim.SubsidyDuration, claim.EffectiveDate, claim.ExpireDate,
 		claim.ConfidenceScore, claim.Status, claim.VersionNumber,
 		condJSON, docJSON,
-		claim.SourceID, claim.SourceName, claim.SourceURL, claim.PolicyURL)
+		claim.SourceID, claim.SourceName, claim.SourceURL, claim.PolicyURL,
+		claim.PolicyTitle, claim.IssuingAuthority, claim.DocumentNumber, appProcJSON,
+		claim.ContactInfo, claim.SourceType, claim.ExtractionMethod, claim.RawTextLength, claim.SplitCount)
 	return err
 }
 
