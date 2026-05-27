@@ -118,17 +118,19 @@ func (e *Extractor) ProcessUnprocessed(limit int) (int, int, error) {
 }
 
 func (e *Extractor) ProcessOne(entry RawTextEntry) error {
-	// 1. 提取正文（去除 HTML 标签）
 	cleanText := extractPlainText(entry.Content)
-	if len(cleanText) < 50 {
-		return fmt.Errorf("content too short (%d bytes) after cleaning", len(cleanText))
+	rawTextLen := len(cleanText)
+	if rawTextLen < 50 {
+		return fmt.Errorf("content too short (%d bytes) after cleaning", rawTextLen)
 	}
 
-	// 2. 构建 LLM 提示词
 	systemPrompt := `你是一个专业的中国社保政策分析专家。你的任务是从政府政策文本中提取结构化信息。
 请提取以下字段，只返回JSON，不要其他文字：
 {
   "policy_id": "唯一政策ID",
+  "policy_title": "政策正式标题",
+  "issuing_authority": "发文机关",
+  "document_number": "文号(如沪人社规〔2024〕1号)",
   "region_code": "地区行政代码(6位)",
   "policy_type": "政策类型(pension/medical/unemployment/injury/maternity/housing_fund/subsidy/training)",
   "target_groups": ["适用人群标签(flexible_employment/unemployed/employed/4050/has_children/female/male/low_income)"],
@@ -140,20 +142,58 @@ func (e *Extractor) ProcessOne(entry RawTextEntry) error {
   "expire_date": "失效日期YYYY-MM-DD(可选)",
   "policy_url": "该政策原文的网址(从页面文本中提取完整的URL,必填)",
   "brief_summary": "用一句话概括该社保政策的要点(不超过50字)",
+  "source_type": "原文类型(gov_doc/social_media/news/rumor)",
+  "application_process": [{"step":1,"action":"办理步骤","description":"步骤描述"}],
+  "contact_info": "咨询电话或办理地址",
   "conditions": [{"name":"条件名称","description":"条件描述","tag_match":"对应人群标签"}],
   "required_documents": [{"name":"材料名称","description":"描述","source":"user/gov","optional":false}]
 }`
 
-	// 3. 调用 LLM
-	llmResp, err := e.client.Chat(systemPrompt, cleanText)
-	if err != nil {
-		return fmt.Errorf("LLM call: %w", err)
-	}
+	extractionMethod := "full"
+	splitCount := 0
 
-	// 4. 解析 LLM 响应
-	parsed, err := parseExtractionResult(llmResp)
-	if err != nil {
-		return fmt.Errorf("parse LLM result: %w", err)
+	var parsed *ExtractionResult
+
+	chunks := splitDocument(cleanText, 4000)
+	if len(chunks) == 1 {
+		llmResp, err := e.client.Chat(systemPrompt, chunks[0])
+		if err != nil {
+			return fmt.Errorf("LLM call: %w", err)
+		}
+		var method string
+		parsed, method, err = parseExtractionResultRobust(llmResp)
+		if err != nil {
+			return fmt.Errorf("parse LLM result: %w", err)
+		}
+		extractionMethod = method
+	} else {
+		splitCount = len(chunks)
+		extractionMethod = "split"
+		var partialResults []*ExtractionResult
+		for i, chunk := range chunks {
+			llmResp, err := e.client.Chat(systemPrompt, chunk)
+			if err != nil {
+				log.Printf("[extractor] LLM call failed for chunk %d/%d: %v", i+1, splitCount, err)
+				continue
+			}
+			pr, method, err := parseExtractionResultRobust(llmResp)
+			if err != nil {
+				log.Printf("[extractor] parse failed for chunk %d/%d: %v", i+1, splitCount, err)
+				continue
+			}
+			if method == "regex_fallback" {
+				extractionMethod = "regex_fallback"
+			}
+			partialResults = append(partialResults, pr)
+		}
+		if len(partialResults) == 0 {
+			return fmt.Errorf("all %d chunks failed extraction", splitCount)
+		}
+		if len(partialResults) == 1 {
+			parsed = partialResults[0]
+		} else {
+			parsed = e.mergeResults(partialResults)
+		}
 	}
 
 	// 4a. 补充缺失字段
@@ -197,6 +237,7 @@ func (e *Extractor) ProcessOne(entry RawTextEntry) error {
 	// 5. 构建 PolicyClaim
 	condJSON, _ := json.Marshal(parsed.Conditions)
 	docJSON, _ := json.Marshal(parsed.RequiredDocuments)
+	appProcJSON, _ := json.Marshal(parsed.ApplicationProcess)
 
 	claim := &models.PolicyClaim{
 		ClaimID:            fmt.Sprintf("LLM-%d", time.Now().UnixNano()),
@@ -219,6 +260,15 @@ func (e *Extractor) ProcessOne(entry RawTextEntry) error {
 		SourceName:         entry.SourceName,
 		SourceURL:          entry.SourceURL,
 		PolicyURL:          parsed.PolicyURL,
+		PolicyTitle:        parsed.PolicyTitle,
+		IssuingAuthority:   parsed.IssuingAuthority,
+		DocumentNumber:     parsed.DocumentNumber,
+		ApplicationProcess: appProcJSON,
+		ContactInfo:        parsed.ContactInfo,
+		SourceType:         parsed.SourceType,
+		ExtractionMethod:   extractionMethod,
+		RawTextLength:      rawTextLen,
+		SplitCount:         splitCount,
 	}
 
 	// 5a. 交叉验证（如果配置了 checker）
@@ -274,6 +324,83 @@ func (e *Extractor) ProcessOne(entry RawTextEntry) error {
 	return nil
 }
 
+func (e *Extractor) mergeResults(parts []*ExtractionResult) *ExtractionResult {
+	merged := &ExtractionResult{
+		TargetGroups:      []string{},
+		SubsidyCalcMethod: "参见政策原文",
+		Conditions:        []map[string]interface{}{},
+		RequiredDocuments: []map[string]interface{}{},
+	}
+	for _, p := range parts {
+		if p.PolicyID != "" && merged.PolicyID == "" {
+			merged.PolicyID = p.PolicyID
+		}
+		if p.PolicyTitle != "" && merged.PolicyTitle == "" {
+			merged.PolicyTitle = p.PolicyTitle
+		}
+		if p.RegionCode != "" && merged.RegionCode == "" {
+			merged.RegionCode = p.RegionCode
+		}
+		if p.PolicyType != "" && merged.PolicyType == "" {
+			merged.PolicyType = p.PolicyType
+		}
+		if p.IssuingAuthority != "" && merged.IssuingAuthority == "" {
+			merged.IssuingAuthority = p.IssuingAuthority
+		}
+		if p.DocumentNumber != "" && merged.DocumentNumber == "" {
+			merged.DocumentNumber = p.DocumentNumber
+		}
+		if p.SubsidyCalcMethod != "" && merged.SubsidyCalcMethod == "参见政策原文" {
+			merged.SubsidyCalcMethod = p.SubsidyCalcMethod
+		}
+		if p.AmountMin != nil && merged.AmountMin == nil {
+			merged.AmountMin = p.AmountMin
+		}
+		if p.AmountMax != nil && merged.AmountMax == nil {
+			merged.AmountMax = p.AmountMax
+		}
+		if p.SubsidyDuration != nil && merged.SubsidyDuration == nil {
+			merged.SubsidyDuration = p.SubsidyDuration
+		}
+		if p.EffectiveDate != "" && merged.EffectiveDate == "" {
+			merged.EffectiveDate = p.EffectiveDate
+		}
+		if p.ExpireDate != nil && merged.ExpireDate == nil {
+			merged.ExpireDate = p.ExpireDate
+		}
+		if p.PolicyURL != "" && merged.PolicyURL == "" {
+			merged.PolicyURL = p.PolicyURL
+		}
+		if p.BriefSummary != "" && merged.BriefSummary == "" {
+			merged.BriefSummary = p.BriefSummary
+		}
+		if p.SourceType != "" && merged.SourceType == "" {
+			merged.SourceType = p.SourceType
+		}
+		if p.ContactInfo != "" && merged.ContactInfo == "" {
+			merged.ContactInfo = p.ContactInfo
+		}
+		for _, tg := range p.TargetGroups {
+			found := false
+			for _, existing := range merged.TargetGroups {
+				if existing == tg {
+					found = true
+					break
+				}
+			}
+			if !found {
+				merged.TargetGroups = append(merged.TargetGroups, tg)
+			}
+		}
+		merged.Conditions = append(merged.Conditions, p.Conditions...)
+		merged.RequiredDocuments = append(merged.RequiredDocuments, p.RequiredDocuments...)
+		if len(p.ApplicationProcess) > 0 && len(merged.ApplicationProcess) == 0 {
+			merged.ApplicationProcess = p.ApplicationProcess
+		}
+	}
+	return merged
+}
+
 // ExtractionResult LLM 提取的中间结果
 type ExtractionResult struct {
 	PolicyID          string                   `json:"policy_id"`
@@ -290,6 +417,12 @@ type ExtractionResult struct {
 	RequiredDocuments []map[string]interface{} `json:"required_documents"`
 	PolicyURL         string                   `json:"policy_url"`
 	BriefSummary      string                   `json:"brief_summary"`
+	PolicyTitle       string                   `json:"policy_title"`
+	IssuingAuthority  string                   `json:"issuing_authority"`
+	DocumentNumber    string                   `json:"document_number"`
+	ApplicationProcess []map[string]interface{} `json:"application_process"`
+	ContactInfo       string                   `json:"contact_info"`
+	SourceType        string                   `json:"source_type"`
 }
 
 func parseExtractionResult(llmOutput string) (*ExtractionResult, error) {
