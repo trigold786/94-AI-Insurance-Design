@@ -171,6 +171,12 @@ func main() {
 	mux.Handle("/admin/llm/progress", adminAuth(admin.LLMProgressHandler(store)))
 	mux.Handle("/admin/pipeline", adminAuth(admin.PipelineHandler(store)))
 	mux.Handle("/admin/failures", adminAuth(admin.FailureAnalysisHandler(store)))
+	mux.Handle("/admin/failures/summary", adminAuth(admin.FailureSummaryHandler(store)))
+	mux.Handle("/admin/failures/trend", adminAuth(admin.FailureTrendHandler(store)))
+	mux.Handle("/admin/failures/by-source", adminAuth(admin.FailureBySourceHandler(store)))
+	mux.Handle("/admin/failures/top-reasons", adminAuth(admin.FailureTopReasonsHandler(store)))
+	mux.Handle("/admin/failures/failed-raw-texts", adminAuth(admin.FailureRawTextsHandler(store)))
+	mux.Handle("/admin/failures/retry", adminAuth(admin.FailureRetryHandler(store)))
 	mux.Handle("/admin/llm/search", adminAuth(middleware.RecoveryMiddleware()(admin.AdminSearchHandler(searcher))))
 	mux.Handle("/admin/search_page", adminAuth(middleware.RecoveryMiddleware()(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
