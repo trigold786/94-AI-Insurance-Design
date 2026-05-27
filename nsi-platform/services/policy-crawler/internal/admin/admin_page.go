@@ -78,6 +78,7 @@ var navItems=[
   {id:'logs',label:'\u722c\u53d6\u65e5\u5fd7'},
   {id:'pipeline',label:'\u6570\u636e\u6d41\u6c34\u7ebf'},
   {id:'extractLogs',label:'\u63d0\u53d6\u65e5\u5fd7'},
+  {id:'failures',label:'\u5931\u8d25\u5206\u6790'},
   {id:'import',label:'+\u5bfc\u5165\u653f\u7b56',style:'color:#059669;font-weight:600'}
 ];
 var currentPanel='dashboard';
@@ -104,6 +105,7 @@ function switchPanel(id){
   else if(id==='relevance')loadRelevanceRules();
   else if(id==='logs')loadLogs();
   else if(id==='extractLogs')loadExtractLogs();
+  else if(id==='failures')loadFailures();
   else if(id==='pipeline')loadPipeline();
   else if(id==='import')showImportForm();
 }
@@ -1227,6 +1229,124 @@ function bulkImportRules(){
     if(d.code===0){showToast('\u5df2\u5bfc\u5165 '+arr.length+' \u6761\u89c4\u5219','success');loadRelevanceRules()}
     else showToast('\u5bfc\u5165\u5931\u8d25: '+(d.error||''),'error');
   }).catch(function(){showToast('\u8bf7\u6c42\u5931\u8d25','error')});
+}
+
+var failureTrendChart=null,failureSourceChart=null,failureReasonChart=null;
+var failureTrendDays=7;
+
+function loadFailures(){
+  var app=document.getElementById('app');
+  app.innerHTML='<div class="stat-row" id="fSummary"></div>'+
+    '<div class="card"><h3 style="margin-bottom:8px">\u5931\u8d25\u8d8b\u52bf <button class="btn btn-sm btn-outline" onclick="loadFailureTrend(7)" id="fTrend7">7\u5929</button> <button class="btn btn-sm btn-outline" onclick="loadFailureTrend(30)" id="fTrend30">30\u5929</button></h3><canvas id="fTrendCanvas" height="200"></canvas></div>'+
+    '<div class="flex-row"><div class="card" style="flex:1;min-width:300px"><h3 style="margin-bottom:8px">\u6309\u6765\u6e90\u5206\u5e03</h3><canvas id="fSourceCanvas" height="250"></canvas></div>'+
+    '<div class="card" style="flex:1;min-width:300px"><h3 style="margin-bottom:8px">Top \u5931\u8d25\u539f\u56e0</h3><canvas id="fReasonCanvas" height="250"></canvas></div></div>'+
+    '<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><h3>\u5931\u8d25\u660e\u7ec6</h3><div><select id="fTypeFilter" onchange="loadFailureDetail()" style="padding:4px 8px;border:1px solid #D1D5DB;border-radius:4px"><option value="">\u5168\u90e8</option><option value="extract">\u63d0\u53d6\u5931\u8d25</option><option value="video">\u89c6\u9891\u63d0\u53d6\u5931\u8d25</option></select> <button class="btn btn-primary btn-sm" onclick="retrySelected()">\u91cd\u8bd5\u9009\u4e2d</button></div></div><div id="fDetailTable"></div></div>';
+
+  fetch('/admin/failures/summary').then(function(r){return r.json()}).then(function(d){
+    if(d.code!==0)return;
+    var s=d.data;
+    document.getElementById('fSummary').innerHTML=
+      '<div class="stat-card"><span class="stat-num c-red">'+s.crawl_failures+'</span><span class="stat-label">\u722c\u53d6\u5931\u8d25</span></div>'+
+      '<div class="stat-card"><span class="stat-num c-orange">'+s.extract_failures+'</span><span class="stat-label">\u63d0\u53d6\u5931\u8d25</span></div>'+
+      '<div class="stat-card"><span class="stat-num" style="color:#7C3AED">'+s.video_failures+'</span><span class="stat-label">\u89c6\u9891\u63d0\u53d6\u5931\u8d25</span></div>';
+  });
+
+  loadFailureTrend(7);
+  loadFailureSource();
+  loadFailureReasons();
+  loadFailureDetail();
+}
+
+function loadFailureTrend(days){
+  failureTrendDays=days;
+  var btn7=document.getElementById('fTrend7'),btn30=document.getElementById('fTrend30');
+  if(btn7){btn7.className='btn btn-sm '+(days===7?'btn-primary':'btn-outline')}
+  if(btn30){btn30.className='btn btn-sm '+(days===30?'btn-primary':'btn-outline')}
+  fetch('/admin/failures/trend?days='+days).then(function(r){return r.json()}).then(function(d){
+    if(d.code!==0)return;
+    var data=d.data;
+    var labels=[],crawl=[],extract=[],video=[];
+    data.forEach(function(p){labels.push(p.date);crawl.push(p.crawl_failures);extract.push(p.extract_failures);video.push(p.video_failures)});
+    if(failureTrendChart)failureTrendChart.destroy();
+    var ctx=document.getElementById('fTrendCanvas');
+    if(!ctx)return;
+    failureTrendChart=new Chart(ctx,{type:'line',data:{labels:labels,datasets:[
+      {label:'\u722c\u53d6\u5931\u8d25',data:crawl,borderColor:'#EF4444',backgroundColor:'rgba(239,68,68,0.1)',fill:true,tension:0.3},
+      {label:'\u63d0\u53d6\u5931\u8d25',data:extract,borderColor:'#D97706',backgroundColor:'rgba(217,119,6,0.1)',fill:true,tension:0.3},
+      {label:'\u89c6\u9891\u5931\u8d25',data:video,borderColor:'#7C3AED',backgroundColor:'rgba(124,58,237,0.1)',fill:true,tension:0.3}
+    ]},options:{responsive:true,scales:{y:{beginAtZero:true}},plugins:{legend:{position:'bottom'}}}});
+  });
+}
+
+function loadFailureSource(){
+  fetch('/admin/failures/by-source').then(function(r){return r.json()}).then(function(d){
+    if(d.code!==0)return;
+    var data=d.data.slice(0,8);
+    var labels=[],counts=[];
+    data.forEach(function(e){var total=e.crawl_failures+e.extract_failures+e.video_failures;labels.push(e.source_name||e.source_id);counts.push(total)});
+    if(failureSourceChart)failureSourceChart.destroy();
+    var ctx=document.getElementById('fSourceCanvas');
+    if(!ctx)return;
+    failureSourceChart=new Chart(ctx,{type:'doughnut',data:{labels:labels,datasets:[{data:counts,backgroundColor:['#EF4444','#D97706','#7C3AED','#1A56DB','#059669','#EC4899','#6366F1','#14B8A6']}]},options:{responsive:true,plugins:{legend:{position:'bottom',labels:{boxWidth:12}}}}});
+  });
+}
+
+function loadFailureReasons(){
+  fetch('/admin/failures/top-reasons?limit=10').then(function(r){return r.json()}).then(function(d){
+    if(d.code!==0)return;
+    var data=d.data;
+    var labels=[],counts=[];
+    data.forEach(function(r){labels.push(r.reason.length>50?r.reason.substring(0,50)+'...':r.reason);counts.push(r.count)});
+    if(failureReasonChart)failureReasonChart.destroy();
+    var ctx=document.getElementById('fReasonCanvas');
+    if(!ctx)return;
+    failureReasonChart=new Chart(ctx,{type:'bar',data:{labels:labels,datasets:[{label:'\u6b21\u6570',data:counts,backgroundColor:'#EF4444'}]},options:{indexAxis:'y',responsive:true,scales:{x:{beginAtZero:true}},plugins:{legend:{display:false}}}});
+  });
+}
+
+var failureDetailData=[];
+function loadFailureDetail(){
+  var type=document.getElementById('fTypeFilter')?document.getElementById('fTypeFilter').value:'';
+  fetch('/admin/failures/failed-raw-texts?type='+type+'&limit=100').then(function(r){return r.json()}).then(function(d){
+    if(d.code!==0)return;
+    failureDetailData=d.data;
+    var h='<table><thead><tr><th><input type="checkbox" id="fCheckAll" onchange="toggleAllFailCheck()"></th><th>ID</th><th>\u6765\u6e90</th><th>\u6807\u9898</th><th>\u9519\u8bef</th><th>\u7c7b\u578b</th><th>\u65f6\u95f4</th><th>\u64cd\u4f5c</th></tr></thead><tbody>';
+    d.data.forEach(function(e,i){
+      var typeBadge=e.failure_type==='video'?'bg-purple':'bg-orange';
+      h+='<tr><td><input type="checkbox" class="fCheck" data-idx="'+i+'"></td><td>'+e.id+'</td><td>'+esc(e.source_name||e.source_id)+'</td><td>'+esc(e.title)+'</td><td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+esc(e.error_reason)+'">'+esc(e.error_reason)+'</td><td><span class="badge '+typeBadge+'">'+(e.failure_type==='video'?'\u89c6\u9891':'\u63d0\u53d6')+'</span></td><td>'+(e.failed_at||'')+'</td><td><button class="btn btn-sm btn-outline" onclick="retryOne('+e.id+')">\u91cd\u8bd5</button></td></tr>';
+    });
+    h+='</tbody></table>';
+    if(d.data.length===0)h='<div style="text-align:center;padding:20px;color:#6B7280">\u6682\u65e0\u5931\u8d25\u8bb0\u5f55</div>';
+    document.getElementById('fDetailTable').innerHTML=h;
+  });
+}
+
+function toggleAllFailCheck(){
+  var checked=document.getElementById('fCheckAll').checked;
+  document.querySelectorAll('.fCheck').forEach(function(cb){cb.checked=checked});
+}
+
+function retryOne(id){
+  fetch('/admin/failures/retry',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({raw_text_id:id})}).then(function(r){return r.json()}).then(function(d){
+    if(d.code===0){showToast('\u5df2\u91cd\u65b0\u5165\u961f','success');loadFailureDetail()}
+    else showToast(d.message||'\u91cd\u8bd5\u5931\u8d25','error');
+  }).catch(function(){showToast('\u8bf7\u6c42\u5931\u8d25','error')});
+}
+
+function retrySelected(){
+  var ids=[];
+  document.querySelectorAll('.fCheck:checked').forEach(function(cb){
+    var idx=parseInt(cb.dataset.idx);
+    if(failureDetailData[idx])ids.push(failureDetailData[idx].id);
+  });
+  if(ids.length===0){showToast('\u8bf7\u5148\u9009\u62e9\u8981\u91cd\u8bd5\u7684\u9879\u76ee','error');return}
+  var promises=ids.map(function(id){
+    return fetch('/admin/failures/retry',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({raw_text_id:id})}).then(function(r){return r.json()});
+  });
+  Promise.all(promises).then(function(){
+    showToast('\u5df2\u91cd\u65b0\u5165\u961f '+ids.length+' \u9879','success');
+    loadFailureDetail();
+  }).catch(function(){showToast('\u90e8\u5206\u91cd\u8bd5\u5931\u8d25','error')});
 }
 
 </script>
