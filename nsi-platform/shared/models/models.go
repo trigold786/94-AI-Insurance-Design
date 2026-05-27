@@ -48,6 +48,15 @@ type PolicyClaim struct {
 	SourceName        string           `db:"source_name" json:"source_name,omitempty"`
 	SourceURL         string           `db:"source_url" json:"source_url,omitempty"`
 	PolicyURL         string           `db:"policy_url" json:"policy_url,omitempty"`
+	PolicyTitle       string           `db:"policy_title" json:"policy_title,omitempty"`
+	IssuingAuthority  string           `db:"issuing_authority" json:"issuing_authority,omitempty"`
+	DocumentNumber    string           `db:"document_number" json:"document_number,omitempty"`
+	ApplicationProcess json.RawMessage `db:"application_process" json:"application_process,omitempty"`
+	ContactInfo       string           `db:"contact_info" json:"contact_info,omitempty"`
+	SourceType        string           `db:"source_type" json:"source_type,omitempty"`
+	ExtractionMethod  string           `db:"extraction_method" json:"extraction_method,omitempty"`
+	RawTextLength     int              `db:"raw_text_length" json:"raw_text_length,omitempty"`
+	SplitCount        int              `db:"split_count" json:"split_count,omitempty"`
 	SourceLevel       string           `db:"source_level" json:"source_level,omitempty"`
 	FetchedAt         string           `db:"fetched_at" json:"fetched_at,omitempty"`
 	VerifiedBy        string           `db:"verified_by" json:"verified_by,omitempty"`
