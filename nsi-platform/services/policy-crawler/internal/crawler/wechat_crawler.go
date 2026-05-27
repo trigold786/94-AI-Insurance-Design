@@ -15,13 +15,15 @@ var sogouResultRe = regexp.MustCompile(`https?://mp\.weixin\.qq\.com/[^\s"'<>]+`
 type WeChatCrawler struct {
 	config    SourceConfig
 	renderer  PageRenderer
+	filter    *RelevanceFilter
 	maxItems  int
 	processed map[string]bool
 }
 
-func NewWeChatCrawler(cfg SourceConfig) *WeChatCrawler {
+func NewWeChatCrawler(cfg SourceConfig, filter *RelevanceFilter) *WeChatCrawler {
 	return &WeChatCrawler{
 		config:    cfg,
+		filter:    filter,
 		maxItems:  20,
 		processed: make(map[string]bool),
 	}
@@ -64,6 +66,14 @@ func (w *WeChatCrawler) Fetch() ([]*CrawlResult, error) {
 		articleURLs = append(articleURLs, discovered...)
 	}
 
+	if len(articleURLs) > 0 {
+		bizID := extractBizID(articleURLs[0])
+		if bizID != "" {
+			bizArticles := w.discoverByBiz(bizID)
+			articleURLs = append(articleURLs, bizArticles...)
+		}
+	}
+
 	seen := make(map[string]bool)
 	var deduped []string
 	for _, u := range articleURLs {
@@ -86,9 +96,20 @@ func (w *WeChatCrawler) Fetch() ([]*CrawlResult, error) {
 			log.Printf("[wechat] fetch %s error: %v", u, err)
 			continue
 		}
-		if result != nil {
-			results = append(results, result)
+		if result == nil {
+			continue
 		}
+
+		if w.filter != nil {
+			score, matched := w.filter.Score(result.Title+" "+result.RawText, w.config.SourceID, "wechat")
+			threshold := w.filter.MinScore(w.config.SourceID, "level1")
+			if score < threshold {
+				log.Printf("[wechat] filtered out %s: score %d < threshold %d (matched: %v)", u, score, threshold, matched)
+				continue
+			}
+		}
+
+		results = append(results, result)
 		if len(results) >= w.maxItems {
 			break
 		}
@@ -126,6 +147,40 @@ func (w *WeChatCrawler) discoverArticlesBing(keyword string) []string {
 	}
 
 	return w.extractWeChatURLs(html, "Bing", keyword)
+}
+
+func (w *WeChatCrawler) discoverByBiz(bizID string) []string {
+	searchURL := fmt.Sprintf("https://www.bing.com/search?q=site%%3Amp.weixin.qq.com%%20__biz%%3D%s", bizID)
+	log.Printf("[wechat] discovering articles by biz: %s", bizID)
+	html, err := w.renderer.RenderWithVirtualTime(searchURL, 20000)
+	if err != nil {
+		log.Printf("[wechat] biz search render error: %v", err)
+		return nil
+	}
+	return w.extractWeChatURLs(html, "BizSearch", bizID)
+}
+
+func extractBizID(articleURL string) string {
+	idx := strings.Index(articleURL, "__biz=")
+	if idx == -1 {
+		idx = strings.Index(articleURL, "__biz%3D")
+	}
+	if idx == -1 {
+		return ""
+	}
+	start := idx
+	if strings.Contains(articleURL[start:start+6], "%3D") {
+		start = idx + 8
+	} else {
+		start = idx + 6
+	}
+	end := strings.IndexAny(articleURL[start:], "&#")
+	if end == -1 {
+		end = len(articleURL)
+	} else {
+		end += start
+	}
+	return articleURL[start:end]
 }
 
 func (w *WeChatCrawler) discoverArticlesBaidu(keyword string) []string {
@@ -180,9 +235,13 @@ func (w *WeChatCrawler) discoverArticlesSogou(keyword string) []string {
 }
 
 func (w *WeChatCrawler) fetchArticle(articleURL string) (*CrawlResult, error) {
-	html, err := w.renderer.RenderWithVirtualTime(articleURL, 10000)
+	html, err := w.renderer.RenderWithVirtualTime(articleURL, 25000)
 	if err != nil {
 		return nil, fmt.Errorf("render: %w", err)
+	}
+
+	if strings.Contains(html, "环境异常") || (strings.Contains(html, "验证") && !strings.Contains(html, "js_content")) {
+		return nil, fmt.Errorf("anti-bot page detected")
 	}
 
 	title := extractWeChatTitle(html)

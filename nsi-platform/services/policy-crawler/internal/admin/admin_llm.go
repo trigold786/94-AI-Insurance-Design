@@ -23,6 +23,10 @@ type LLMConfig struct {
 	EmbeddingDimensions int    `json:"embedding_dimensions"`
 	EmbeddingAPIKey     string `json:"embedding_api_key"`
 	EmbeddingEndpoint   string `json:"embedding_endpoint"`
+	BackupProvider      string `json:"backup_provider"`
+	BackupAPIKey        string `json:"backup_api_key"`
+	BackupEndpoint      string `json:"backup_endpoint"`
+	BackupModelName     string `json:"backup_model_name"`
 }
 
 type LLMStore interface {
@@ -50,6 +54,7 @@ func LLMConfigGetHandler(store LLMStore) http.Handler {
 		masked := *cfg
 		masked.APIKey = maskAPIKey(cfg.APIKey)
 		masked.EmbeddingAPIKey = maskAPIKey(cfg.EmbeddingAPIKey)
+		masked.BackupAPIKey = maskAPIKey(cfg.BackupAPIKey)
 		respondJSON(w, http.StatusOK, map[string]interface{}{"code": 0, "data": masked})
 	})
 }
@@ -76,6 +81,12 @@ func LLMConfigSaveHandler(store LLMStore) http.Handler {
 			existing, err := store.GetLLMConfig()
 			if err == nil && existing != nil {
 				cfg.EmbeddingAPIKey = existing.EmbeddingAPIKey
+			}
+		}
+		if strings.Contains(cfg.BackupAPIKey, "****") {
+			existing, err := store.GetLLMConfig()
+			if err == nil && existing != nil {
+				cfg.BackupAPIKey = existing.BackupAPIKey
 			}
 		}
 		if err := store.SaveLLMConfig(&cfg); err != nil {

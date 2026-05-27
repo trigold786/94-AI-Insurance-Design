@@ -74,6 +74,7 @@ var navItems=[
   {id:'claims',label:'\u653f\u7b56\u5ba1\u6838'},
   {id:'search',label:'\u8bed\u4e49\u641c\u7d22'},
   {id:'extract',label:'AI\u63d0\u53d6'},
+  {id:'relevance',label:'\u76f8\u5173\u6027\u89c4\u5219'},
   {id:'logs',label:'\u722c\u53d6\u65e5\u5fd7'},
   {id:'pipeline',label:'\u6570\u636e\u6d41\u6c34\u7ebf'},
   {id:'extractLogs',label:'\u63d0\u53d6\u65e5\u5fd7'},
@@ -100,6 +101,7 @@ function switchPanel(id){
   else if(id==='claims')loadClaims();
   else if(id==='search')loadSearch();
   else if(id==='extract')loadExtract();
+  else if(id==='relevance')loadRelevanceRules();
   else if(id==='logs')loadLogs();
   else if(id==='extractLogs')loadExtractLogs();
   else if(id==='pipeline')loadPipeline();
@@ -189,9 +191,35 @@ function loadDashboard(){
     }
     h+='</div></div>';
 
+    // 失败分析
+    h+='<div class="card"><h3 style="font-size:15px;margin-bottom:12px">爬取失败分析（按来源+原因）</h3><div id="crawlFailChart">加载中...</div></div>'+
+      '<div class="card"><h3 style="font-size:15px;margin-bottom:12px">AI提取失败分析（按来源+原因）</h3><div id="extractFailChart">加载中...</div></div>';
+
     // 数据源一览
     h+='<div class="card"><h3 style="font-size:15px;margin-bottom:12px">数据源一览</h3><div id="miniSources">加载中...</div></div>';
     document.getElementById('app').innerHTML=h;
+
+    // 加载失败数据
+    fetch('/admin/failures').then(function(r){return r.json()}).then(function(d3){
+      if(d3.code!==0)return;
+      var f=d3.data;
+      var renderFail=function(containerId,items,label,color){
+        if(!items||items.length===0){document.getElementById(containerId).innerHTML='<span style="color:#9CA3AF;font-size:13px">暂无失败记录</span>';return}
+        var max=1;items.forEach(function(x){if(x.count>max)max=x.count});
+        var html='<table style="width:100%;font-size:13px">';
+        items.forEach(function(x){
+          var pct=x.count/max*100;
+          html+='<tr><td style="padding:4px 8px;white-space:nowrap;font-weight:600;width:120px">'+esc(x.source_name||x.source_id)+'</td>'+
+            '<td style="padding:4px 8px;color:#6B7280;font-size:12px;max-width:300px;overflow:hidden;text-overflow:ellipsis">'+esc(x.error_message)+'</td>'+
+            '<td style="padding:4px 8px;width:120px"><span style="display:inline-block;height:18px;width:'+pct+'%;min-width:12px;background:'+color+';border-radius:3px;vertical-align:middle"></span></td>'+
+            '<td style="padding:4px 8px;text-align:right;font-weight:600;width:40px">'+x.count+'</td></tr>';
+        });
+        html+='</table>';
+        document.getElementById(containerId).innerHTML=html;
+      };
+      renderFail('crawlFailChart',f.crawl_failures,'爬取失败','#EF4444');
+      renderFail('extractFailChart',f.extract_failures,'提取失败','#D97706');
+    }).catch(function(){document.getElementById('crawlFailChart').innerHTML='<span style="color:#EF4444">加载失败</span>'});
 
     fetch('/admin/sources').then(function(r2){return r2.json()}).then(function(d2){
       if(d2.code!==0)return;
@@ -282,6 +310,11 @@ function renderSources(){
       '<div><label style="font-size:12px;color:#6B7280;display:block;margin-bottom:4px">省份 <span style="color:#EF4444">*</span></label><select id="sf_province" onchange="onProvinceChange()" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px"></select></div>'+
       '<div><label style="font-size:12px;color:#6B7280;display:block;margin-bottom:4px">城市</label><select id="sf_city" onchange="onCityChange()" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px"></select></div>'+
       '<div id="sf_district_wrap"><label style="font-size:12px;color:#6B7280;display:block;margin-bottom:4px">区县</label><select id="sf_district" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px"></select></div>'+
+      '<div style="grid-column:1/3;border-top:1px solid #E5E7EB;padding-top:8px;margin-top:4px"><span style="font-size:11px;color:#9CA3AF">爬取配置</span></div>'+
+      '<div><label style="font-size:12px;color:#6B7280;display:block;margin-bottom:4px">代理URL (可选)</label><input id="sf_proxy" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px" placeholder="http://proxy:port"></div>'+
+      '<div><label style="font-size:12px;color:#6B7280;display:block;margin-bottom:4px">请求间隔(ms)</label><input id="sf_delay" type="number" value="0" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px"></div>'+
+      '<div><label style="font-size:12px;color:#6B7280;display:block;margin-bottom:4px">最大并发</label><input id="sf_concurrent" type="number" value="1" min="1" max="10" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px"></div>'+
+      '<div style="display:flex;align-items:center;padding-top:18px"><label style="font-size:13px;display:flex;align-items:center;gap:4px;cursor:pointer"><input id="sf_robots" type="checkbox" checked>遵守 robots.txt</label></div>'+
       '</div>'+
       '<div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end">'+
       '<button class="btn btn-outline" onclick="closeSourceModal()">取消</button>'+
@@ -384,6 +417,10 @@ function showSourceForm(id){
         document.getElementById('sf_level').value=s.source_level;
         document.getElementById('sf_url').value=s.source_url;
         document.getElementById('sf_interval').value=s.interval_sec;
+        document.getElementById('sf_proxy').value=s.proxy_url||'';
+        document.getElementById('sf_delay').value=s.request_delay_ms||0;
+        document.getElementById('sf_concurrent').value=s.max_concurrent||1;
+        document.getElementById('sf_robots').checked=s.respect_robots!==false;
         // 加载并设置地区
         var rc=s.region_code||'';
         if(rc){
@@ -421,6 +458,10 @@ function showSourceForm(id){
     document.getElementById('sf_level').value='MEDIUM';
     document.getElementById('sf_url').value='';
     document.getElementById('sf_interval').value='86400';
+    document.getElementById('sf_proxy').value='';
+    document.getElementById('sf_delay').value='0';
+    document.getElementById('sf_concurrent').value='1';
+    document.getElementById('sf_robots').checked=true;
     onTypeChange();
   }
   modal.style.display='block';
@@ -443,7 +484,11 @@ function saveSource(){
     source_level:document.getElementById('sf_level').value,
     source_url:document.getElementById('sf_url').value,
     interval_sec:parseInt(document.getElementById('sf_interval').value)||86400,
-    region_code:region_code
+    region_code:region_code,
+    proxy_url:document.getElementById('sf_proxy').value,
+    request_delay_ms:parseInt(document.getElementById('sf_delay').value)||0,
+    max_concurrent:parseInt(document.getElementById('sf_concurrent').value)||1,
+    respect_robots:document.getElementById('sf_robots').checked
   };
   if(editingSourceId){
     payload.source_id=editingSourceId;
@@ -610,9 +655,14 @@ function updateClaim(id,status){
 
 var extractProviderMap={
   'deepseek':{name:'DeepSeek',endpoint:'https://api.deepseek.com/v1/chat/completions',model:'deepseek-chat'},
-  'ali_bailian':{name:'\u963f\u91cc\u4e91\u767e\u70bc',endpoint:'https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation',model:'qwen-plus'},
-  'volc_ark':{name:'\u706b\u5c71\u65b9\u821f',endpoint:'https://ark.cn-beijing.volces.com/api/v3/chat/completions',model:'doubao-pro-32k'},
+  'ali_bailian':{name:'阿里云百炼',endpoint:'https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation',model:'qwen-plus'},
+  'volc_ark':{name:'火山方舟',endpoint:'https://ark.cn-beijing.volces.com/api/v3/chat/completions',model:'doubao-pro-32k'},
   'opencode_go':{name:'OpenCode Go',endpoint:'http://localhost:11434/v1/chat/completions',model:'opencode-go'}
+};
+
+var embeddingProviderMap={
+  'volc_ark':{name:'火山方舟 Doubao',endpoint:'https://ark.cn-beijing.volces.com/api/v3/embeddings/multimodal',dims:1024},
+  'openai':{name:'OpenAI',endpoint:'https://api.openai.com/v1/embeddings',dims:1536}
 };
 
 function loadExtract(){
@@ -637,19 +687,51 @@ function loadExtract(){
     h+='<div style="grid-column:1/3"><label style="font-size:12px;color:#6B7280;display:block;margin-bottom:4px">API 地址</label><input id="llmEndpoint" value="'+esc(cfg.endpoint||prov.endpoint)+'" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px"></div>';
     h+='<div style="grid-column:1/3"><label style="font-size:12px;color:#6B7280;display:block;margin-bottom:4px">API Key</label><input id="llmKey" type="password" value="'+esc(cfg.api_key)+'" placeholder="输入 API Key" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px"></div>';
     h+='<div><label class="toggle"><input type="checkbox" id="llmEnabled" '+(cfg.api_key?'checked':'')+' onchange="saveLLMConfig()"><span class="slider"></span></label><span style="font-size:13px;margin-left:8px">启用 LLM 提取</span></div>';
-    h+='<div style="text-align:right"><button class="btn btn-primary" onclick="saveLLMConfig()">保存配置</button></div>';
+    h+='<div style="grid-column:1/3;border-top:1px solid #E5E7EB;padding-top:8px;margin-top:4px"><span style="font-size:11px;color:#9CA3AF">备用 LLM 配置（主 LLM 失败时自动切换）</span></div>';
+    h+='<div><label style="font-size:12px;color:#6B7280;display:block;margin-bottom:4px">备用Provider</label>'+
+      '<select id="backupProvider" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px">'+
+      '<option value="">未配置</option>'+
+      '<option value="deepseek" '+(cfg.backup_provider==='deepseek'?'selected':'')+'>DeepSeek</option>'+
+      '<option value="ali_bailian" '+(cfg.backup_provider==='ali_bailian'?'selected':'')+'>阿里云百炼</option>'+
+      '<option value="volc_ark" '+(cfg.backup_provider==='volc_ark'?'selected':'')+'>火山方舟</option>'+
+      '<option value="opencode_go" '+(cfg.backup_provider==='opencode_go'?'selected':'')+'>OpenCode Go</option>'+
+      '</select></div>';
+    h+='<div><label style="font-size:12px;color:#6B7280;display:block;margin-bottom:4px">备用Model</label><input id="backupModel" value="'+esc(cfg.backup_model_name||'')+'" placeholder="留空则用默认" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px"></div>';
+    h+='<div style="grid-column:1/3"><label style="font-size:12px;color:#6B7280;display:block;margin-bottom:4px">备用Endpoint</label><input id="backupEndpoint" value="'+esc(cfg.backup_endpoint||'')+'" placeholder="留空则用默认" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px"></div>';
+    h+='<div style="grid-column:1/3"><label style="font-size:12px;color:#6B7280;display:block;margin-bottom:4px">备用API Key</label><input id="backupKey" type="password" value="'+esc(cfg.backup_api_key||'')+'" placeholder="留空则不启用备用" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px"></div>';
+    h+='<div style="text-align:right;grid-column:1/3"><button class="btn btn-primary" onclick="saveLLMConfig()">保存配置</button></div>';
     h+='</div></div>';
 
-    // Embedding 配置（可独立于 LLM 配置，用于向量模型如火山方舟 Doubao Embedding）
+    // Embedding 配置（选择服务商自动匹配 API 地址和维度，填写接入点 ID）
+    var embEndpoint=cfg.embedding_endpoint||'https://ark.cn-beijing.volces.com/api/v3/embeddings/multimodal';
+    var embProvKey='volc_ark';
+    for(var k in embeddingProviderMap){if(embEndpoint.indexOf(embeddingProviderMap[k].endpoint)>=0){embProvKey=k;break}}
+    var embProvInfo=embeddingProviderMap[embProvKey];
     h+='<div class="card" style="margin-top:12px"><h3 style="font-size:16px;margin-bottom:12px">Embedding 向量配置</h3>';
     h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">';
-    h+='<div><label style="font-size:12px;color:#6B7280;display:block;margin-bottom:4px">向量模型</label>'+
-      '<input id="embModel" value="'+esc(cfg.embedding_model||'doubao-embedding-vision')+'" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px"></div>';
+    h+='<div><label style="font-size:12px;color:#6B7280;display:block;margin-bottom:4px">服务商</label>'+
+      '<select id="embProvider" onchange="updateEmbeddingEndpoint()" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px">'+
+      Object.keys(embeddingProviderMap).map(function(k){return '<option value="'+k+'" '+(embProvKey===k?'selected':'')+'>'+embeddingProviderMap[k].name+'</option>'}).join('')+
+      '</select></div>';
+    h+='<div><label style="font-size:12px;color:#6B7280;display:block;margin-bottom:4px">模型名/接入点 ID</label>'+
+      '<input id="embModel" value="'+esc(cfg.embedding_model||'')+'" placeholder="输入接入点 ID（如 ep-20260526-xxxxx）" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px"></div>';
     h+='<div><label style="font-size:12px;color:#6B7280;display:block;margin-bottom:4px">向量维度</label>'+
-      '<input id="embDims" type="number" value="'+(cfg.embedding_dimensions||1024)+'" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px"></div>';
-    h+='<div style="grid-column:1/3"><label style="font-size:12px;color:#6B7280;display:block;margin-bottom:4px">API 地址（火山方舟: https://ark.cn-beijing.volces.com/api/v3/embeddings）</label><input id="embEndpoint" value="'+esc(cfg.embedding_endpoint||'https://ark.cn-beijing.volces.com/api/v3/embeddings')+'" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px"></div>';
+      '<input id="embDims" type="number" value="'+(cfg.embedding_dimensions||embProvInfo.dims)+'" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px"></div>';
+    h+='<div><label style="font-size:12px;color:#6B7280;display:block;margin-bottom:4px">API 地址</label><input id="embEndpoint" value="'+esc(cfg.embedding_endpoint||embProvInfo.endpoint)+'" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px"></div>';
     h+='<div style="grid-column:1/3"><label style="font-size:12px;color:#6B7280;display:block;margin-bottom:4px">API Key（留空则复用 LLM 配置的 Key）</label><input id="embKey" type="password" value="'+esc(cfg.embedding_api_key)+'" placeholder="留空则复用 LLM API Key" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px"></div>';
     h+='<div style="text-align:right"><span style="font-size:12px;color:#9CA3AF;margin-right:8px">保存 LLM 配置时一起保存</span></div>';
+    h+='</div></div>';
+
+    h+='<div class="card" style="margin-top:12px"><h3 style="font-size:16px;margin-bottom:12px">ASR 语音识别配置</h3>';
+    h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">';
+    h+='<div><label style="font-size:12px;color:#6B7280;display:block;margin-bottom:4px">Provider</label>'+
+      '<select id="asrProvider" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px">'+
+      '<option value="volcengine">火山引擎</option><option value="xfyun">讯飞</option></select></div>';
+    h+='<div><label style="font-size:12px;color:#6B7280;display:block;margin-bottom:4px">API Key</label><input id="asrKey" type="password" placeholder="ASR API Key" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px"></div>';
+    h+='<div style="grid-column:1/3"><label style="font-size:12px;color:#6B7280;display:block;margin-bottom:4px">Endpoint</label><input id="asrEndpoint" placeholder="https://..." style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px"></div>';
+    h+='<div><label style="font-size:12px;color:#6B7280;display:block;margin-bottom:4px">Language</label><input id="asrLang" value="zh" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px"></div>';
+    h+='<div><label style="font-size:13px;display:flex;align-items:center;gap:4px;cursor:pointer;padding-top:18px"><input id="asrEnabled" type="checkbox">启用 ASR</label></div>';
+    h+='<div style="text-align:right;grid-column:1/3"><button class="btn btn-primary" onclick="saveASRConfig()">保存 ASR 配置</button></div>';
     h+='</div></div>';
 
     h+='<div class="card"><h3 style="font-size:16px;margin-bottom:12px">提取状态</h3>';
@@ -699,6 +781,7 @@ function loadExtract(){
     }
 
     app.innerHTML=h;
+    loadASRConfig();
   }).catch(function(e){app.innerHTML='<div class="card"><h3>加载失败</h3><p>'+esc(e.message)+'</p></div>'});
 }
 
@@ -707,6 +790,13 @@ function updateLLMEndpoint(){
   var info=extractProviderMap[p]||extractProviderMap['deepseek'];
   document.getElementById('llmEndpoint').value=info.endpoint;
   document.getElementById('llmModel').value=info.model;
+}
+
+function updateEmbeddingEndpoint(){
+  var p=document.getElementById('embProvider').value;
+  var info=embeddingProviderMap[p]||embeddingProviderMap['volc_ark'];
+  document.getElementById('embEndpoint').value=info.endpoint;
+  document.getElementById('embDims').value=info.dims;
 }
 
 function filterExtract(){
@@ -738,7 +828,11 @@ function saveLLMConfig(){
       embedding_model:document.getElementById('embModel').value,
       embedding_dimensions:parseInt(document.getElementById('embDims').value)||1024,
       embedding_api_key:document.getElementById('embKey').value,
-      embedding_endpoint:document.getElementById('embEndpoint').value
+      embedding_endpoint:document.getElementById('embEndpoint').value,
+      backup_provider:document.getElementById('backupProvider').value,
+      backup_api_key:document.getElementById('backupKey').value,
+      backup_endpoint:document.getElementById('backupEndpoint').value,
+      backup_model_name:document.getElementById('backupModel').value
     })}).then(function(r){return r.json()}).then(function(d){
     showToast('\u914d\u7f6e\u5df2\u4fdd\u5b58','success')
   }).catch(function(){showToast('\u4fdd\u5b58\u5931\u8d25','error')});
@@ -973,6 +1067,166 @@ function doImport(){
     else{showToast('\u5bfc\u5165\u5931\u8d25: '+(d.error||d.message||''),'error')}
     btn.disabled=false;btn.textContent='\u89e3\u6790\u5e76\u5bfc\u5165';
   }).catch(function(){showToast('\u8bf7\u6c42\u5931\u8d25','error');btn.disabled=false;btn.textContent='\u89e3\u6790\u5e76\u5bfc\u5165'});
+}
+
+function loadASRConfig(){
+  fetch('/admin/asr/config').then(function(r){return r.json()}).then(function(d){
+    if(d.code!==0||!d.data)return;
+    var c=d.data;
+    var pEl=document.getElementById('asrProvider');
+    var kEl=document.getElementById('asrKey');
+    var eEl=document.getElementById('asrEndpoint');
+    var lEl=document.getElementById('asrLang');
+    var enEl=document.getElementById('asrEnabled');
+    if(pEl&&c.provider)pEl.value=c.provider;
+    if(kEl&&c.api_key)kEl.value=c.api_key;
+    if(eEl&&c.endpoint)eEl.value=c.endpoint;
+    if(lEl&&c.language)lEl.value=c.language;
+    if(enEl&&c.enabled!==undefined)enEl.checked=!!c.enabled;
+  }).catch(function(){});
+}
+
+function saveASRConfig(){
+  var payload={
+    provider:document.getElementById('asrProvider').value,
+    api_key:document.getElementById('asrKey').value,
+    endpoint:document.getElementById('asrEndpoint').value,
+    language:document.getElementById('asrLang').value,
+    enabled:document.getElementById('asrEnabled').checked
+  };
+  fetch('/admin/asr/config/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
+  .then(function(r){return r.json()}).then(function(d){
+    if(d.code===0)showToast('ASR\u914d\u7f6e\u5df2\u4fdd\u5b58','success');
+    else showToast('\u4fdd\u5b58\u5931\u8d25: '+(d.error||''),'error');
+  }).catch(function(){showToast('\u4fdd\u5b58\u5931\u8d25','error')});
+}
+
+var allRelevanceRules=[];
+function loadRelevanceRules(){
+  var app=document.getElementById('app');
+  app.innerHTML='<div class="card" style="text-align:center;padding:40px"><div class="spinner"></div>\u52a0\u8f7d\u4e2d...</div>';
+  fetch('/admin/relevance/rules').then(function(r){return r.json()}).then(function(d){
+    if(d.code!==0)throw new Error(d.message||'error');
+    allRelevanceRules=d.data||[];
+    renderRelevanceRules();
+  }).catch(function(e){app.innerHTML='<div class="card"><h3>\u52a0\u8f7d\u5931\u8d25</h3><p>'+esc(e.message)+'</p></div>'});
+}
+
+function renderRelevanceRules(){
+  var rules=allRelevanceRules;
+  var grouped={};
+  rules.forEach(function(r){
+    var cat=r.category||'default';
+    if(!grouped[cat])grouped[cat]=[];
+    grouped[cat].push(r);
+  });
+  var h='<div class="card"><h3 style="font-size:16px;margin-bottom:12px">\u76f8\u5173\u6027\u89c4\u5219\u7ba1\u7406</h3>';
+  h+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr auto;gap:8px;margin-bottom:12px;align-items:end">'+
+    '<div><label style="font-size:12px;color:#6B7280;display:block;margin-bottom:4px">\u5173\u952e\u8bcd</label><input id="rl_kw" placeholder="\u5173\u952e\u8bcd" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px"></div>'+
+    '<div><label style="font-size:12px;color:#6B7280;display:block;margin-bottom:4px">\u5206\u7c7b</label><select id="rl_cat" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px">'+
+    '<option value="social_insurance">\u793e\u4fdd</option><option value="housing_fund">\u516c\u79ef\u91d1</option><option value="employment">\u5c31\u4e1a</option><option value="medical">\u533b\u7597</option><option value="pension">\u517b\u8001</option><option value="subsidy">\u8865\u8d34</option><option value="default">\u9ed8\u8ba4</option></select></div>'+
+    '<div><label style="font-size:12px;color:#6B7280;display:block;margin-bottom:4px">\u6743\u91cd</label><select id="rl_wt" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px">'+
+    '<option value="1">1</option><option value="2">2</option></select></div>'+
+    '<div><label style="font-size:12px;color:#6B7280;display:block;margin-bottom:4px">\u8303\u56f4</label><select id="rl_scope" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px">'+
+    '<option value="all">\u5168\u90e8</option><option value="douyin">\u6296\u97f3</option><option value="wechat">\u5fae\u4fe1</option><option value="govsite">\u653f\u5e9c\u7f51\u7ad9</option></select></div>'+
+    '<button class="btn btn-success" onclick="addRelevanceRule()">\u6dfb\u52a0</button></div>';
+  h+='</div>';
+
+  Object.keys(grouped).forEach(function(cat){
+    h+='<div class="card"><h4 style="font-size:14px;margin-bottom:8px;color:#1A56DB">\u5206\u7c7b: '+esc(cat)+' ('+grouped[cat].length+' \u6761)</h4>';
+    h+='<div style="overflow-x:auto"><table><tr><th>\u542f\u7528</th><th>\u5173\u952e\u8bcd</th><th>\u6743\u91cd</th><th>\u8303\u56f4</th><th>\u64cd\u4f5c</th></tr>';
+    grouped[cat].forEach(function(r){
+      h+='<tr><td><label class="toggle"><input type="checkbox" '+(r.enabled!==false?'checked':'')+' onchange="toggleRule('+r.id+',this.checked)"><span class="slider"></span></label></td>'+
+        '<td style="font-weight:600;font-size:13px">'+esc(r.keyword)+'</td>'+
+        '<td>'+esc(r.weight)+'</td>'+
+        '<td><span class="badge bg-blue">'+esc(r.scope||'all')+'</span></td>'+
+        '<td><button class="btn btn-danger btn-sm" onclick="deleteRelevanceRule('+r.id+')">\u5220\u9664</button></td></tr>';
+    });
+    h+='</table></div></div>';
+  });
+  if(rules.length===0)h+='<div class="card" style="text-align:center;color:#9CA3AF;padding:30px">\u6682\u65e0\u89c4\u5219\uff0c\u8bf7\u6dfb\u52a0</div>';
+
+  h+='<div class="card" style="margin-top:12px"><h3 style="font-size:16px;margin-bottom:8px">\u6d4b\u8bd5\u76f8\u5173\u6027</h3>';
+  h+='<div style="margin-bottom:8px"><label style="font-size:12px;color:#6B7280;display:block;margin-bottom:4px">\u8f93\u5165\u6587\u672c</label>'+
+    '<textarea id="rl_test_text" style="min-height:80px" placeholder="\u7c98\u8d34\u6587\u672c\u5185\u5bb9..."></textarea></div>';
+  h+='<div style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:end;margin-bottom:8px">'+
+    '<div><label style="font-size:12px;color:#6B7280;display:block;margin-bottom:4px">Source ID</label><input id="rl_test_src" placeholder="source_id" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px"></div>'+
+    '<div><label style="font-size:12px;color:#6B7280;display:block;margin-bottom:4px">Crawl Type</label><select id="rl_test_ct" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px">'+
+    '<option value="">\u65e0</option>'+sourceTypeList.map(function(t){return '<option value="'+t.v+'">'+t.l+'</option>'}).join('')+'</select></div>'+
+    '<button class="btn btn-primary" onclick="testRelevance()">\u6d4b\u8bd5</button></div>';
+  h+='<div id="rl_test_result"></div></div>';
+
+  h+='<div class="card" style="margin-top:12px"><h3 style="font-size:16px;margin-bottom:8px">\u6279\u91cf\u5bfc\u5165</h3>';
+  h+='<div style="margin-bottom:8px"><label style="font-size:12px;color:#6B7280;display:block;margin-bottom:4px">JSON \u6570\u7ec4</label>'+
+    '<textarea id="rl_bulk_json" style="min-height:120px" placeholder=\'[{"keyword":"\u793e\u4fdd","category":"social_insurance","weight":1,"scope":"all"}]\'></textarea></div>'+
+    '<button class="btn btn-success" onclick="bulkImportRules()">\u5bfc\u5165</button></div>';
+
+  document.getElementById('app').innerHTML=h;
+}
+
+function addRelevanceRule(){
+  var kw=document.getElementById('rl_kw').value.trim();
+  if(!kw){showToast('\u5173\u952e\u8bcd\u4e0d\u80fd\u4e3a\u7a7a','error');return}
+  fetch('/admin/relevance/rules/create',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({
+      keyword:kw,
+      category:document.getElementById('rl_cat').value,
+      weight:parseInt(document.getElementById('rl_wt').value)||1,
+      scope:document.getElementById('rl_scope').value
+    })}).then(function(r){return r.json()}).then(function(d){
+    if(d.code===0){showToast('\u5df2\u6dfb\u52a0','success');loadRelevanceRules()}
+    else showToast('\u6dfb\u52a0\u5931\u8d25: '+(d.error||''),'error');
+  }).catch(function(){showToast('\u8bf7\u6c42\u5931\u8d25','error')});
+}
+
+function deleteRelevanceRule(id){
+  if(!confirm('\u786e\u5b9a\u5220\u9664\u8be5\u89c4\u5219\uff1f'))return;
+  fetch('/admin/relevance/rules/delete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:id})})
+  .then(function(r){return r.json()}).then(function(d){
+    if(d.code===0){showToast('\u5df2\u5220\u9664','success');loadRelevanceRules()}
+    else showToast('\u5220\u9664\u5931\u8d25: '+(d.error||''),'error');
+  }).catch(function(){showToast('\u8bf7\u6c42\u5931\u8d25','error')});
+}
+
+function toggleRule(id,enabled){
+  fetch('/admin/relevance/rules/update',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:id,enabled:enabled})})
+  .then(function(r){return r.json()}).then(function(d){
+    if(d.code===0)showToast(enabled?'\u5df2\u542f\u7528':'\u5df2\u7981\u7528','success');
+    else showToast('\u64cd\u4f5c\u5931\u8d25','error');
+  }).catch(function(){showToast('\u64cd\u4f5c\u5931\u8d25','error')});
+}
+
+function testRelevance(){
+  var text=document.getElementById('rl_test_text').value.trim();
+  if(!text){showToast('\u8bf7\u8f93\u5165\u6d4b\u8bd5\u6587\u672c','error');return}
+  fetch('/admin/relevance/test',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({
+      text:text,
+      source_id:document.getElementById('rl_test_src').value,
+      crawl_type:document.getElementById('rl_test_ct').value
+    })}).then(function(r){return r.json()}).then(function(d){
+    if(d.code!==0){showToast('\u6d4b\u8bd5\u5931\u8d25: '+(d.error||''),'error');return}
+    var res=d.data;
+    var h='<div style="padding:12px;background:#F9FAFB;border-radius:6px;font-size:13px">'+
+      '<div style="margin-bottom:6px"><strong>\u5f97\u5206:</strong> <span style="font-size:18px;font-weight:700;color:'+(res.score>=0.5?'#059669':'#EF4444')+'">'+(res.score||0).toFixed(3)+'</span></div>'+
+      '<div><strong>\u5339\u914d\u5173\u952e\u8bcd:</strong> '+(res.matched_keywords&&res.matched_keywords.length>0?
+      res.matched_keywords.map(function(k){return '<span class="badge bg-blue" style="margin:2px">'+esc(k)+'</span>'}).join(''):
+      '<span style="color:#9CA3AF">\u65e0</span>')+'</div></div>';
+    document.getElementById('rl_test_result').innerHTML=h;
+  }).catch(function(){showToast('\u8bf7\u6c42\u5931\u8d25','error')});
+}
+
+function bulkImportRules(){
+  var raw=document.getElementById('rl_bulk_json').value.trim();
+  if(!raw){showToast('\u8bf7\u8f93\u5165JSON','error');return}
+  var arr;
+  try{arr=JSON.parse(raw)}catch(e){showToast('JSON\u89e3\u6790\u5931\u8d25: '+e.message,'error');return}
+  if(!Array.isArray(arr)){showToast('\u8bf7\u8f93\u5165JSON\u6570\u7ec4','error');return}
+  fetch('/admin/relevance/bulk-import',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({rules:arr})})
+  .then(function(r){return r.json()}).then(function(d){
+    if(d.code===0){showToast('\u5df2\u5bfc\u5165 '+arr.length+' \u6761\u89c4\u5219','success');loadRelevanceRules()}
+    else showToast('\u5bfc\u5165\u5931\u8d25: '+(d.error||''),'error');
+  }).catch(function(){showToast('\u8bf7\u6c42\u5931\u8d25','error')});
 }
 
 </script>

@@ -30,7 +30,7 @@ func NewDBStore(db *sql.DB) (*DBStore, error) {
 }
 
 func (s *DBStore) ListEnabledSources() ([]SourceConfig, error) {
-	rows, err := s.db.Query(`SELECT source_id, source_name, source_url, source_level, crawl_type, interval_sec, COALESCE(region_code,''), enabled FROM policy_sources WHERE enabled = true`)
+	rows, err := s.db.Query(`SELECT source_id, source_name, source_url, source_level, crawl_type, interval_sec, COALESCE(region_code,''), enabled, COALESCE(proxy_url,''), COALESCE(request_delay_ms,1000), COALESCE(max_concurrent,1), COALESCE(respect_robots,true) FROM policy_sources WHERE enabled = true`)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query sources: %w", err)
 	}
@@ -39,7 +39,7 @@ func (s *DBStore) ListEnabledSources() ([]SourceConfig, error) {
 	var cfgs []SourceConfig
 	for rows.Next() {
 		var c SourceConfig
-		if err := rows.Scan(&c.SourceID, &c.SourceName, &c.SourceURL, &c.SourceLevel, &c.CrawlType, &c.IntervalSec, &c.RegionCode, &c.Enabled); err != nil {
+		if err := rows.Scan(&c.SourceID, &c.SourceName, &c.SourceURL, &c.SourceLevel, &c.CrawlType, &c.IntervalSec, &c.RegionCode, &c.Enabled, &c.ProxyURL, &c.RequestDelayMs, &c.MaxConcurrent, &c.RespectRobots); err != nil {
 			return nil, fmt.Errorf("failed to scan source: %w", err)
 		}
 		cfgs = append(cfgs, c)
@@ -232,12 +232,14 @@ func (s *DBStore) GetSourceByID(sourceID string) (*admin.SourceInfo, error) {
 			COALESCE(ps.crawl_type,'govsite'), COALESCE(ps.interval_sec,86400), COALESCE(ps.region_code,''), ps.enabled,
 			COALESCE((SELECT MAX(cl.crawled_at)::text FROM crawl_logs cl WHERE cl.source_id = ps.source_id), ''),
 			COALESCE((SELECT cl.status FROM crawl_logs cl WHERE cl.source_id = ps.source_id ORDER BY cl.crawled_at DESC LIMIT 1), ''),
-			(SELECT COUNT(*) FROM policy_claims pc WHERE pc.source_id = ps.source_id)
+			(SELECT COUNT(*) FROM policy_claims pc WHERE pc.source_id = ps.source_id),
+			COALESCE(ps.proxy_url,''), COALESCE(ps.request_delay_ms,0), COALESCE(ps.max_concurrent,1), COALESCE(ps.respect_robots,true)
 		FROM policy_sources ps WHERE ps.source_id = $1`, sourceID)
 	var src admin.SourceInfo
 	if err := row.Scan(&src.SourceID, &src.SourceName, &src.SourceURL, &src.SourceLevel,
 		&src.CrawlType, &src.IntervalSec, &src.RegionCode, &src.Enabled,
-		&src.LastCrawl, &src.LastStatus, &src.ClaimsCount); err != nil {
+		&src.LastCrawl, &src.LastStatus, &src.ClaimsCount,
+		&src.ProxyURL, &src.RequestDelayMs, &src.MaxConcurrent, &src.RespectRobots); err != nil {
 		return nil, err
 	}
 	return &src, nil
@@ -249,7 +251,8 @@ func (s *DBStore) ListAllSources() ([]admin.SourceInfo, error) {
 			COALESCE(ps.crawl_type,'govsite'), COALESCE(ps.interval_sec,86400), COALESCE(ps.region_code,''), ps.enabled,
 			COALESCE((SELECT MAX(cl.crawled_at)::text FROM crawl_logs cl WHERE cl.source_id = ps.source_id), ''),
 			COALESCE((SELECT cl.status FROM crawl_logs cl WHERE cl.source_id = ps.source_id ORDER BY cl.crawled_at DESC LIMIT 1), ''),
-			(SELECT COUNT(*) FROM policy_claims pc WHERE pc.policy_id LIKE ps.source_id || '%')
+			(SELECT COUNT(*) FROM policy_claims pc WHERE pc.policy_id LIKE ps.source_id || '%'),
+			COALESCE(ps.proxy_url,''), COALESCE(ps.request_delay_ms,0), COALESCE(ps.max_concurrent,1), COALESCE(ps.respect_robots,true)
 		FROM policy_sources ps ORDER BY ps.source_level, ps.source_name`)
 	if err != nil {
 		return nil, err
@@ -261,7 +264,8 @@ func (s *DBStore) ListAllSources() ([]admin.SourceInfo, error) {
 		var s admin.SourceInfo
 		if err := rows.Scan(&s.SourceID, &s.SourceName, &s.SourceURL, &s.SourceLevel,
 			&s.CrawlType, &s.IntervalSec, &s.RegionCode, &s.Enabled,
-			&s.LastCrawl, &s.LastStatus, &s.ClaimsCount); err != nil {
+			&s.LastCrawl, &s.LastStatus, &s.ClaimsCount,
+			&s.ProxyURL, &s.RequestDelayMs, &s.MaxConcurrent, &s.RespectRobots); err != nil {
 			return nil, err
 		}
 		sources = append(sources, s)
@@ -280,6 +284,7 @@ func (s *DBStore) UpdateSource(id string, updates map[string]interface{}) error 
 		"enabled": "boolean", "interval_sec": "int",
 		"source_name": "text", "source_url": "text",
 		"source_level": "text", "crawl_type": "text", "region_code": "text",
+		"proxy_url": "text", "request_delay_ms": "int", "max_concurrent": "int", "respect_robots": "boolean",
 	}
 	for col := range allowed {
 		val, ok := updates[col]
@@ -301,10 +306,11 @@ func (s *DBStore) UpdateSource(id string, updates map[string]interface{}) error 
 }
 
 func (s *DBStore) CreateSource(src *admin.SourceInfo) error {
-	_, err := s.db.Exec(`INSERT INTO policy_sources (source_id, source_name, source_url, source_level, weight, enabled, crawl_type, interval_sec, region_code)
-		VALUES ($1, $2, $3, $4, 0.7, true, $5, $6, $7)`,
+	_, err := s.db.Exec(`INSERT INTO policy_sources (source_id, source_name, source_url, source_level, weight, enabled, crawl_type, interval_sec, region_code, proxy_url, request_delay_ms, max_concurrent, respect_robots)
+		VALUES ($1, $2, $3, $4, 0.7, true, $5, $6, $7, $8, $9, $10, $11)`,
 		src.SourceID, src.SourceName, src.SourceURL, src.SourceLevel,
-		src.CrawlType, src.IntervalSec, src.RegionCode)
+		src.CrawlType, src.IntervalSec, src.RegionCode,
+		src.ProxyURL, src.RequestDelayMs, src.MaxConcurrent, src.RespectRobots)
 	return err
 }
 
@@ -468,12 +474,14 @@ func (s *DBStore) GetDashboardStats() (*admin.DashboardStats, error) {
 func (s *DBStore) GetLLMConfig() (*admin.LLMConfig, error) {
 	var cfg admin.LLMConfig
 	err := s.db.QueryRow(`SELECT provider, api_key, endpoint, model_name, max_tokens, enabled,
-		COALESCE(embedding_model, 'text-embedding-3-small'), COALESCE(embedding_dimensions, 1536),
-		COALESCE(embedding_api_key, ''), COALESCE(embedding_endpoint, '')
+		COALESCE(NULLIF(embedding_model,''), 'doubao-embedding-vision'), COALESCE(NULLIF(embedding_dimensions::text,''), '1024')::int,
+		COALESCE(embedding_api_key, ''), COALESCE(embedding_endpoint, ''),
+		COALESCE(backup_provider, ''), COALESCE(backup_api_key, ''), COALESCE(backup_endpoint, ''), COALESCE(backup_model_name, '')
 		FROM llm_configs ORDER BY id DESC LIMIT 1`).Scan(
 		&cfg.Provider, &cfg.APIKey, &cfg.Endpoint, &cfg.ModelName, &cfg.MaxTokens, &cfg.Enabled,
 		&cfg.EmbeddingModel, &cfg.EmbeddingDimensions,
-		&cfg.EmbeddingAPIKey, &cfg.EmbeddingEndpoint)
+		&cfg.EmbeddingAPIKey, &cfg.EmbeddingEndpoint,
+		&cfg.BackupProvider, &cfg.BackupAPIKey, &cfg.BackupEndpoint, &cfg.BackupModelName)
 	if err != nil {
 		return nil, fmt.Errorf("query llm config: %w", err)
 	}
@@ -490,13 +498,86 @@ func (s *DBStore) SaveLLMConfig(cfg *admin.LLMConfig) error {
 	if err != nil {
 		return err
 	}
-	_, err = tx.Exec(`INSERT INTO llm_configs (provider, api_key, endpoint, model_name, max_tokens, enabled, embedding_model, embedding_dimensions, embedding_api_key, embedding_endpoint) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+	_, err = tx.Exec(`INSERT INTO llm_configs (provider, api_key, endpoint, model_name, max_tokens, enabled, embedding_model, embedding_dimensions, embedding_api_key, embedding_endpoint, backup_provider, backup_api_key, backup_endpoint, backup_model_name) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
 		cfg.Provider, cfg.APIKey, cfg.Endpoint, cfg.ModelName, cfg.MaxTokens, cfg.Enabled,
-		cfg.EmbeddingModel, cfg.EmbeddingDimensions, cfg.EmbeddingAPIKey, cfg.EmbeddingEndpoint)
+		cfg.EmbeddingModel, cfg.EmbeddingDimensions, cfg.EmbeddingAPIKey, cfg.EmbeddingEndpoint,
+		cfg.BackupProvider, cfg.BackupAPIKey, cfg.BackupEndpoint, cfg.BackupModelName)
 	if err != nil {
 		return err
 	}
 	return tx.Commit()
+}
+
+func (s *DBStore) GetASRConfig() (ASRConfig, error) {
+	var cfg ASRConfig
+	err := s.db.QueryRow(`SELECT id, provider, api_key, endpoint, language, sample_rate, enabled FROM asr_configs ORDER BY id LIMIT 1`).
+		Scan(&cfg.ID, &cfg.Provider, &cfg.APIKey, &cfg.Endpoint, &cfg.Language, &cfg.SampleRate, &cfg.Enabled)
+	if err != nil {
+		return ASRConfig{}, err
+	}
+	return cfg, nil
+}
+
+func (s *DBStore) SaveASRConfig(cfg *ASRConfig) error {
+	_, err := s.db.Exec(`UPDATE asr_configs SET provider=$1, api_key=$2, endpoint=$3, language=$4, sample_rate=$5, enabled=$6, updated_at=now() WHERE id=$7`,
+		cfg.Provider, cfg.APIKey, cfg.Endpoint, cfg.Language, cfg.SampleRate, cfg.Enabled, cfg.ID)
+	return err
+}
+
+func (s *DBStore) SaveRawTextReturningID(sourceID, title, content, sourceURL, versionHash string) (int64, error) {
+	if versionHash != "" {
+		var existingID int64
+		err := s.db.QueryRow(`SELECT id FROM policy_raw_texts WHERE version_hash = $1 LIMIT 1`, versionHash).Scan(&existingID)
+		if err == nil {
+			return existingID, nil
+		}
+	}
+	var id int64
+	err := s.db.QueryRow(
+		`INSERT INTO policy_raw_texts (source_id, title, content, source_url, version_hash, fetch_time) VALUES ($1,$2,$3,$4,$5,$6) RETURNING id`,
+		sourceID, title, content, sourceURL, versionHash, time.Now(),
+	).Scan(&id)
+	return id, err
+}
+
+func (s *DBStore) SetVideoExtractStatus(id int64, status string) error {
+	_, err := s.db.Exec(`UPDATE policy_raw_texts SET video_extract_status = $1 WHERE id = $2`, status, id)
+	return err
+}
+
+func (s *DBStore) UpdateRawTextContent(id int64, content string) error {
+	_, err := s.db.Exec(`UPDATE policy_raw_texts SET content = $1 WHERE id = $2`, content, id)
+	return err
+}
+
+func (s *DBStore) MarkExtractedByID(id int64) error {
+	_, err := s.db.Exec(`UPDATE policy_raw_texts SET extracted = true WHERE id = $1`, id)
+	return err
+}
+
+type PendingVideoExtract struct {
+	ID       int64
+	SourceID string
+	VideoURL string
+	Title    string
+	Content  string
+}
+
+func (s *DBStore) GetPendingVideoExtracts() ([]PendingVideoExtract, error) {
+	rows, err := s.db.Query(`SELECT id, source_id, source_url, COALESCE(title,''), COALESCE(content,'') FROM policy_raw_texts WHERE video_extract_status IN ('pending','processing')`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []PendingVideoExtract
+	for rows.Next() {
+		var p PendingVideoExtract
+		if err := rows.Scan(&p.ID, &p.SourceID, &p.VideoURL, &p.Title, &p.Content); err != nil {
+			return nil, err
+		}
+		items = append(items, p)
+	}
+	return items, rows.Err()
 }
 
 // --- LLM 提取 ---
@@ -505,7 +586,7 @@ func (s *DBStore) GetUnprocessedRawTexts(limit int) ([]extractor.RawTextEntry, e
 		COALESCE(prt.title,'')
 		FROM policy_raw_texts prt
 		LEFT JOIN policy_sources ps ON ps.source_id = prt.source_id
-		WHERE NOT prt.extracted ORDER BY prt.id ASC LIMIT $1`, limit)
+		WHERE NOT prt.extracted AND LENGTH(prt.content) >= 500 AND (prt.video_extract_status IS NULL OR prt.video_extract_status = 'done') ORDER BY prt.id ASC LIMIT $1`, limit)
 	if err != nil {
 		return nil, err
 	}

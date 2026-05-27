@@ -1,6 +1,7 @@
 package crawler
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -13,11 +14,15 @@ import (
 
 // CrawlerManager 爬取管理器：管理所有数据源的爬取调度
 type CrawlerManager struct {
-	store     Store
-	claimDB   ClaimDB
-	crawlers  []Source
-	stopCh    chan struct{}
-	renderer  PageRenderer
+	store       Store
+	dbStore     *DBStore
+	claimDB     ClaimDB
+	crawlers    []Source
+	sourceCfgs  map[string]SourceConfig
+	stopCh      chan struct{}
+	renderer    PageRenderer
+	filter      *RelevanceFilter
+	videoWorker *VideoExtractWorker
 }
 
 // ClaimDB 政策原子存储接口
@@ -26,15 +31,55 @@ type ClaimDB interface {
 	ListByRegionAndType(regionCode, policyType string) ([]models.PolicyClaim, error)
 }
 
-func NewCrawlerManager(store Store, claimDB ClaimDB) *CrawlerManager {
+func NewCrawlerManager(store Store, dbStore *DBStore, claimDB ClaimDB) *CrawlerManager {
 	return &CrawlerManager{
-		store:   store,
-		claimDB: claimDB,
-		stopCh:  make(chan struct{}),
+		store:      store,
+		dbStore:    dbStore,
+		claimDB:    claimDB,
+		sourceCfgs: make(map[string]SourceConfig),
+		stopCh:     make(chan struct{}),
 	}
 }
 
 func (m *CrawlerManager) SetRenderer(r PageRenderer) { m.renderer = r }
+
+func (m *CrawlerManager) GetFilter() *RelevanceFilter { return m.filter }
+
+func (m *CrawlerManager) InitFilterAndWorker(db *sql.DB, asrCfg ASRConfig) {
+	m.filter = NewRelevanceFilter(nil)
+	m.filter.LoadFromDB(db)
+	go m.filter.StartReloadLoop(5*time.Minute, m.stopCh)
+
+	var asr ASRProvider
+	if asrCfg.Enabled {
+		asr = NewASRProviderFromConfig(asrCfg)
+	}
+	m.videoWorker = NewVideoExtractWorker(m.dbStore, m.filter, asr, 2)
+	m.videoWorker.Start()
+	m.recoverPendingVideoExtracts()
+}
+
+func (m *CrawlerManager) recoverPendingVideoExtracts() {
+	if m.dbStore == nil {
+		return
+	}
+	tasks, err := m.dbStore.GetPendingVideoExtracts()
+	if err != nil {
+		log.Printf("[video-extract] recovery query failed: %v", err)
+		return
+	}
+	for _, t := range tasks {
+		m.videoWorker.Queue() <- VideoExtractTask{
+			RawTextID: t.ID,
+			SourceID:  t.SourceID,
+			VideoURL:  t.VideoURL,
+			Title:     t.Title,
+		}
+	}
+	if len(tasks) > 0 {
+		log.Printf("[video-extract] recovered %d pending tasks", len(tasks))
+	}
+}
 
 func (m *CrawlerManager) Init(sources []SourceConfig, watchDir string) {
 	for _, cfg := range sources {
@@ -56,13 +101,13 @@ func (m *CrawlerManager) Init(sources []SourceConfig, watchDir string) {
 		case "manual":
 			s = NewManualCrawler(cfg)
 		case "douyin":
-			dc := NewDouyinCrawler(cfg)
+			dc := NewDouyinCrawler(cfg, m.filter)
 			if m.renderer != nil {
 				dc.SetRenderer(m.renderer)
 			}
 			s = dc
 		case "wechat":
-			wc := NewWeChatCrawler(cfg)
+			wc := NewWeChatCrawler(cfg, m.filter)
 			if m.renderer != nil {
 				wc.SetRenderer(m.renderer)
 			}
@@ -72,15 +117,31 @@ func (m *CrawlerManager) Init(sources []SourceConfig, watchDir string) {
 			continue
 		}
 		m.crawlers = append(m.crawlers, s)
+		m.sourceCfgs[cfg.SourceID] = cfg
 		log.Printf("[crawler] registered source %s (%s, interval=%v)", cfg.SourceID, cfg.SourceLevel, s.Interval())
 	}
 }
 
 func (m *CrawlerManager) CrawlAll() {
-	for _, s := range m.crawlers {
+	for i, s := range m.crawlers {
+		if i > 0 {
+			delay := m.getDelayForSource(s.SourceID())
+			if delay > 0 {
+				log.Printf("[crawler] waiting %v before crawling %s", delay, s.SourceID())
+				time.Sleep(delay)
+			}
+		}
 		m.crawlAndProcess(s)
 	}
 	log.Printf("[crawler] crawled all %d sources", len(m.crawlers))
+}
+
+func (m *CrawlerManager) getDelayForSource(sourceID string) time.Duration {
+	cfg, ok := m.sourceCfgs[sourceID]
+	if !ok || cfg.RequestDelayMs <= 0 {
+		return 2 * time.Second
+	}
+	return time.Duration(cfg.RequestDelayMs) * time.Millisecond
 }
 
 func (m *CrawlerManager) CrawlSource(sourceID string) {
@@ -133,13 +194,13 @@ func (m *CrawlerManager) loadAndRegisterSource(sourceID string) (Source, error) 
 		case "manual":
 			s = NewManualCrawler(cfg)
 		case "douyin":
-			dc := NewDouyinCrawler(cfg)
+			dc := NewDouyinCrawler(cfg, m.filter)
 			if m.renderer != nil {
 				dc.SetRenderer(m.renderer)
 			}
 			s = dc
 		case "wechat":
-			wc := NewWeChatCrawler(cfg)
+			wc := NewWeChatCrawler(cfg, m.filter)
 			if m.renderer != nil {
 				wc.SetRenderer(m.renderer)
 			}
@@ -176,7 +237,24 @@ func (m *CrawlerManager) crawlAndProcess(s Source) {
 		if result == nil {
 			continue
 		}
-		// 存储原文（始终保存原始抓取内容）
+
+		if result.NeedsVideoExtract && m.videoWorker != nil && m.dbStore != nil {
+			rawTextID, err := m.dbStore.SaveRawTextReturningID(result.SourceID, result.Title, result.RawText, result.SourceURL, result.VersionHash)
+			if err != nil {
+				log.Printf("[crawler] save raw text error for %s: %v", s.SourceID(), err)
+				continue
+			}
+			m.dbStore.SetVideoExtractStatus(rawTextID, "pending")
+			m.videoWorker.Queue() <- VideoExtractTask{
+				RawTextID: rawTextID,
+				SourceID:  result.SourceID,
+				VideoURL:  result.VideoURL,
+				Title:     result.Title,
+			}
+			m.store.SaveCrawlLogWithDetails(s.SourceID(), true, "pending video extraction", "", truncateSummary(result.Title, 120))
+			continue
+		}
+
 		m.store.SaveRawText(s.SourceID(), result.Title, result.RawText, result.SourceURL, result.VersionHash)
 		log.Printf("[crawler] fetched %d bytes from %s (%s)", len(result.RawText), s.SourceID(), result.SourceURL)
 

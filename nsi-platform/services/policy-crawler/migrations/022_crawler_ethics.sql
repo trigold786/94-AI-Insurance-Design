@@ -1,0 +1,4 @@
+ALTER TABLE policy_sources ADD COLUMN IF NOT EXISTS proxy_url TEXT DEFAULT '';
+ALTER TABLE policy_sources ADD COLUMN IF NOT EXISTS request_delay_ms INT DEFAULT 1000;
+ALTER TABLE policy_sources ADD COLUMN IF NOT EXISTS max_concurrent INT DEFAULT 1;
+ALTER TABLE policy_sources ADD COLUMN IF NOT EXISTS respect_robots BOOLEAN DEFAULT true;

@@ -2,12 +2,12 @@ package crawler
 
 import (
 	"crypto/sha256"
-	"crypto/tls"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -18,27 +18,22 @@ var govUserAgents = []string{
 }
 
 type GovSiteCrawler struct {
-	config   SourceConfig
-	client   *http.Client
-	renderer PageRenderer
+	config       SourceConfig
+	client       *http.Client
+	resilient    *ResilientHTTPClient
+	renderer     PageRenderer
+	robotsChecker *RobotsChecker
 }
 
 func NewGovSiteCrawler(cfg SourceConfig) *GovSiteCrawler {
-	tr := &http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-	}
+	rhcCfg := DefaultHTTPClientConfig()
+	rhcCfg.ProxyURL = cfg.ProxyURL
+	rhc := NewResilientHTTPClient(rhcCfg)
 	return &GovSiteCrawler{
-		config: cfg,
-		client: &http.Client{
-			Timeout:   20 * time.Second,
-			Transport: tr,
-			CheckRedirect: func(req *http.Request, via []*http.Request) error {
-				if len(via) >= 5 {
-					return fmt.Errorf("too many redirects")
-				}
-				return nil
-			},
-		},
+		config:        cfg,
+		client:        rhc.HTTPClient(),
+		resilient:     rhc,
+		robotsChecker: NewRobotsChecker(),
 	}
 }
 
@@ -57,6 +52,12 @@ func (g *GovSiteCrawler) Interval() time.Duration {
 const maxSubPages = 10
 
 func (g *GovSiteCrawler) Fetch() ([]*CrawlResult, error) {
+	if g.config.RespectRobots {
+		if err := CheckRobotsBeforeCrawl(g.robotsChecker, g.config.SourceURL, DefaultHTTPClientConfig().UserAgent); err != nil {
+			return nil, err
+		}
+	}
+
 	var mainResult *CrawlResult
 	var err error
 	if g.renderer != nil {
@@ -69,12 +70,22 @@ func (g *GovSiteCrawler) Fetch() ([]*CrawlResult, error) {
 	}
 
 	var results []*CrawlResult
-	results = append(results, mainResult)
+	if hasRealContent(mainResult.RawText, 300) {
+		results = append(results, mainResult)
+	} else {
+		log.Printf("[crawler] %s main page has insufficient text content, skipping", g.config.SourceID)
+	}
 
 	links := extractPolicyLinks(mainResult.RawText, g.config.SourceURL)
 	for i, link := range links {
 		if i >= maxSubPages {
 			break
+		}
+		if g.config.RespectRobots {
+			if err := CheckRobotsBeforeCrawl(g.robotsChecker, link, DefaultHTTPClientConfig().UserAgent); err != nil {
+				log.Printf("[crawler] robots.txt blocks %s: %v", link, err)
+				continue
+			}
 		}
 		sub, err := g.fetchURL(link)
 		if err != nil {
@@ -86,8 +97,8 @@ func (g *GovSiteCrawler) Fetch() ([]*CrawlResult, error) {
 		}
 	}
 
-	if len(links) > 0 {
-		log.Printf("[crawler] %s: fetched main + %d sub-pages", g.config.SourceID, len(results)-1)
+	if len(results) > 0 {
+		log.Printf("[crawler] %s: fetched %d pages with content", g.config.SourceID, len(results))
 	}
 	return results, nil
 }
@@ -122,31 +133,56 @@ func (g *GovSiteCrawler) fetchHTTP() (*CrawlResult, error) {
 	return nil, fmt.Errorf("all user-agents failed: %w", lastErr)
 }
 
-func (g *GovSiteCrawler) fetchURL(rawURL string) (*CrawlResult, error) {
-	req, err := http.NewRequest("GET", rawURL, nil)
-	if err != nil {
-		return nil, fmt.Errorf("create request: %w", err)
+// hasRealContent checks whether HTML contains meaningful text after stripping JS/CSS/tags
+func hasRealContent(html string, minChars int) bool {
+	cleaned := html
+	for _, pattern := range []string{`(?is)<style[^>]*>.*?</style>`, `(?is)<script[^>]*>.*?</script>`, `<[^>]*>`, `(?is)<!--.*?-->`} {
+		re, err := regexp.Compile(pattern)
+		if err != nil {
+			continue
+		}
+		cleaned = re.ReplaceAllString(cleaned, "")
 	}
-	req.Header.Set("User-Agent", govUserAgents[0])
-	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
-	req.Header.Set("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.5")
+	cleaned = strings.Join(strings.Fields(cleaned), " ")
+	return len([]rune(cleaned)) >= minChars
+}
 
-	resp, err := g.client.Do(req)
+func (g *GovSiteCrawler) fetchURL(rawURL string) (*CrawlResult, error) {
+	resp, err := g.resilient.Get(rawURL)
 	if err != nil {
 		return nil, fmt.Errorf("HTTP GET: %w", err)
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("HTTP %d", resp.StatusCode)
-	}
-
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("read body: %w", err)
 	}
+
+	ct := resp.Header.Get("Content-Type")
+	if IsDocumentContentType(ct) {
+		text, err := parseDocumentContent(body, ct)
+		if err != nil {
+			return nil, fmt.Errorf("document parse: %w", err)
+		}
+		hash := sha256.Sum256(body)
+		return &CrawlResult{
+			SourceID:    g.config.SourceID,
+			SourceLevel: g.config.SourceLevel,
+			RawText:     text,
+			Title:       g.config.SourceName,
+			SourceURL:   rawURL,
+			FetchedAt:   time.Now(),
+			VersionHash: fmt.Sprintf("%x", hash),
+		}, nil
+	}
+
 	if len(body) < 100 {
 		return nil, fmt.Errorf("response too short (%d bytes)", len(body))
+	}
+
+	if !hasRealContent(string(body), 200) {
+		return nil, fmt.Errorf("page has insufficient text content (%d raw bytes)", len(body))
 	}
 
 	finalURL := rawURL
@@ -165,6 +201,16 @@ func (g *GovSiteCrawler) fetchURL(rawURL string) (*CrawlResult, error) {
 		FetchedAt:   time.Now(),
 		VersionHash: fmt.Sprintf("%x", hash),
 	}, nil
+}
+
+func parseDocumentContent(data []byte, contentType string) (string, error) {
+	if IsPDFContentType(contentType) {
+		return ExtractPDFText(data)
+	}
+	if IsDOCXContentType(contentType) {
+		return ExtractDOCXText(data)
+	}
+	return "", fmt.Errorf("unsupported document type: %s", contentType)
 }
 
 func (g *GovSiteCrawler) tryFetch(userAgent string) (*CrawlResult, error) {
@@ -315,10 +361,10 @@ func isPolicyLink(href, text string) bool {
 			return true
 		}
 	}
-	extensions := []string{".pdf", ".doc", ".docx", ".xls", ".xlsx"}
+	extensions := []string{".pdf", ".doc", ".docx"}
 	for _, ext := range extensions {
 		if strings.HasSuffix(strings.ToLower(href), ext) {
-			return false
+			return true
 		}
 	}
 	return false

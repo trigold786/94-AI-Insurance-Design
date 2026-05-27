@@ -9,6 +9,9 @@ require (
 	github.com/trigold786/94-AI-Insurance-Design/shared v0.0.0
 )
 
-require github.com/golang-jwt/jwt/v5 v5.3.1 // indirect
+require (
+	github.com/golang-jwt/jwt/v5 v5.3.1 // indirect
+	github.com/ledongthuc/pdf v0.0.0-20250511090121-5959a4027728 // indirect
+)
 
 replace github.com/trigold786/94-AI-Insurance-Design/shared => ../../shared

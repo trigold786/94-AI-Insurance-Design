@@ -7,18 +7,36 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 )
 
 func (p *OpenAIProvider) Embed(ctx context.Context, texts []string) ([][]float64, error) {
 	client := p.client
 	if client == nil {
-		client = &http.Client{Timeout: 30 * time.Second}
+		client = &http.Client{Timeout: 60 * time.Second}
 	}
 
-	reqBody := map[string]interface{}{
-		"model": p.model,
-		"input": texts,
+	isMultimodal := strings.Contains(p.baseURL, "/multimodal")
+
+	var reqBody map[string]interface{}
+	if isMultimodal {
+		input := make([]map[string]interface{}, len(texts))
+		for i, t := range texts {
+			input[i] = map[string]interface{}{
+				"type": "text",
+				"text": t,
+			}
+		}
+		reqBody = map[string]interface{}{
+			"model": p.model,
+			"input": input,
+		}
+	} else {
+		reqBody = map[string]interface{}{
+			"model": p.model,
+			"input": texts,
+		}
 	}
 	if p.dimensions > 0 {
 		reqBody["dimensions"] = p.dimensions
@@ -48,22 +66,37 @@ func (p *OpenAIProvider) Embed(ctx context.Context, texts []string) ([][]float64
 	}
 
 	var result struct {
-		Data []struct {
-			Embedding []float64 `json:"embedding"`
-		} `json:"data"`
+		Data json.RawMessage `json:"data"`
 	}
 	if err := json.Unmarshal(respBody, &result); err != nil {
 		return nil, fmt.Errorf("parse response: %w", err)
 	}
-	if len(result.Data) == 0 {
-		return nil, fmt.Errorf("empty embedding response")
+
+	// Try array format first (OpenAI), then object format (ARK multimodal)
+	var embeddings []float64
+	if err := json.Unmarshal(result.Data, &embeddings); err == nil {
+		return [][]float64{embeddings}, nil
 	}
 
-	vecs := make([][]float64, len(result.Data))
-	for i, d := range result.Data {
-		vecs[i] = d.Embedding
+	var arr []struct {
+		Embedding []float64 `json:"embedding"`
 	}
-	return vecs, nil
+	if err := json.Unmarshal(result.Data, &arr); err == nil && len(arr) > 0 {
+		vecs := make([][]float64, len(arr))
+		for i, d := range arr {
+			vecs[i] = d.Embedding
+		}
+		return vecs, nil
+	}
+
+	var obj struct {
+		Embedding []float64 `json:"embedding"`
+	}
+	if err := json.Unmarshal(result.Data, &obj); err == nil && obj.Embedding != nil {
+		return [][]float64{obj.Embedding}, nil
+	}
+
+	return nil, fmt.Errorf("unexpected embedding response format: %s", string(result.Data))
 }
 
 func (p *OpenAIProvider) Dimensions() int  { return p.dimensions }

@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 	"time"
 
@@ -61,18 +60,13 @@ func main() {
 			embedAPIKey = llmCfg.APIKey
 		}
 		if embedBaseURL == "" {
-			embedBaseURL = "https://api.openai.com/v1/embeddings"
-			if llmCfg.Endpoint != "" {
-				if idx := strings.Index(llmCfg.Endpoint, "/chat/"); idx > 0 {
-					embedBaseURL = llmCfg.Endpoint[:idx] + "/embeddings"
-				}
-			}
+			embedBaseURL = "https://ark.cn-beijing.volces.com/api/v3/embeddings"
 		}
 		if embedModel == "" {
-			embedModel = "text-embedding-3-small"
+			embedModel = "doubao-embedding-vision"
 		}
 		if embedDims <= 0 {
-			embedDims = 1536
+			embedDims = 1024
 		}
 		if embedAPIKey != "" {
 			embedProv = embeddings.NewProviderFromConfig(embedAPIKey, embedBaseURL, embedModel, embedDims)
@@ -87,7 +81,7 @@ func main() {
 	searcher := embeddings.NewVectorSearcher(database, embedProv)
 
 	// 初始化爬取管理器
-	manager := crawler.NewCrawlerManager(store, store)
+	manager := crawler.NewCrawlerManager(store, store, store)
 
 	admin.RSSFeedParser = func(data []byte) ([]admin.FeedPreviewItem, error) {
 		items, err := crawler.ParseFeed(data)
@@ -108,6 +102,9 @@ func main() {
 		manager.SetRenderer(renderer)
 		log.Println("[crawler] Chrome renderer enabled")
 	}
+
+	asrCfg, _ := store.GetASRConfig()
+	manager.InitFilterAndWorker(database, asrCfg)
 
 	// 从 DB 加载启用的数据源配置
 	sources, err := store.ListEnabledSources()
@@ -157,6 +154,15 @@ func main() {
 	mux.Handle("/admin/sources/delete", adminAuth(admin.SourceDeleteHandler(store)))
 	mux.Handle("/admin/sources/crawl", adminAuth(admin.SourceCrawlTriggerHandler(manager)))
 	mux.Handle("/admin/sources/test-rss", adminAuth(admin.RSSTestHandler()))
+	mux.Handle("/admin/relevance/rules", adminAuth(admin.RelevanceRulesListHandler(database)))
+	mux.Handle("/admin/relevance/rules/create", adminAuth(admin.RelevanceRulesCreateHandler(database)))
+	mux.Handle("/admin/relevance/rules/update", adminAuth(admin.RelevanceRulesUpdateHandler(database)))
+	mux.Handle("/admin/relevance/rules/delete", adminAuth(admin.RelevanceRulesDeleteHandler(database)))
+	mux.Handle("/admin/relevance/thresholds/", adminAuth(admin.RelevanceThresholdHandler(database)))
+	mux.Handle("/admin/relevance/test", adminAuth(admin.RelevanceTestHandler(manager.GetFilter())))
+	mux.Handle("/admin/relevance/bulk-import", adminAuth(admin.RelevanceBulkImportHandler(database)))
+	mux.Handle("/admin/asr/config", adminAuth(admin.ASRConfigGetHandler(database)))
+	mux.Handle("/admin/asr/config/save", adminAuth(admin.ASRConfigSaveHandler(database)))
 	mux.Handle("/admin/llm/config", adminAuth(admin.LLMConfigGetHandler(store)))
 	mux.Handle("/admin/llm/config/save", adminAuth(admin.LLMConfigSaveHandler(store)))
 	mux.Handle("/admin/llm/status", adminAuth(admin.LLMStatusHandler(store)))
@@ -164,6 +170,7 @@ func main() {
 	mux.Handle("/admin/llm/pending", adminAuth(admin.LLMPendingHandler(store)))
 	mux.Handle("/admin/llm/progress", adminAuth(admin.LLMProgressHandler(store)))
 	mux.Handle("/admin/pipeline", adminAuth(admin.PipelineHandler(store)))
+	mux.Handle("/admin/failures", adminAuth(admin.FailureAnalysisHandler(store)))
 	mux.Handle("/admin/llm/search", adminAuth(middleware.RecoveryMiddleware()(admin.AdminSearchHandler(searcher))))
 	mux.Handle("/admin/search_page", adminAuth(middleware.RecoveryMiddleware()(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")

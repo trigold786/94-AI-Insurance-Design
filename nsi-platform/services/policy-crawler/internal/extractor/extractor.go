@@ -108,6 +108,7 @@ func (e *Extractor) ProcessUnprocessed(limit int) (int, int, error) {
 		if err := e.ProcessOne(entry); err != nil {
 			log.Printf("[extractor] failed id=%d source=%s: %v", entry.ID, entry.SourceID, err)
 			e.store.SaveExtractLogDetailed(entry.ID, entry.SourceID, false, err.Error(), "", entry.Title, e.client.ModelName(), "")
+			e.store.MarkExtracted(entry.ID, "")
 			failed++
 		} else {
 			succeeded++
@@ -345,36 +346,66 @@ func extractPlainText(html string) string {
 		return r.ReplaceAllString(src, repl)
 	}
 
-	// 去除 <style> 和 <script> 块 (Go RE2 不支持反向引用 \1，分开匹配)
+	// 提取页面标题（政府政策页面的标题很有用）
+	title := ""
+	titleRe := regexp.MustCompile(`<title>([^<]+)</title>`)
+	if m := titleRe.FindStringSubmatch(html); len(m) > 1 {
+		title = strings.TrimSpace(m[1])
+		title = strings.ReplaceAll(title, " - 抖音", "")
+		title = strings.ReplaceAll(title, " | 抖音", "")
+	}
+
+	// 提取 meta description（常有政策摘要）
+	desc := ""
+	descRe := regexp.MustCompile(`<meta\s+name="description"\s+content="([^"]+)"`)
+	if m := descRe.FindStringSubmatch(html); len(m) > 1 {
+		desc = strings.TrimSpace(m[1])
+	}
+	if desc == "" {
+		descRe2 := regexp.MustCompile(`<meta\s+property="og:description"\s+content="([^"]+)"`)
+		if m := descRe2.FindStringSubmatch(html); len(m) > 1 {
+			desc = strings.TrimSpace(m[1])
+		}
+	}
+
+	// 去除 <style>，<script>，<!-- comments -->
 	html = safeReplace(`(?is)<style[^>]*>.*?</style>`, html, "")
 	html = safeReplace(`(?is)<script[^>]*>.*?</script>`, html, "")
+	html = safeReplace(`(?is)<!--.*?-->`, html, "")
 
 	// 去除 HTML 标签
 	html = safeReplace(`<[^>]*>`, html, "")
 
 	// 解码 HTML 实体
-	html = strings.NewReplacer("&nbsp;", " ", "&amp;", "&", "&lt;", "<", "&gt;", ">", "&quot;", "\"").Replace(html)
+	html = strings.NewReplacer("&nbsp;", " ", "&amp;", "&", "&lt;", "<", "&gt;", ">", "&quot;", "\"", "&apos;", "'").Replace(html)
 
 	// 合并空白
 	html = safeReplace(`\s+`, html, " ")
 
-	// 保留中文句号后的分段
+	// 用标点分段
 	html = strings.ReplaceAll(html, "。", "。\n")
 	html = strings.ReplaceAll(html, "；", "；\n")
+	html = strings.ReplaceAll(html, "，", "，\n")
 
-	// 过滤短行
+	// 过滤短行（降低阈值到 5 个字符以保留更多中文片段）
 	lines := strings.Split(html, "\n")
 	var cleaned []string
+	if title != "" {
+		cleaned = append(cleaned, title)
+	}
+	if desc != "" && desc != title && !strings.Contains(title, desc) && !strings.Contains(desc, title) {
+		cleaned = append(cleaned, desc)
+	}
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
-		if len(line) > 10 {
+		if len([]rune(line)) > 5 {
 			cleaned = append(cleaned, line)
 		}
 	}
 
 	result := strings.Join(cleaned, "\n")
-	if len(result) > 8000 {
-		result = result[:8000]
+	if len([]rune(result)) > 8000 {
+		result = string([]rune(result)[:8000])
 	}
 	return result
 }

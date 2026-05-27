@@ -172,3 +172,56 @@ func TestGeneratePlanHandlerSavesPlan(t *testing.T) {
 }
 
 var errCalculatorFailed = fmt.Errorf("calculator service unavailable")
+
+func TestGeneratePlanHandlerCashflowPassthrough(t *testing.T) {
+	calc := &mockCalculator{
+		resp: &CalculateResponse{
+			Schemes: []SchemeResult{
+				{
+					Name:            "缴费基数 6000",
+					BaseSalary:      6000,
+					MonthlyCost:     600,
+					ProjectedPension: 2500,
+					AfterTaxPension: 2300,
+					Cashflow: []models.CashFlowItem{
+						{Year: 1, Payment: 7200, Subsidy: 1200, Balance: 8400},
+						{Year: 2, Payment: 7560, Subsidy: 1260, Balance: 17220},
+					},
+				},
+			},
+		},
+	}
+	repo := &mockPlanRepo{}
+	handler := GeneratePlanHandler(calc, repo, nil, nil)
+
+	body := `{"age":30,"gender":"male","employment":"flexible","contribution_years":10,"current_balance":50000,"monthly_budget":3000,"local_avg_salary":10000}`
+	req := httptest.NewRequest("POST", "/v1/plans/generate", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	handler.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	if repo.savedPlan == nil {
+		t.Fatal("expected plan to be saved")
+	}
+	scheme := repo.savedPlan.RecommendedSchemes[0]
+	if scheme.AfterTaxPension != 2300 {
+		t.Errorf("expected afterTaxPension 2300, got %f", scheme.AfterTaxPension)
+	}
+	if len(scheme.Cashflow) != 2 {
+		t.Fatalf("expected 2 cashflow items, got %d", len(scheme.Cashflow))
+	}
+	if scheme.Cashflow[0].Year != 1 || scheme.Cashflow[0].Payment != 7200 {
+		t.Errorf("unexpected cashflow item: %+v", scheme.Cashflow[0])
+	}
+	respBody := w.Body.String()
+	if !strings.Contains(respBody, "after_tax_pension") {
+		t.Error("response should contain after_tax_pension field")
+	}
+	if !strings.Contains(respBody, "cashflow") {
+		t.Error("response should contain cashflow field")
+	}
+}

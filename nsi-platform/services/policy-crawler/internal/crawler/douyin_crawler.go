@@ -12,17 +12,20 @@ import (
 )
 
 var douyinVideoRe = regexp.MustCompile(`href="([^"]*?douyin\.com/video/\d+[^"]*?)"`)
+var douyinAuthorRe = regexp.MustCompile(`@([\p{L}\p{N}\-_]+)`)
 
 type DouyinCrawler struct {
 	config    SourceConfig
 	renderer  PageRenderer
+	filter    *RelevanceFilter
 	maxItems  int
 	processed map[string]bool
 }
 
-func NewDouyinCrawler(cfg SourceConfig) *DouyinCrawler {
+func NewDouyinCrawler(cfg SourceConfig, filter *RelevanceFilter) *DouyinCrawler {
 	return &DouyinCrawler{
 		config:    cfg,
+		filter:    filter,
 		maxItems:  50,
 		processed: make(map[string]bool),
 	}
@@ -83,35 +86,32 @@ func (d *DouyinCrawler) Fetch() ([]*CrawlResult, error) {
 
 func (d *DouyinCrawler) discoverVideosFromUserPage(userURL string) ([]string, error) {
 	cleanURL := stripQueryParams(userURL)
-	log.Printf("[douyin] discovering videos from user page: %s", cleanURL)
+	log.Printf("[douyin] discovering own videos from user page: %s", cleanURL)
 
 	if d.renderer != nil {
-		html, err := d.renderer.RenderWithVirtualTime(cleanURL, 30000)
+		worksURL := cleanURL + "?showTab=works"
+		html, err := d.renderer.RenderWithVirtualTime(worksURL, 30000)
 		if err == nil {
 			videoURLs := extractDouyinVideoURLs(html)
-			log.Printf("[douyin] discovered %d videos via Chrome from %s", len(videoURLs), cleanURL)
-			return videoURLs, nil
+			if len(videoURLs) > 0 {
+				log.Printf("[douyin] discovered %d videos via Chrome (works tab) from %s", len(videoURLs), cleanURL)
+				return videoURLs, nil
+			}
 		}
-		log.Printf("[douyin] Chrome render failed for user page %s: %v", cleanURL, err)
+		log.Printf("[douyin] Chrome render failed for works tab %s: %v", cleanURL, err)
 	}
 
 	html, err := httpFetch(cleanURL)
 	if err != nil {
 		return nil, fmt.Errorf("discover videos from %s: %w", cleanURL, err)
 	}
-
 	videoURLs := extractDouyinVideoURLs(html)
 	if len(videoURLs) == 0 {
-		douyinVideoLinks := extractDouyinVideoLinks(html)
-		if len(douyinVideoLinks) > 0 {
-			videoURLs = douyinVideoLinks
-		}
+		videoURLs = extractDouyinVideoLinks(html)
 	}
-
 	if len(videoURLs) == 0 {
-		return nil, fmt.Errorf("no videos discovered from %s (Chrome rendering required for Douyin user pages)", cleanURL)
+		return nil, fmt.Errorf("no videos discovered from %s", cleanURL)
 	}
-
 	log.Printf("[douyin] discovered %d videos via HTTP from %s", len(videoURLs), cleanURL)
 	return videoURLs, nil
 }
@@ -153,6 +153,39 @@ func isDouyinUserURL(u string) bool {
 	return strings.Contains(u, "douyin.com/user/")
 }
 
+func extractNicknameFromSourceID(sourceID string) string {
+	if strings.HasPrefix(sourceID, "DOUYIN-") {
+		return sourceID[len("DOUYIN-"):]
+	}
+	return ""
+}
+
+// extractDouyinAuthorNickname finds the first @mention in a Douyin video page
+func extractDouyinAuthorNickname(html string) string {
+	markers := []string{
+		`name="description" content="`,
+		`property="og:description" content="`,
+		`property="og:title" content="`,
+	}
+	for _, m := range markers {
+		idx := strings.Index(html, m)
+		if idx == -1 {
+			continue
+		}
+		start := idx + len(m)
+		end := strings.Index(html[start:], `"`)
+		if end == -1 || end > 500 {
+			continue
+		}
+		snippet := html[start : start+end]
+		matches := douyinAuthorRe.FindStringSubmatch(snippet)
+		if len(matches) > 1 {
+			return matches[1]
+		}
+	}
+	return ""
+}
+
 func stripQueryParams(u string) string {
 	if idx := strings.Index(u, "?"); idx >= 0 {
 		return u[:idx]
@@ -178,6 +211,21 @@ func (d *DouyinCrawler) fetchVideoPage(videoURL string) (*CrawlResult, error) {
 		}
 	}
 
+	expectedNickname := extractNicknameFromSourceID(d.config.SourceID)
+	if expectedNickname != "" {
+		htmlLower := strings.ToLower(html)
+		actualAuthor := extractDouyinAuthorNickname(html)
+		if strings.Contains(html, "@"+expectedNickname) || strings.Contains(htmlLower, "@"+strings.ToLower(expectedNickname)) {
+		} else if actualAuthor != "" {
+			actualLower := strings.ToLower(actualAuthor)
+			expectedLower := strings.ToLower(expectedNickname)
+			if !strings.Contains(actualLower, expectedLower) && !strings.Contains(expectedLower, actualLower) {
+				log.Printf("[douyin] skipping video %s: author %q does not match expected %q", videoURL, actualAuthor, expectedNickname)
+				return nil, nil
+			}
+		}
+	}
+
 	title := extractDouyinTitle(html)
 	desc := extractDouyinDesc(html)
 	content := title
@@ -191,15 +239,28 @@ func (d *DouyinCrawler) fetchVideoPage(videoURL string) (*CrawlResult, error) {
 		return nil, nil
 	}
 
+	if d.filter != nil {
+		score, matched := d.filter.Score(title+" "+desc, d.config.SourceID, "douyin")
+		threshold := d.filter.MinScore(d.config.SourceID, "level1")
+		if score < threshold {
+			log.Printf("[douyin] filtered out %s: relevance score %d < threshold %d (matched: %v)", videoURL, score, threshold, matched)
+			return nil, nil
+		}
+		log.Printf("[douyin] passed relevance filter for %s: score=%d matched=%v", videoURL, score, matched)
+	}
+
 	hash := sha256.Sum256([]byte(videoURL))
 	return &CrawlResult{
-		SourceID:    d.config.SourceID,
-		SourceLevel: d.config.SourceLevel,
-		RawText:     content,
-		Title:       title,
-		SourceURL:   videoURL,
-		FetchedAt:   time.Now(),
-		VersionHash: fmt.Sprintf("%x", hash),
+		SourceID:          d.config.SourceID,
+		SourceLevel:       d.config.SourceLevel,
+		RawText:           content,
+		Title:             title,
+		SourceURL:         videoURL,
+		FetchedAt:         time.Now(),
+		VersionHash:       fmt.Sprintf("%x", hash),
+		VideoURL:          videoURL,
+		NeedsVideoExtract: true,
+		ContentType:       "video-meta",
 	}, nil
 }
 

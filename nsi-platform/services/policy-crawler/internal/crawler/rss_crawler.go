@@ -5,25 +5,29 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io"
-	"net/http"
 	"strings"
 	"time"
 )
 
 type RSSCrawler struct {
-	config    SourceConfig
-	client    *http.Client
-	maxItems  int
-	processed map[string]bool
+	config        SourceConfig
+	resilient     *ResilientHTTPClient
+	maxItems      int
+	processed     map[string]bool
+	robotsChecker *RobotsChecker
 }
 
 func NewRSSCrawler(cfg SourceConfig) *RSSCrawler {
 	maxItems := 20
+	rhcCfg := DefaultHTTPClientConfig()
+	rhcCfg.ProxyURL = cfg.ProxyURL
+	rhcCfg.Timeout = 30 * time.Second
 	return &RSSCrawler{
-		config:    cfg,
-		client:    &http.Client{Timeout: 30 * time.Second},
-		maxItems:  maxItems,
-		processed: make(map[string]bool),
+		config:        cfg,
+		resilient:     NewResilientHTTPClient(rhcCfg),
+		maxItems:      maxItems,
+		processed:     make(map[string]bool),
+		robotsChecker: NewRobotsChecker(),
 	}
 }
 
@@ -38,7 +42,13 @@ func (r *RSSCrawler) Interval() time.Duration {
 }
 
 func (r *RSSCrawler) Fetch() ([]*CrawlResult, error) {
-	resp, err := r.client.Get(r.config.SourceURL)
+	if r.config.RespectRobots {
+		if err := CheckRobotsBeforeCrawl(r.robotsChecker, r.config.SourceURL, DefaultHTTPClientConfig().UserAgent); err != nil {
+			return nil, err
+		}
+	}
+
+	resp, err := r.resilient.Get(r.config.SourceURL)
 	if err != nil {
 		return nil, fmt.Errorf("RSS fetch: %w", err)
 	}

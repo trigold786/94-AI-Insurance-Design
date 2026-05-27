@@ -95,7 +95,35 @@ tr:hover{background:#F9FAFB}
 .ym-mopt{padding:8px 4px;cursor:pointer;font-size:13px;text-align:center;border-radius:4px;transition:background 0.15s}
 .ym-mopt:hover{background:#EFF6FF}
 .ym-mopt.sel{background:#1A56DB;color:#fff;font-weight:600}
+.chart-container{position:relative;height:280px;width:100%;margin:8px 0}
+.scheme-card{border:1px solid #E5E7EB;border-radius:10px;padding:16px;margin:10px 0;transition:box-shadow 0.2s}
+.scheme-card:hover{box-shadow:0 4px 12px rgba(0,0,0,0.1)}
+.scheme-card.recommended{border-color:#1A56DB;border-width:2px}
+.scheme-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:6px}
+.scheme-metrics{display:flex;gap:16px;flex-wrap:wrap}
+.scheme-metric{text-align:center;min-width:80px}
+.scheme-metric .value{font-size:20px;font-weight:700;color:#1F2937}
+.scheme-metric .label{font-size:11px;color:#6B7280;margin-top:2px}
+.roi-badge{display:inline-block;padding:3px 10px;border-radius:12px;font-size:12px;font-weight:600}
+.roi-green{background:#D1FAE5;color:#059669}
+.roi-yellow{background:#FEF3C7;color:#D97706}
+.roi-red{background:#FEE2E2;color:#EF4444}
+.rec-badge{background:#1A56DB;color:#fff;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600}
+.timeline-bar{display:flex;height:36px;border-radius:8px;overflow:hidden;margin:12px 0;font-size:11px;color:#fff}
+.timeline-segment{display:flex;align-items:center;justify-content:center;min-width:40px;padding:0 8px}
+.timeline-labels{display:flex;justify-content:space-between;font-size:11px;color:#6B7280;margin-top:4px}
+.sim-section{background:#F0F5FF;border-radius:10px;padding:16px;margin:12px 0}
+.sim-slider-row{display:flex;align-items:center;gap:12px;margin:8px 0}
+.sim-slider-row label{min-width:100px;font-size:13px;color:#374151}
+.sim-slider-row input[type=range]{flex:1}
+.sim-slider-row .sim-val{min-width:80px;text-align:right;font-weight:600;color:#1A56DB}
+.sim-result{font-size:28px;font-weight:700;color:#1A56DB;text-align:center;padding:12px}
+.sim-result-sub{font-size:13px;color:#6B7280;text-align:center}
+.cashflow-toggle{cursor:pointer;color:#1A56DB;font-size:13px;margin-top:8px;display:inline-block}
+.cashflow-panel{margin-top:8px;display:none}
+.cashflow-panel.open{display:block}
 </style>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 </head>
 <body>
 
@@ -107,7 +135,18 @@ tr:hover{background:#F9FAFB}
 <script>
 var API = '{{.APIBaseURL}}';
 var UID = 'default-user';
+var _token = '';
 var _formData = {dob:'1996-01',gender:'male',origAge:0,employment:'flexible',months:60,budget:2000,hasChildren:false,pensionTotal:30000,pensionPersonal:15000,city:'310000'};
+
+function ensureToken(){
+  if(_token) return Promise.resolve(_token);
+  return fetch(API+'/v1/auth/token',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({user_id:UID})})
+    .then(function(r){return r.json()})
+    .then(function(d){
+      if(d.code===0&&d.data&&d.data.token){_token=d.data.token;return _token;}
+      throw new Error(d.message||'token fetch failed');
+    });
+}
 
 var navItems=[
   {id:'profile',label:'1.用户画像'},
@@ -143,12 +182,13 @@ function switchTab(id){
 }
 
 function api(method,path,data){
-  return new Promise(function(resolve,reject){
-    var opts={method:method,headers:{'x-user-id':UID,'Content-Type':'application/json'}};
+  return ensureToken().then(function(tk){
+    var opts={method:method,headers:{'Authorization':'Bearer '+tk,'Content-Type':'application/json'}};
     if(data)opts.body=JSON.stringify(data);
-    fetch(API+path,opts).then(function(r){return r.json()}).then(function(d){
-      if(d.code!==0)reject(new Error(d.msg||d.message||'API error'));else resolve(d.data);
-    }).catch(function(e){reject(e)});
+    return fetch(API+path,opts).then(function(r){return r.json()}).then(function(d){
+      if(d.code!==0&&d.code!==undefined)throw new Error(d.msg||d.message||'API error');
+      return d.data;
+    });
   });
 }
 function showResult(data){
@@ -249,11 +289,36 @@ function calcPensionAge(dob,gender,origAge){
   var rm=((bm-1+pam)%12)+1;
   return{years:ry,months:rm};
 }
+function retireTimeline(dob,gender,origAge){
+  var ri=calcPensionAge(dob,gender,origAge);
+  var baseAge=60;if(gender==='female'){baseAge=55;if(origAge>=50&&origAge<=60)baseAge=origAge;}
+  var p=dob.split('-');var by=parseInt(p[0])||1996;var bm=parseInt(p[1])||1;
+  var curYear=new Date().getFullYear();
+  var ageNow=curYear-by;
+  var totalSpan=baseAge-ageNow;if(totalSpan<1)totalSpan=1;
+  var oldRetireYear=by+baseAge;
+  var newRetireYear=ri.years;
+  var el=baseAge-ageNow;if(el<0)el=0;if(el>totalSpan)el=totalSpan;
+  var baseS=baseAge-ageNow;if(baseS<0)baseS=0;if(baseS>totalSpan)baseS=totalSpan;
+  var elPct=Math.round(el/totalSpan*100);
+  var basePct=Math.round((baseS-el)/totalSpan*100);
+  var delayPct=100-elPct-basePct;if(delayPct<0)delayPct=0;
+  var h='<div class="timeline-bar">';
+  if(elPct>0)h+='<div class="timeline-segment" style="width:'+elPct+'%;background:#9CA3AF">已过 '+el+'年</div>';
+  if(basePct>0)h+='<div class="timeline-segment" style="width:'+basePct+'%;background:#3B82F6">距法定退休 '+(baseS-el)+'年</div>';
+  if(delayPct>0)h+='<div class="timeline-segment" style="width:'+delayPct+'%;background:#F59E0B">延迟 +'+(newRetireYear-oldRetireYear)+'年</div>';
+  h+='</div>';
+  h+='<div class="timeline-labels"><span>'+by+'年(出生)</span><span>'+oldRetireYear+'年(原法定)</span><span>'+newRetireYear+'年'+ri.months+'月(实际)</span></div>';
+  if(newRetireYear>oldRetireYear){
+    h+='<div style="margin-top:6px;font-size:12px;color:#D97706;background:#FEF3C7;padding:6px 10px;border-radius:6px">2025延迟退休新政：延迟 '+(newRetireYear-oldRetireYear)+'年'+(ri.months<10?'0':'')+ri.months+'月，预计退休 <strong>'+newRetireYear+'年'+ri.months+'月</strong></div>';
+  }else{
+    h+='<div style="margin-top:6px;font-size:12px;color:#059669;background:#D1FAE5;padding:6px 10px;border-radius:6px">2025延迟退休新政：延迟幅度为0，退休时间不受影响</div>';
+  }
+  return h;
+}
 // === 1. Profile ===
 function showProfile(){
   var d=_formData;
-  var retireInfo=calcPensionAge(d.dob,d.gender,d.origAge);
-  var retireYear=retireInfo.years,retireMonth=retireInfo.months;
   document.getElementById('app').innerHTML=
     '<h2>用户画像</h2><div class="form-row">'+
     '<div><label>出生年月</label><div class="ym-picker">'+
@@ -266,7 +331,7 @@ function showProfile(){
     '<div><label>性别</label><select id="pf-gender" onchange="onGenderChange()"><option value="male" '+(d.gender==='male'?'selected':'')+'>男(60岁)</option><option value="female" '+(d.gender==='female'?'selected':'')+'>女</option></select>'+
     '<div id="pf-orig-age-wrap"'+(d.gender!=='female'?' style="display:none"':'')+'><label>原退休年龄</label><select id="pf-orig-age" onchange="onOrigAgeChange()"><option value="55" '+(d.origAge==55?'selected':'')+'>55岁(管理岗)</option><option value="50" '+(d.origAge==50?'selected':'')+'>50岁(工人岗)</option></select></div></div>'+
     '<div><label>户籍所在地</label><select id="pf-city"><option value="310000" '+(d.city==='310000'?'selected':'')+'>上海</option><option value="110000" '+(d.city==='110000'?'selected':'')+'>北京</option><option value="440100" '+(d.city==='440100'?'selected':'')+'>广州</option><option value="330100" '+(d.city==='330100'?'selected':'')+'>杭州</option><option value="440300" '+(d.city==='440300'?'selected':'')+'>深圳</option></select></div></div>'+
-    (retireYear>0?'<div id="pfRetireAlert" class="alert-success" style="margin:8px 0;font-size:14px;text-align:center">预计初次领取退休金: <strong>'+retireYear+'年'+retireMonth+'月</strong></div>':'')+
+    '<div id="pfRetireTimeline" style="margin:12px 0">'+retireTimeline(d.dob,d.gender,d.origAge)+'</div>'+
     '<div class="form-row"><div><label>就业状态</label><select id="pf-employment"><option value="flexible" '+(d.employment==='flexible'?'selected':'')+'>灵活就业</option><option value="employed" '+(d.employment==='employed'?'selected':'')+'>在职</option><option value="unemployed" '+(d.employment==='unemployed'?'selected':'')+'>失业</option></select></div>'+
     '<div><label>累计缴费月数</label><input id="pf-months" type="number" value="'+d.months+'" min="0"></div>'+
     '<div><label>月预算(元)</label><input id="pf-budget" type="number" value="'+d.budget+'" min="0"></div></div>'+
@@ -291,9 +356,8 @@ function onOrigAgeChange(){
 function recalcRetireAlert(){
   var oa=parseInt(document.getElementById('pf-orig-age')?.value)||0;
   var g=document.getElementById('pf-gender').value;
-  var ri=calcPensionAge(_formData.dob,g,oa);
-  var al=document.getElementById('pfRetireAlert');
-  if(al)al.innerHTML='预计初次领取退休金: <strong>'+ri.years+'年'+ri.months+'月</strong>';
+  var el=document.getElementById('pfRetireTimeline');
+  if(el)el.innerHTML=retireTimeline(_formData.dob,g,oa);
 }
 function onSaveProfile(){
   _formData={
@@ -336,6 +400,70 @@ function calcAge(dob){
 }
 
 // === 2. Plan ===
+var _schemeChart=null;
+var _cfCharts={};
+function renderSchemeChart(schemes){
+  var ctx=document.getElementById('schemeChart');
+  if(!ctx)return;
+  if(_schemeChart)_schemeChart.destroy();
+  _schemeChart=new Chart(ctx,{
+    type:'bar',
+    data:{
+      labels:schemes.map(function(s){return s.name}),
+      datasets:[
+        {label:'月缴费(元)',data:schemes.map(function(s){return s.monthly_cost}),backgroundColor:'rgba(59,130,246,0.7)'},
+        {label:'预计月养老金(元)',data:schemes.map(function(s){return s.projected_pension}),backgroundColor:'rgba(5,150,105,0.7)'},
+        {label:'税后月领(元)',data:schemes.map(function(s){return s.after_tax_pension||0}),backgroundColor:'rgba(124,58,237,0.7)'}
+      ]
+    },
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{size:11}}}},scales:{y:{beginAtZero:true,ticks:{callback:function(v){return v+'元'}}}}}
+  });
+}
+function toggleCashflow(i){
+  var el=document.getElementById('cf-panel-'+i);
+  if(el)el.classList.toggle('open');
+}
+function renderCashflowChart(i,cf){
+  var ctx=document.getElementById('cf-chart-'+i);
+  if(!ctx)return;
+  if(_cfCharts[i])_cfCharts[i].destroy();
+  _cfCharts[i]=new Chart(ctx,{
+    type:'line',
+    data:{
+      labels:cf.map(function(c){return '第'+c.year+'年'}),
+      datasets:[
+        {label:'年缴费',data:cf.map(function(c){return c.payment}),borderColor:'#3B82F6',backgroundColor:'rgba(59,130,246,0.1)',fill:true,tension:0.3},
+        {label:'年补贴',data:cf.map(function(c){return c.subsidy}),borderColor:'#F59E0B',backgroundColor:'rgba(245,158,11,0.1)',fill:true,tension:0.3},
+        {label:'累计余额',data:cf.map(function(c){return c.balance}),borderColor:'#059669',backgroundColor:'rgba(5,150,105,0.1)',fill:true,tension:0.3}
+      ]
+    },
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{size:11}}}},scales:{y:{ticks:{callback:function(v){return (v/10000).toFixed(1)+'万'}}}}}
+  });
+}
+function onSimChange(){
+  var base=parseFloat(document.getElementById('sim-base')?.value)||5000;
+  var years=parseInt(document.getElementById('sim-years')?.value)||15;
+  var budget=parseFloat(document.getElementById('sim-budget')?.value)||2000;
+  var baseVal=document.getElementById('sim-base-val');if(baseVal)baseVal.textContent=base+'元';
+  var yearsVal=document.getElementById('sim-years-val');if(yearsVal)yearsVal.textContent=years+'年';
+  var budgetVal=document.getElementById('sim-budget-val');if(budgetVal)budgetVal.textContent=budget+'元';
+  var cityCode=_formData.city||'310000';
+  var avgSalary=12383,pensionRate=0.08,medicalRate=0.02;
+  var cities={'310000':{avgSalary:12383},'110000':{avgSalary:15764},'440300':{avgSalary:14530},'440100':{avgSalary:13795},'330100':{avgSalary:9625}};
+  var ci=cities[cityCode];if(ci)avgSalary=ci.avgSalary;
+  var monthlyCost=base*(pensionRate+medicalRate);
+  var personalBalance=base*pensionRate*years*12*Math.pow(1.03,years/2);
+  var retireAge=_formData.gender==='male'?63:58;
+  if(_formData.gender==='female'&&_formData.origAge===50)retireAge=55;
+  var divisor=retireAge>=60?139:retireAge>=55?170:195;
+  var personalPension=personalBalance/divisor;
+  var basicPension=(avgSalary+base)/2*years*0.01;
+  var total=Math.round(basicPension+personalPension);
+  var el=document.getElementById('sim-result');
+  if(el)el.textContent='￥'+total.toLocaleString()+' /月';
+  var detail=document.getElementById('sim-detail');
+  if(detail)detail.textContent='基础养老金 '+Math.round(basicPension)+' + 个人账户 '+Math.round(personalPension)+' | 月缴 '+Math.round(monthlyCost)+'元 | 投入产出比 '+(monthlyCost>0?(total/monthlyCost).toFixed(1):'-')+'x';
+}
 function showPlan(){
   var age=calcAge(_formData.dob);
   document.getElementById('app').innerHTML=
@@ -354,25 +482,64 @@ function onGeneratePlan(){
     original_pension_age:_formData.origAge||0,
     employment:_formData.employment,
     contribution_years:Math.floor(_formData.months/12),
+    contribution_months:_formData.months,
     current_balance:_formData.pensionTotal,
     local_avg_salary:0,
     monthly_budget:_formData.budget,
     priority:'balanced',
-    local_avg_salary:0,
   };
   api('POST','/v1/plans/generate',req).then(function(plan){
     btn.disabled=false;btn.textContent='再次生成';
-    var h='<div class="alert-success mt-16">方案生成成功！ID: '+esc(plan.plan_id)+'</div>';
-    h+='<table><tr><th>方案</th><th>缴费基数</th><th>月缴</th><th>年补贴</th><th>预计月养老金</th></tr>';
-    (plan.recommended_schemes||[]).forEach(function(s){
-      h+='<tr><td><strong>'+esc(s.name)+'</strong></td><td>'+s.base_salary+'元</td><td>'+(s.monthly_cost||0).toFixed(0)+'元</td><td>'+(s.annual_subsidy||0).toFixed(0)+'元</td><td><span class="badge bg-green">'+(s.projected_pension||0).toFixed(0)+'元</span></td></tr>';
-      if(s.subsidy_policy){h+='<tr style="background:#F9FAFB"><td colspan="5" style="font-size:12px;color:#6B7280;padding:4px 10px">补贴来源: '+esc(s.subsidy_policy)+' | '+esc(s.subsidy_condition)+'</td></tr>';}
-    });
-    h+='</table><div style="margin-top:8px;font-size:13px;color:#6B7280">总投入: '+((plan.total_cost||0).toFixed(0))+'元 | 总补贴: '+((plan.total_subsidy||0).toFixed(0))+'元</div>';
-    h+='<button class="btn btn-outline mt-16" onclick="viewReport(\''+esc(plan.plan_id)+'\')">查看完整报告</button>';
-    document.getElementById('planResult').innerHTML=h;
+    window._lastPlan=plan;
     window._lastPlanId=plan.plan_id;
-    showResult(plan);
+    var schemes=plan.recommended_schemes||[];
+    var maxROI=0,schemesWithROI=schemes.map(function(s){
+      var roi=s.monthly_cost>0?s.projected_pension/s.monthly_cost:0;
+      if(roi>maxROI)maxROI=roi;
+      s._roi=roi;
+      return s;
+    });
+    var h='<div class="alert-success" style="margin-top:12px">方案生成成功！共 '+schemes.length+' 个方案</div>';
+    h+='<div class="chart-container" style="margin:12px 0"><canvas id="schemeChart"></canvas></div>';
+    schemesWithROI.forEach(function(s,i){
+      var isRec=s._roi===maxROI;
+      var roiClass=s._roi>=3?'roi-green':s._roi>=2?'roi-yellow':'roi-red';
+      h+='<div class="scheme-card'+(isRec?' recommended':'')+'">';
+      h+='<div class="scheme-header"><strong style="font-size:15px">'+esc(s.name)+'</strong>';
+      if(isRec)h+='<span class="rec-badge">推荐</span>';
+      h+='<span class="roi-badge '+roiClass+'">ROI '+s._roi.toFixed(1)+'x</span></div>';
+      h+='<div class="scheme-metrics">';
+      h+='<div class="scheme-metric"><div class="value">'+s.monthly_cost.toFixed(0)+'</div><div class="label">月缴(元)</div></div>';
+      h+='<div class="scheme-metric"><div class="value" style="color:#059669">'+s.projected_pension.toFixed(0)+'</div><div class="label">预计月养老金</div></div>';
+      if(s.after_tax_pension>0)h+='<div class="scheme-metric"><div class="value" style="color:#7C3AED">'+s.after_tax_pension.toFixed(0)+'</div><div class="label">税后月领</div></div>';
+      if(s.annual_subsidy>0)h+='<div class="scheme-metric"><div class="value" style="color:#D97706">'+s.annual_subsidy.toFixed(0)+'</div><div class="label">年补贴</div></div>';
+      h+='<div class="scheme-metric"><div class="value" style="font-size:16px;color:#6B7280">'+s.remaining_months+'</div><div class="label">还需缴(月)</div></div>';
+      h+='</div>';
+      if(s.subsidy_policy)h+='<div style="margin-top:8px;font-size:12px;color:#6B7280">'+esc(s.subsidy_policy)+'</div>';
+      if(s.cashflow&&s.cashflow.length>0){
+        h+='<div class="cashflow-toggle" onclick="toggleCashflow('+i+')">查看现金流趋势 ▼</div>';
+        h+='<div class="cashflow-panel" id="cf-panel-'+i+'"><div class="chart-container"><canvas id="cf-chart-'+i+'"></canvas></div></div>';
+      }
+      h+='</div>';
+    });
+    if(schemes.length>0){
+      h+='<div class="sim-section"><h3 style="font-size:14px;color:#1A56DB;margin-bottom:8px">退休金模拟器</h3>';
+      h+='<div class="sim-slider-row"><label>缴费基数</label><input type="range" id="sim-base" min="'+schemes[0].base_salary+'" max="'+schemes[schemes.length-1].base_salary+'" step="100" value="'+schemes[0].base_salary+'" oninput="onSimChange()"><span class="sim-val" id="sim-base-val">'+schemes[0].base_salary+'元</span></div>';
+      h+='<div class="sim-slider-row"><label>缴费年限</label><input type="range" id="sim-years" min="1" max="40" step="1" value="'+Math.max(1,Math.floor(_formData.months/12))+'" oninput="onSimChange()"><span class="sim-val" id="sim-years-val">'+Math.max(1,Math.floor(_formData.months/12))+'年</span></div>';
+      h+='<div class="sim-slider-row"><label>月预算</label><input type="range" id="sim-budget" min="500" max="10000" step="100" value="'+_formData.budget+'" oninput="onSimChange()"><span class="sim-val" id="sim-budget-val">'+_formData.budget+'元</span></div>';
+      h+='<div class="sim-result" id="sim-result">计算中...</div>';
+      h+='<div class="sim-result-sub" id="sim-detail"></div></div>';
+    }
+    h+='<button class="btn btn-outline" style="margin-top:12px" id="viewReportBtn" data-plan-id="'+esc(plan.plan_id)+'">查看完整报告</button>';
+    document.getElementById('planResult').innerHTML=h;
+    var vrBtn=document.getElementById('viewReportBtn');
+    if(vrBtn)vrBtn.onclick=function(){viewReport(this.getAttribute('data-plan-id'));};
+    _cfCharts={};
+    renderSchemeChart(schemesWithROI);
+    schemesWithROI.forEach(function(s,i){
+      if(s.cashflow&&s.cashflow.length>0)renderCashflowChart(i,s.cashflow);
+    });
+    if(schemes.length>0)onSimChange();
   }).catch(function(e){btn.disabled=false;btn.textContent='生成方案';document.getElementById('planResult').innerHTML='<div class="alert-error">'+esc(e.message)+'</div>'});
 }
 function viewReport(pid){
@@ -392,8 +559,7 @@ function onLoadReport(){
   var pid=document.getElementById('rpt-id').value;
   if(!pid)return;
   document.getElementById('reportFrame').style.display='block';
-  // Use fetch with auth header then display HTML in iframe via srcdoc
-  fetch(API+'/v1/plans/report?plan_id='+pid,{headers:{'x-user-id':UID}})
+  fetch(API+'/v1/plans/report?plan_id='+encodeURIComponent(pid),{headers:{'Authorization':'Bearer '+_token}})
     .then(function(r){return r.text()})
     .then(function(html){
       document.getElementById('rptIframe').srcdoc=html;
@@ -439,11 +605,11 @@ function showGuide(){
 function onLoadGuide(){
   var city=document.getElementById('guide-city').value;
   document.getElementById('guideFrame').style.display='block';
-  fetch(API+'/v1/guide?city_code='+city,{headers:{'x-user-id':UID}})
+  ensureToken().then(function(){fetch(API+'/v1/guide?city_code='+city,{headers:{'Authorization':'Bearer '+_token}})
     .then(function(r){return r.text()})
     .then(function(html){
       document.getElementById('guideIframe').srcdoc=html;
-    });
+    });});
 }
 
 // === 6. Policies ===

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"time"
 )
@@ -118,13 +119,22 @@ type bailianResponse struct {
 
 // Client 统一的 LLM 客户端
 type Client struct {
-	config Config
-	http   *http.Client
+	config  Config
+	backup  *Config
+	http    *http.Client
 }
 
 func NewClient(cfg Config) *Client {
 	return &Client{
 		config: cfg,
+		http:   &http.Client{Timeout: 60 * time.Second},
+	}
+}
+
+func NewClientWithBackup(cfg Config, backup *Config) *Client {
+	return &Client{
+		config: cfg,
+		backup: backup,
 		http:   &http.Client{Timeout: 60 * time.Second},
 	}
 }
@@ -137,32 +147,51 @@ func (c *Client) ModelName() string {
 func (c *Client) Chat(systemPrompt, userContent string) (string, error) {
 	switch c.config.Provider {
 	case ProviderAliBailian:
-		return c.chatBailian(systemPrompt, userContent)
+		result, err := c.chatBailianWithConfig(c.config, systemPrompt, userContent)
+		if err != nil && c.backup != nil {
+			log.Printf("[llm] primary failed, trying backup: %v", err)
+			return c.chatWithBackup(systemPrompt, userContent)
+		}
+		return result, err
 	default:
-		return c.chatOpenAI(systemPrompt, userContent)
+		result, err := c.chatOpenAIWithConfig(c.config, systemPrompt, userContent)
+		if err != nil && c.backup != nil {
+			log.Printf("[llm] primary failed, trying backup: %v", err)
+			return c.chatWithBackup(systemPrompt, userContent)
+		}
+		return result, err
+	}
+}
+
+func (c *Client) chatWithBackup(systemPrompt, userContent string) (string, error) {
+	switch c.backup.Provider {
+	case ProviderAliBailian:
+		return c.chatBailianWithConfig(*c.backup, systemPrompt, userContent)
+	default:
+		return c.chatOpenAIWithConfig(*c.backup, systemPrompt, userContent)
 	}
 }
 
 // chatOpenAI OpenAI 兼容格式（DeepSeek/火山方舟/OpenCode Go）
-func (c *Client) chatOpenAI(systemPrompt, userContent string) (string, error) {
+func doChatOpenAI(cfg Config, httpClient *http.Client, systemPrompt, userContent string) (string, error) {
 	req := ChatRequest{
-		Model: c.config.ModelName,
+		Model: cfg.ModelName,
 		Messages: []ChatMessage{
 			{Role: "system", Content: systemPrompt},
 			{Role: "user", Content: userContent},
 		},
-		MaxTokens: c.config.MaxTokens,
+		MaxTokens: cfg.MaxTokens,
 	}
 
 	body, _ := json.Marshal(req)
-	httpReq, err := http.NewRequest("POST", c.config.Endpoint, bytes.NewReader(body))
+	httpReq, err := http.NewRequest("POST", cfg.Endpoint, bytes.NewReader(body))
 	if err != nil {
 		return "", fmt.Errorf("create request: %w", err)
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("Authorization", "Bearer "+c.config.APIKey)
+	httpReq.Header.Set("Authorization", "Bearer "+cfg.APIKey)
 
-	resp, err := c.http.Do(httpReq)
+	resp, err := httpClient.Do(httpReq)
 	if err != nil {
 		return "", fmt.Errorf("API call: %w", err)
 	}
@@ -183,12 +212,16 @@ func (c *Client) chatOpenAI(systemPrompt, userContent string) (string, error) {
 	return chatResp.Choices[0].Message.Content, nil
 }
 
+func (c *Client) chatOpenAIWithConfig(cfg Config, systemPrompt, userContent string) (string, error) {
+	return doChatOpenAI(cfg, c.http, systemPrompt, userContent)
+}
+
 // chatBailian 阿里云百炼（通义千问）格式
-func (c *Client) chatBailian(systemPrompt, userContent string) (string, error) {
+func (c *Client) chatBailianWithConfig(cfg Config, systemPrompt, userContent string) (string, error) {
 	req := bailianRequest{
-		Model: c.config.ModelName,
+		Model: cfg.ModelName,
 		Parameters: map[string]interface{}{
-			"max_tokens": c.config.MaxTokens,
+			"max_tokens": cfg.MaxTokens,
 			"result_format": "text",
 		},
 	}
@@ -198,12 +231,12 @@ func (c *Client) chatBailian(systemPrompt, userContent string) (string, error) {
 	}
 
 	body, _ := json.Marshal(req)
-	httpReq, err := http.NewRequest("POST", c.config.Endpoint, bytes.NewReader(body))
+	httpReq, err := http.NewRequest("POST", cfg.Endpoint, bytes.NewReader(body))
 	if err != nil {
 		return "", fmt.Errorf("create request: %w", err)
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("Authorization", "Bearer "+c.config.APIKey)
+	httpReq.Header.Set("Authorization", "Bearer "+cfg.APIKey)
 
 	resp, err := c.http.Do(httpReq)
 	if err != nil {

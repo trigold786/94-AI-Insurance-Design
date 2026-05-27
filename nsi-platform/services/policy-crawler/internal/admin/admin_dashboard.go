@@ -18,6 +18,7 @@ type DashboardStore interface {
 	GetExtractLogsFiltered(startDate, endDate, sourceType, sourceLevel, regionCode, status string, limit int) ([]ExtractLogEntry, error)
 	GetDashboardStats() (*DashboardStats, error)
 	GetPipeline() ([]PipelineEntry, error)
+	GetFailureAnalysis() (*FailureAnalysis, error)
 }
 
 type PipelineEntry struct {
@@ -39,17 +40,21 @@ type PipelineEntry struct {
 }
 
 type SourceInfo struct {
-	SourceID     string `json:"source_id"`
-	SourceName   string `json:"source_name"`
-	SourceURL    string `json:"source_url"`
-	SourceLevel  string `json:"source_level"`
-	CrawlType    string `json:"crawl_type"`
-	IntervalSec  int    `json:"interval_sec"`
-	RegionCode   string `json:"region_code"`
-	Enabled      bool   `json:"enabled"`
-	LastCrawl    string `json:"last_crawl,omitempty"`
-	LastStatus   string `json:"last_status,omitempty"`
-	ClaimsCount  int    `json:"claims_count"`
+	SourceID       string `json:"source_id"`
+	SourceName     string `json:"source_name"`
+	SourceURL      string `json:"source_url"`
+	SourceLevel    string `json:"source_level"`
+	CrawlType      string `json:"crawl_type"`
+	IntervalSec    int    `json:"interval_sec"`
+	RegionCode     string `json:"region_code"`
+	Enabled        bool   `json:"enabled"`
+	LastCrawl      string `json:"last_crawl,omitempty"`
+	LastStatus     string `json:"last_status,omitempty"`
+	ClaimsCount    int    `json:"claims_count"`
+	ProxyURL       string `json:"proxy_url,omitempty"`
+	RequestDelayMs int    `json:"request_delay_ms"`
+	MaxConcurrent  int    `json:"max_concurrent"`
+	RespectRobots  bool   `json:"respect_robots"`
 }
 
 type CrawlLogEntry struct {
@@ -206,6 +211,29 @@ func ExtractLogsHandler(store DashboardStore) http.Handler {
 			return
 		}
 		respondJSON(w, http.StatusOK, map[string]interface{}{"code": 0, "data": logs})
+	})
+}
+
+type FailureGroup struct {
+	SourceID     string `json:"source_id"`
+	SourceName   string `json:"source_name"`
+	ErrorMessage string `json:"error_message"`
+	Count        int    `json:"count"`
+}
+
+type FailureAnalysis struct {
+	CrawlFailures   []FailureGroup `json:"crawl_failures"`
+	ExtractFailures []FailureGroup `json:"extract_failures"`
+}
+
+func FailureAnalysisHandler(store DashboardStore) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		analysis, err := store.GetFailureAnalysis()
+		if err != nil {
+			respondError(w, http.StatusInternalServerError, fmt.Sprintf("failure analysis error: %v", err))
+			return
+		}
+		respondJSON(w, http.StatusOK, map[string]interface{}{"code": 0, "data": analysis})
 	})
 }
 

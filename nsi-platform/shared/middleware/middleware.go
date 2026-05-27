@@ -110,10 +110,10 @@ func SecurityHeadersMiddleware() Middleware {
 			w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
 			w.Header().Set("Content-Security-Policy",
 				"default-src 'self'; "+
-					"script-src 'self' 'unsafe-inline'; "+
+					"script-src 'self' 'unsafe-inline' cdn.jsdelivr.net; "+
 					"style-src 'self' 'unsafe-inline'; "+
 					"img-src 'self' data:; "+
-					"connect-src 'self'; "+
+					"connect-src 'self' cdn.jsdelivr.net; "+
 					"frame-ancestors 'none'; "+
 					"form-action 'self'")
 			next.ServeHTTP(w, r)

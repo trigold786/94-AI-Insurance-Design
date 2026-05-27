@@ -36,18 +36,20 @@ type CalculateRequest struct {
 }
 
 type SchemeResult struct {
-	Name                  string  `json:"name"`
-	BaseSalary            int     `json:"base_salary"`
-	MonthlyCost           float64 `json:"monthly_cost"`
-	AnnualSubsidy         float64 `json:"annual_subsidy"`
-	SubsidyPolicy         string  `json:"subsidy_policy"`
-	SubsidyCondition      string  `json:"subsidy_condition"`
-	PaidMonths            int     `json:"paid_months"`
-	TargetMonths          int     `json:"target_months"`
-	RemainingMonths       int     `json:"remaining_months"`
-	TotalPersonalCost     float64 `json:"total_personal_cost"`
-	RemainingPersonalCost float64 `json:"remaining_personal_cost"`
-	ProjectedPension      float64 `json:"projected_pension"`
+	Name                  string                `json:"name"`
+	BaseSalary            int                   `json:"base_salary"`
+	MonthlyCost           float64               `json:"monthly_cost"`
+	AnnualSubsidy         float64               `json:"annual_subsidy"`
+	SubsidyPolicy         string                `json:"subsidy_policy"`
+	SubsidyCondition      string                `json:"subsidy_condition"`
+	PaidMonths            int                   `json:"paid_months"`
+	TargetMonths          int                   `json:"target_months"`
+	RemainingMonths       int                   `json:"remaining_months"`
+	TotalPersonalCost     float64               `json:"total_personal_cost"`
+	RemainingPersonalCost float64               `json:"remaining_personal_cost"`
+	ProjectedPension      float64               `json:"projected_pension"`
+	AfterTaxPension       float64               `json:"after_tax_pension"`
+	Cashflow              []models.CashFlowItem `json:"cashflow,omitempty"`
 }
 
 type CalculateResponse struct {
@@ -220,6 +222,8 @@ func GeneratePlanHandler(calc Calculator, repo PlanRepository, profileRepo Profi
 				TotalPersonalCost:     s.TotalPersonalCost,
 				RemainingPersonalCost: s.RemainingPersonalCost,
 				ProjectedPension:      s.ProjectedPension,
+				AfterTaxPension:       s.AfterTaxPension,
+				Cashflow:              s.Cashflow,
 			})
 		}
 

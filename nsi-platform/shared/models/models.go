@@ -128,6 +128,7 @@ type Scheme struct {
 	TotalPersonalCost     float64        `json:"total_personal_cost"`
 	RemainingPersonalCost float64        `json:"remaining_personal_cost"`
 	ProjectedPension      float64        `json:"projected_pension"`
+	AfterTaxPension       float64        `json:"after_tax_pension"`
 	Cashflow              []CashFlowItem `json:"cashflow,omitempty"`
 }
 
