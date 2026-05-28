@@ -13,6 +13,7 @@ import (
 	"github.com/trigold786/94-AI-Insurance-Design/llm-gateway/internal/admin"
 	"github.com/trigold786/94-AI-Insurance-Design/llm-gateway/internal/config"
 	"github.com/trigold786/94-AI-Insurance-Design/llm-gateway/internal/gateway"
+	"github.com/trigold786/94-AI-Insurance-Design/llm-gateway/internal/modelconfig"
 	"github.com/trigold786/94-AI-Insurance-Design/llm-gateway/internal/provider"
 	"github.com/trigold786/94-AI-Insurance-Design/llm-gateway/internal/usage"
 	sharedDB "github.com/trigold786/94-AI-Insurance-Design/shared/db"
@@ -52,6 +53,11 @@ func main() {
 		log.Fatalf("create usage store: %v", err)
 	}
 
+	mcStore, err := modelconfig.NewStore(db)
+	if err != nil {
+		log.Fatalf("create model config store: %v", err)
+	}
+
 	ctx := context.Background()
 	enabledProviders, err := configStore.GetEnabledProviders(ctx)
 	if err != nil {
@@ -79,7 +85,7 @@ func main() {
 	}
 
 	gw := gateway.New(providers)
-	adminHandler := admin.NewHandler(configStore, usageStore, adminUser, adminPass)
+	adminHandler := admin.NewHandler(configStore, usageStore, mcStore, adminUser, adminPass)
 
 	mux := http.NewServeMux()
 
@@ -159,6 +165,22 @@ func main() {
 
 	mux.HandleFunc("/admin/providers/test", adminHandler.BasicAuth(adminHandler.TestProvider))
 	mux.HandleFunc("/admin/usage", adminHandler.BasicAuth(adminHandler.GetUsage))
+
+	mux.HandleFunc("/admin/model-configs", adminHandler.BasicAuth(func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			adminHandler.ListModelConfigs(w, r)
+		default:
+			respondJSON(w, http.StatusMethodNotAllowed, map[string]interface{}{
+				"code":    "METHOD_NOT_ALLOWED",
+				"message": "only GET is supported",
+			})
+		}
+	}))
+	mux.HandleFunc("/admin/model-configs/save", adminHandler.BasicAuth(adminHandler.SaveModelConfig))
+	mux.HandleFunc("/admin/model-configs/test", adminHandler.BasicAuth(adminHandler.TestModelConfig))
+	mux.HandleFunc("/admin/model-configs/", adminHandler.BasicAuth(adminHandler.GetModelConfig))
+
 	mux.HandleFunc("/admin/", adminHandler.BasicAuth(adminHandler.AdminPage))
 
 	srv := &http.Server{

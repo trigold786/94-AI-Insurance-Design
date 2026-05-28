@@ -4,9 +4,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/trigold786/94-AI-Insurance-Design/llm-gateway/internal/config"
+	"github.com/trigold786/94-AI-Insurance-Design/llm-gateway/internal/modelconfig"
 	"github.com/trigold786/94-AI-Insurance-Design/llm-gateway/internal/provider"
 	"github.com/trigold786/94-AI-Insurance-Design/llm-gateway/internal/usage"
 )
@@ -14,14 +16,16 @@ import (
 type Handler struct {
 	configStore *config.ConfigStore
 	usageStore  *usage.UsageStore
+	mcStore     *modelconfig.Store
 	adminUser   string
 	adminPass   string
 }
 
-func NewHandler(cs *config.ConfigStore, us *usage.UsageStore, user, pass string) *Handler {
+func NewHandler(cs *config.ConfigStore, us *usage.UsageStore, mcs *modelconfig.Store, user, pass string) *Handler {
 	return &Handler{
 		configStore: cs,
 		usageStore:  us,
+		mcStore:     mcs,
 		adminUser:   user,
 		adminPass:   pass,
 	}
@@ -192,6 +196,230 @@ func (h *Handler) AdminPage(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(adminHTML))
+}
+
+func (h *Handler) ListModelConfigs(w http.ResponseWriter, r *http.Request) {
+	configs, err := h.mcStore.ListAll(r.Context())
+	if err != nil {
+		respondJSON(w, http.StatusInternalServerError, map[string]interface{}{
+			"code":    500,
+			"message": fmt.Sprintf("list model configs: %v", err),
+		})
+		return
+	}
+	masked := make([]*modelconfig.ModelConfig, len(configs))
+	for i := range configs {
+		masked[i] = configs[i].ToMasked()
+	}
+	respondJSON(w, http.StatusOK, map[string]interface{}{
+		"code": 0,
+		"data": masked,
+	})
+}
+
+func (h *Handler) SaveModelConfig(w http.ResponseWriter, r *http.Request) {
+	var cfg modelconfig.ModelConfig
+	if err := json.NewDecoder(r.Body).Decode(&cfg); err != nil {
+		respondJSON(w, http.StatusBadRequest, map[string]interface{}{
+			"code":    400,
+			"message": "invalid JSON",
+		})
+		return
+	}
+
+	validKeys := map[string]bool{
+		"llm_extract": true,
+		"llm_plan":    true,
+		"embedding":   true,
+		"asr":         true,
+	}
+	if !validKeys[cfg.FunctionKey] {
+		respondJSON(w, http.StatusBadRequest, map[string]interface{}{
+			"code":    400,
+			"message": "function_key must be one of: llm_extract, llm_plan, embedding, asr",
+		})
+		return
+	}
+
+	if err := h.mcStore.Save(r.Context(), &cfg); err != nil {
+		respondJSON(w, http.StatusInternalServerError, map[string]interface{}{
+			"code":    500,
+			"message": fmt.Sprintf("save model config: %v", err),
+		})
+		return
+	}
+	respondJSON(w, http.StatusOK, map[string]interface{}{
+		"code":    0,
+		"message": "saved",
+	})
+}
+
+func (h *Handler) GetModelConfig(w http.ResponseWriter, r *http.Request) {
+	functionKey := strings.TrimPrefix(r.URL.Path, "/admin/model-configs/")
+	functionKey = strings.TrimSuffix(functionKey, "/")
+	if functionKey == "" {
+		respondJSON(w, http.StatusBadRequest, map[string]interface{}{
+			"code":    400,
+			"message": "function_key is required",
+		})
+		return
+	}
+
+	cfg, err := h.mcStore.GetByKey(r.Context(), functionKey)
+	if err != nil {
+		respondJSON(w, http.StatusNotFound, map[string]interface{}{
+			"code":    404,
+			"message": err.Error(),
+		})
+		return
+	}
+	respondJSON(w, http.StatusOK, map[string]interface{}{
+		"code": 0,
+		"data": cfg.ToMasked(),
+	})
+}
+
+func (h *Handler) TestModelConfig(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		FunctionKey string `json:"function_key"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondJSON(w, http.StatusBadRequest, map[string]interface{}{
+			"code":    400,
+			"message": "invalid JSON",
+		})
+		return
+	}
+
+	cfg, err := h.mcStore.GetByKey(r.Context(), req.FunctionKey)
+	if err != nil {
+		respondJSON(w, http.StatusNotFound, map[string]interface{}{
+			"code":    404,
+			"message": err.Error(),
+		})
+		return
+	}
+
+	switch cfg.FunctionKey {
+	case "llm_extract", "llm_plan":
+		var p provider.Provider
+		if cfg.Provider == "ali_bailian" {
+			p = &provider.BailianProvider{
+				Endpoint:  cfg.APIEndpoint,
+				APIKey:    cfg.APIKey,
+				ModelName: cfg.ModelID,
+				MaxTokens: cfg.MaxTokens,
+			}
+		} else {
+			p = &provider.OpenAICompatProvider{
+				Endpoint:  cfg.APIEndpoint,
+				APIKey:    cfg.APIKey,
+				ModelName: cfg.ModelID,
+				MaxTokens: cfg.MaxTokens,
+			}
+		}
+		start := time.Now()
+		result, testErr := p.Chat("You are a test assistant.", "Say hello in one sentence.")
+		latency := time.Since(start)
+		if testErr != nil {
+			respondJSON(w, http.StatusOK, map[string]interface{}{
+				"code":    0,
+				"message": "test failed",
+				"data": map[string]interface{}{
+					"function_key": cfg.FunctionKey,
+					"provider":     cfg.Provider,
+					"latency_ms":   latency.Milliseconds(),
+					"status":       "error",
+					"error":        testErr.Error(),
+				},
+			})
+			return
+		}
+		preview := result
+		if len(preview) > 200 {
+			preview = preview[:200]
+		}
+		respondJSON(w, http.StatusOK, map[string]interface{}{
+			"code":    0,
+			"message": "test passed",
+			"data": map[string]interface{}{
+				"function_key":    cfg.FunctionKey,
+				"provider":        cfg.Provider,
+				"latency_ms":      latency.Milliseconds(),
+				"status":          "ok",
+				"response_preview": preview,
+			},
+		})
+
+	case "embedding":
+		if cfg.APIKey == "" {
+			respondJSON(w, http.StatusOK, map[string]interface{}{
+				"code":    0,
+				"message": "test failed",
+				"data": map[string]interface{}{
+					"function_key": cfg.FunctionKey,
+					"provider":     cfg.Provider,
+					"status":       "error",
+					"error":        "api_key is not set",
+				},
+			})
+			return
+		}
+		respondJSON(w, http.StatusOK, map[string]interface{}{
+			"code":    0,
+			"message": "test passed",
+			"data": map[string]interface{}{
+				"function_key": cfg.FunctionKey,
+				"provider":     cfg.Provider,
+				"status":       "configured",
+			},
+		})
+
+	case "asr":
+		var extra map[string]interface{}
+		_ = json.Unmarshal(cfg.ExtraParams, &extra)
+		if cfg.APIKey == "" {
+			respondJSON(w, http.StatusOK, map[string]interface{}{
+				"code":    0,
+				"message": "test failed",
+				"data": map[string]interface{}{
+					"function_key": cfg.FunctionKey,
+					"provider":     cfg.Provider,
+					"status":       "error",
+					"error":        "api_key is not set",
+				},
+			})
+			return
+		}
+		if _, ok := extra["app_id"]; !ok {
+			respondJSON(w, http.StatusOK, map[string]interface{}{
+				"code":    0,
+				"message": "test failed",
+				"data": map[string]interface{}{
+					"function_key": cfg.FunctionKey,
+					"provider":     cfg.Provider,
+					"status":       "error",
+					"error":        "app_id is not set in extra_params",
+				},
+			})
+			return
+		}
+		respondJSON(w, http.StatusOK, map[string]interface{}{
+			"code":    0,
+			"message": "test passed",
+			"data": map[string]interface{}{
+				"function_key": cfg.FunctionKey,
+				"provider":     cfg.Provider,
+				"status":       "configured",
+			},
+		})
+
+	default:
+		respondJSON(w, http.StatusBadRequest, map[string]interface{}{
+			"code":    400,
+			"message": fmt.Sprintf("unknown function_key: %s", cfg.FunctionKey),
+		})
+	}
 }
 
 func respondJSON(w http.ResponseWriter, code int, data interface{}) {

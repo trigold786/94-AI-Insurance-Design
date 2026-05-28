@@ -17,6 +17,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .nav-item:hover{color:#1A56DB}
 .container{max-width:1200px;margin:16px auto;padding:0 16px}
 .card{background:#fff;border-radius:10px;padding:16px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,0.06)}
+.card-header{font-size:15px;font-weight:600;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid #E5E7EB;display:flex;align-items:center;justify-content:space-between}
 table{width:100%;border-collapse:collapse;font-size:13px}
 th{text-align:left;padding:8px 10px;border-bottom:2px solid #E5E7EB;color:#6B7280;font-weight:600;font-size:12px}
 td{padding:8px 10px;border-bottom:1px solid #F3F4F6}
@@ -40,39 +41,88 @@ tr:hover{background:#F9FAFB}
 .toast{position:fixed;bottom:20px;right:20px;padding:10px 16px;border-radius:8px;color:#fff;font-size:13px;z-index:999;display:none}
 .spinner{display:inline-block;width:14px;height:14px;border:2px solid #E5E7EB;border-top-color:#1A56DB;border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;margin-right:6px}
 @keyframes spin{to{transform:rotate(360deg)}}
-input,select{padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px}
+input,select{padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px;width:100%}
 input:focus,select:focus{outline:none;border-color:#1A56DB;box-shadow:0 0 0 2px rgba(26,86,219,0.15)}
+input[readonly]{background:#F3F4F6;color:#6B7280;cursor:default}
 label{font-size:12px;color:#6B7280;display:block;margin-bottom:4px}
 .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.form-full{grid-column:1/3}
+.form-full{grid-column:1/-1}
+.section-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:12px;padding-top:10px;border-top:1px solid #F3F4F6}
+.collapsible-header{display:flex;align-items:center;gap:6px;cursor:pointer;padding:8px 0;font-size:13px;color:#6B7280;user-select:none}
+.collapsible-header:hover{color:#1A56DB}
+.collapsible-header .arrow{transition:transform .2s;display:inline-block}
+.collapsible-header.open .arrow{transform:rotate(90deg)}
+.collapsible-body{display:none;padding-top:8px}
+.collapsible-body.open{display:block}
+.key-wrapper{display:flex;gap:4px;align-items:center}
+.key-wrapper input{flex:1}
+.key-toggle{font-size:11px;cursor:pointer;color:#6B7280;padding:4px 6px;border:1px solid #D1D5DB;border-radius:4px;background:#fff;white-space:nowrap}
+.key-toggle:hover{color:#1A56DB;border-color:#1A56DB}
+.inline-toggle{display:flex;align-items:center;gap:6px;font-size:13px;color:#333}
+.inline-toggle input[type=checkbox]{width:auto}
 </style>
 </head>
 <body>
-<div class="header"><h1>LLM Gateway - 管理后台</h1><span>v1.0.0</span></div>
+<div class="header"><h1>LLM Gateway - 管理后台</h1><span>v2.0.0</span></div>
 <div class="nav" id="navBar"></div>
 <div class="container" id="app"><div class="card" style="text-align:center;padding:40px"><div class="spinner"></div>加载中...</div></div>
 <div class="toast" id="toast"></div>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
+var MODEL_REGISTRY={
+  'deepseek':{
+    name:'DeepSeek',
+    models:{
+      'deepseek-chat':{name:'DeepSeek Chat',api:'https://api.deepseek.com/v1/chat/completions',type:'llm',format:'openai',maxTokens:8192},
+      'deepseek-reasoner':{name:'DeepSeek R1 (推理)',api:'https://api.deepseek.com/v1/chat/completions',type:'llm',format:'openai',maxTokens:8192}
+    }
+  },
+  'volc_ark':{
+    name:'火山方舟 (豆包)',
+    models:{
+      'doubao-pro-32k':{name:'豆包 Pro 32K',api:'https://ark.cn-beijing.volces.com/api/v3/chat/completions',type:'llm',format:'openai',maxTokens:4096},
+      'doubao-pro-128k':{name:'豆包 Pro 128K',api:'https://ark.cn-beijing.volces.com/api/v3/chat/completions',type:'llm',format:'openai',maxTokens:4096},
+      'doubao-lite-32k':{name:'豆包 Lite 32K',api:'https://ark.cn-beijing.volces.com/api/v3/chat/completions',type:'llm',format:'openai',maxTokens:4096},
+      'doubao-embedding-vision':{name:'豆包 Embedding Vision',api:'https://ark.cn-beijing.volces.com/api/v3/embeddings/multimodal',type:'embedding',format:'ark_multimodal',dims:[1024,2048]}
+    }
+  },
+  'ali_bailian':{
+    name:'阿里云百炼 (通义千问)',
+    models:{
+      'qwen-plus':{name:'通义千问 Plus',api:'https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation',type:'llm',format:'bailian',maxTokens:8192},
+      'qwen-turbo':{name:'通义千问 Turbo',api:'https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation',type:'llm',format:'bailian',maxTokens:8192},
+      'qwen-max':{name:'通义千问 Max',api:'https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation',type:'llm',format:'bailian',maxTokens:8192},
+      'text-embedding-v3':{name:'通义文本 Embedding V3',api:'https://dashscope.aliyuncs.com/api/v1/services/embeddings/text-embedding/text-embedding',type:'embedding',format:'openai',dims:[1024,1536]}
+    }
+  },
+  'opencode_go':{
+    name:'OpenCode Go (本地)',
+    models:{
+      'opencode-go':{name:'OpenCode Go',api:'http://localhost:11434/v1/chat/completions',type:'llm',format:'openai',maxTokens:4096}
+    }
+  },
+  'volcengine_asr':{
+    name:'火山引擎 (语音)',
+    models:{
+      'volc.bigasr.auc':{name:'大模型语音识别 (标准版)',api:'https://openspeech.bytedance.com/api/v3/auc/bigmodel',type:'asr',format:'volcengine_asr'},
+      'volc.bigasr.auc_idle':{name:'大模型语音识别 (闲时版)',api:'https://openspeech.bytedance.com/api/v3/auc/bigmodel',type:'asr',format:'volcengine_asr'}
+    }
+  }
+};
+
+var providerLabels={};
+for(var pk in MODEL_REGISTRY){providerLabels[pk]=MODEL_REGISTRY[pk].name}
+
 var navItems=[
-  {id:'providers',label:'Provider配置'},
+  {id:'model-configs',label:'模型配置'},
   {id:'usage',label:'用量统计'},
-  {id:'connectivity',label:'连通性测试'}
+  {id:'connectivity',label:'连通性测试'},
+  {id:'providers',label:'Provider配置'}
 ];
-var currentPanel='providers';
-var providerDefaults={
-  deepseek:{endpoint:'https://api.deepseek.com/v1/chat/completions',model:'deepseek-chat'},
-  ali_bailian:{endpoint:'https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation',model:'qwen-plus'},
-  volc_ark:{endpoint:'https://ark.cn-beijing.volces.com/api/v3/chat/completions',model:'doubao-pro-32k'},
-  opencode_go:{endpoint:'http://localhost:11434/v1/chat/completions',model:'opencode-go'}
-};
-var providerLabels={
-  deepseek:'DeepSeek',
-  ali_bailian:'阿里云百炼',
-  volc_ark:'火山方舟',
-  opencode_go:'OpenCode Go'
-};
+var currentPanel='model-configs';
 var allProviders=[];
+var modelConfigs={};
+var originalKeys={};
 
 function initNav(){
   var h='';
@@ -82,7 +132,7 @@ function initNav(){
   document.getElementById('navBar').innerHTML=h;
   document.getElementById('navBar').addEventListener('click',function(e){
     var item=e.target.closest('.nav-item');
-    if(item) switchPanel(item.dataset.panel);
+    if(item)switchPanel(item.dataset.panel);
   });
 }
 initNav();
@@ -101,27 +151,594 @@ function switchPanel(id){
   window.location.hash='#'+id;
   document.querySelectorAll('.nav-item').forEach(function(n){n.classList.remove('active')});
   var el=document.querySelector('[data-panel="'+id+'"]');
-  if(el) el.classList.add('active');
+  if(el)el.classList.add('active');
   var app=document.getElementById('app');
   app.innerHTML='<div class="card" style="text-align:center;padding:40px"><div class="spinner"></div>加载中...</div>';
-  if(id==='providers') loadProviders();
-  else if(id==='usage') loadUsage();
-  else if(id==='connectivity') loadConnectivity();
+  if(id==='model-configs')loadModelConfigs();
+  else if(id==='usage')loadUsage();
+  else if(id==='connectivity')loadConnectivity();
+  else if(id==='providers')loadProviders();
 }
 
 window.addEventListener('hashchange',function(){
   var h=window.location.hash.replace('#','');
-  if(h && navItems.some(function(n){return n.id===h})) switchPanel(h);
+  if(h&&navItems.some(function(n){return n.id===h}))switchPanel(h);
 });
 (function(){
   var h=window.location.hash.replace('#','');
-  if(h && navItems.some(function(n){return n.id===h})){switchPanel(h);return}
-  switchPanel('providers');
+  if(h&&navItems.some(function(n){return n.id===h})){switchPanel(h);return}
+  switchPanel('model-configs');
 })();
+
+function getProvidersForType(type){
+  var result=[];
+  for(var pk in MODEL_REGISTRY){
+    var p=MODEL_REGISTRY[pk];
+    var hasType=false;
+    for(var mk in p.models){if(p.models[mk].type===type){hasType=true;break}}
+    if(hasType)result.push({key:pk,name:p.name});
+  }
+  return result;
+}
+
+function getModelsForProviderAndType(providerKey,type){
+  var p=MODEL_REGISTRY[providerKey];
+  if(!p)return[];
+  var result=[];
+  for(var mk in p.models){
+    if(p.models[mk].type===type)result.push({key:mk,info:p.models[mk]});
+  }
+  return result;
+}
+
+function loadModelConfigs(){
+  fetch('/admin/model-configs').then(function(r){return r.json()}).then(function(d){
+    if(d.code!==0)throw new Error(d.message||'error');
+    var configs=d.data||[];
+    modelConfigs={};
+    originalKeys={};
+    configs.forEach(function(c){
+      modelConfigs[c.function_key]=c;
+    });
+    renderModelConfigs();
+  }).catch(function(e){
+    document.getElementById('app').innerHTML='<div class="card"><h3>加载失败</h3><p>'+esc(e.message)+'</p></div>';
+  });
+}
+
+function renderModelConfigs(){
+  var h='';
+
+  // Section 1: LLM 数据提取
+  h+=renderLLMSection('llm_extract','LLM 数据提取');
+
+  // Section 2: LLM 方案生成
+  h+=renderLLMSection('llm_plan','LLM 方案生成');
+
+  // Section 3: Embedding 向量
+  h+=renderEmbeddingSection();
+
+  // Section 4: ASR 语音识别
+  h+=renderASRSection();
+
+  document.getElementById('app').innerHTML=h;
+  bindCollapsibles();
+  bindKeyToggles();
+  triggerProviderChanges();
+}
+
+function renderLLMSection(fnKey,title){
+  var cfg=modelConfigs[fnKey]||{};
+  var providers=getProvidersForType('llm');
+  var html='<div class="card" id="card_'+fnKey+'">';
+  html+='<div class="card-header"><span>'+esc(title)+'</span>';
+  html+='<span class="badge '+(cfg.enabled?'bg-green':'bg-red')+'">'+(cfg.enabled?'已启用':'未启用')+'</span></div>';
+  html+='<div class="form-grid">';
+
+  html+='<div><label>Provider</label><select id="'+fnKey+'_provider" onchange="onProviderChangeLLM(\''+fnKey+'\')" data-type="llm">';
+  providers.forEach(function(p){html+='<option value="'+p.key+'"'+(cfg.provider_name===p.key?' selected':'')+'>'+esc(p.name)+'</option>'});
+  html+='</select></div>';
+
+  var models=getModelsForProviderAndType(cfg.provider_name||providers[0].key,'llm');
+  html+='<div><label>Model</label><select id="'+fnKey+'_model" onchange="onModelChangeLLM(\''+fnKey+'\')">';
+  models.forEach(function(m){html+='<option value="'+m.key+'"'+(cfg.model_name===m.key?' selected':'')+'>'+esc(m.info.name)+'</option>'});
+  html+='</select></div>';
+
+  html+='<div class="form-full"><label>API Endpoint</label><input id="'+fnKey+'_endpoint" readonly value="'+esc(cfg.endpoint||models[0].info.api)+'"></div>';
+
+  html+='<div><label>API Key</label><div class="key-wrapper"><input id="'+fnKey+'_apikey" type="password" placeholder="输入 API Key" data-original="'+(cfg.api_key_masked?'masked':'')+'"><span class="key-toggle" onclick="toggleKeyEdit(\''+fnKey+'_apikey\')">编辑</span></div></div>';
+
+  html+='<div><label>Max Tokens</label><input id="'+fnKey+'_maxtokens" type="number" value="'+(cfg.max_tokens||models[0].info.maxTokens||4096)+'"></div>';
+
+  html+='<div class="form-full"><label class="inline-toggle"><input type="checkbox" id="'+fnKey+'_enabled" '+(cfg.enabled?'checked':'')+'>启用</label></div>';
+
+  html+='</div>';
+
+  // Backup collapsible
+  html+='<div class="collapsible-header" onclick="toggleCollapsible(this)"><span class="arrow">\u25B6</span> 备用配置 (可选)</div>';
+  html+='<div class="collapsible-body">';
+  html+='<div class="form-grid">';
+  html+='<div><label>备用 Provider</label><select id="'+fnKey+'_backup_provider" onchange="onBackupProviderChange(\''+fnKey+'\')" data-type="llm">';
+  html+='<option value="">-- 不使用备用 --</option>';
+  providers.forEach(function(p){html+='<option value="'+p.key+'"'+(cfg.backup_provider_name===p.key?' selected':'')+'>'+esc(p.name)+'</option>'});
+  html+='</select></div>';
+
+  var bkModels=[];
+  if(cfg.backup_provider_name){
+    bkModels=getModelsForProviderAndType(cfg.backup_provider_name,'llm');
+  }
+  html+='<div><label>备用 Model</label><select id="'+fnKey+'_backup_model" onchange="onBackupModelChange(\''+fnKey+'\')">';
+  if(bkModels.length===0){html+='<option value="">-- 先选择 Provider --</option>'}
+  else{bkModels.forEach(function(m){html+='<option value="'+m.key+'"'+(cfg.backup_model_name===m.key?' selected':'')+'>'+esc(m.info.name)+'</option>'})}
+  html+='</select></div>';
+
+  html+='<div class="form-full"><label>备用 API Endpoint</label><input id="'+fnKey+'_backup_endpoint" readonly value="'+esc(cfg.backup_endpoint||(bkModels.length?bkModels[0].info.api:''))+'"></div>';
+  html+='<div><label>备用 API Key</label><div class="key-wrapper"><input id="'+fnKey+'_backup_apikey" type="password" placeholder="输入备用 API Key" data-original=""><span class="key-toggle" onclick="toggleKeyEdit(\''+fnKey+'_backup_apikey\')">编辑</span></div></div>';
+  html+='</div></div>';
+
+  html+='<div class="section-actions">';
+  html+='<button class="btn btn-success btn-sm" onclick="testModelConfig(\''+fnKey+'\')">测试</button>';
+  html+='<button class="btn btn-primary btn-sm" onclick="saveModelConfig(\''+fnKey+'\')">保存</button>';
+  html+='</div>';
+  html+='</div>';
+  return html;
+}
+
+function renderEmbeddingSection(){
+  var fnKey='embedding';
+  var cfg=modelConfigs[fnKey]||{};
+  var providers=getProvidersForType('embedding');
+  var html='<div class="card" id="card_'+fnKey+'">';
+  html+='<div class="card-header"><span>Embedding 向量</span>';
+  html+='<span class="badge '+(cfg.enabled?'bg-green':'bg-red')+'">'+(cfg.enabled?'已启用':'未启用')+'</span></div>';
+  html+='<div class="form-grid">';
+
+  html+='<div><label>Provider</label><select id="'+fnKey+'_provider" onchange="onProviderChangeEmbedding()">';
+  providers.forEach(function(p){html+='<option value="'+p.key+'"'+(cfg.provider_name===p.key?' selected':'')+'>'+esc(p.name)+'</option>'});
+  html+='</select></div>';
+
+  var models=getModelsForProviderAndType(cfg.provider_name||providers[0].key,'embedding');
+  html+='<div><label>Model</label><select id="'+fnKey+'_model" onchange="onModelChangeEmbedding()">';
+  models.forEach(function(m){html+='<option value="'+m.key+'"'+(cfg.model_name===m.key?' selected':'')+'>'+esc(m.info.name)+'</option>'});
+  html+='</select></div>';
+
+  html+='<div class="form-full"><label>API Endpoint</label><input id="'+fnKey+'_endpoint" readonly value="'+esc(cfg.endpoint||(models.length?models[0].info.api:''))+'"></div>';
+
+  html+='<div><label>API Key</label><div class="key-wrapper"><input id="'+fnKey+'_apikey" type="password" placeholder="输入 API Key" data-original="'+(cfg.api_key_masked?'masked':'')+'"><span class="key-toggle" onclick="toggleKeyEdit(\''+fnKey+'_apikey\')">编辑</span></div></div>';
+
+  var defaultDims=1024;
+  if(models.length&&models[0].info.dims){defaultDims=models[0].info.dims[0]}
+  if(cfg.dimensions){defaultDims=cfg.dimensions}
+
+  html+='<div><label>Dimensions</label><input id="'+fnKey+'_dimensions" type="number" value="'+defaultDims+'"></div>';
+  html+='<div class="form-full"><label class="inline-toggle"><input type="checkbox" id="'+fnKey+'_enabled" '+(cfg.enabled?'checked':'')+'>启用</label></div>';
+  html+='</div>';
+
+  html+='<div class="section-actions">';
+  html+='<button class="btn btn-success btn-sm" onclick="testModelConfig(\''+fnKey+'\')">测试</button>';
+  html+='<button class="btn btn-primary btn-sm" onclick="saveModelConfig(\''+fnKey+'\')">保存</button>';
+  html+='</div>';
+  html+='</div>';
+  return html;
+}
+
+function renderASRSection(){
+  var fnKey='asr';
+  var cfg=modelConfigs[fnKey]||{};
+  var providers=getProvidersForType('asr');
+  var html='<div class="card" id="card_'+fnKey+'">';
+  html+='<div class="card-header"><span>ASR 语音识别</span>';
+  html+='<span class="badge '+(cfg.enabled?'bg-green':'bg-red')+'">'+(cfg.enabled?'已启用':'未启用')+'</span></div>';
+  html+='<div class="form-grid">';
+
+  html+='<div><label>Provider</label><select id="'+fnKey+'_provider" onchange="onProviderChangeASR()">';
+  providers.forEach(function(p){html+='<option value="'+p.key+'"'+(cfg.provider_name===p.key?' selected':'')+'>'+esc(p.name)+'</option>'});
+  html+='</select></div>';
+
+  var models=getModelsForProviderAndType(cfg.provider_name||providers[0].key,'asr');
+  html+='<div><label>Model</label><select id="'+fnKey+'_model" onchange="onModelChangeASR()">';
+  models.forEach(function(m){html+='<option value="'+m.key+'"'+(cfg.model_name===m.key?' selected':'')+'>'+esc(m.info.name)+'</option>'});
+  html+='</select></div>';
+
+  html+='<div class="form-full"><label>API Endpoint</label><input id="'+fnKey+'_endpoint" readonly value="'+esc(cfg.endpoint||(models.length?models[0].info.api:''))+'"></div>';
+
+  html+='<div><label>APP ID</label><input id="'+fnKey+'_appid" value="'+esc(cfg.app_id||'')+'"></div>';
+
+  html+='<div><label>Access Token (API Key)</label><div class="key-wrapper"><input id="'+fnKey+'_apikey" type="password" placeholder="输入 Access Token" data-original="'+(cfg.api_key_masked?'masked':'')+'"><span class="key-toggle" onclick="toggleKeyEdit(\''+fnKey+'_apikey\')">编辑</span></div></div>';
+
+  html+='<div><label>Language</label><input id="'+fnKey+'_language" value="'+esc(cfg.language||'zh')+'"></div>';
+  html+='<div><label>Max Wait (秒)</label><input id="'+fnKey+'_maxwait" type="number" value="'+(cfg.max_wait||300)+'"></div>';
+  html+='<div><label>Poll Interval (秒)</label><input id="'+fnKey+'_pollinterval" type="number" value="'+(cfg.poll_interval||5)+'"></div>';
+  html+='<div class="form-full"><label class="inline-toggle"><input type="checkbox" id="'+fnKey+'_enabled" '+(cfg.enabled?'checked':'')+'>启用</label></div>';
+  html+='</div>';
+
+  html+='<div class="section-actions">';
+  html+='<button class="btn btn-success btn-sm" onclick="testModelConfig(\''+fnKey+'\')">测试</button>';
+  html+='<button class="btn btn-primary btn-sm" onclick="saveModelConfig(\''+fnKey+'\')">保存</button>';
+  html+='</div>';
+  html+='</div>';
+  return html;
+}
+
+function onProviderChangeLLM(fnKey){
+  var providerKey=document.getElementById(fnKey+'_provider').value;
+  var models=getModelsForProviderAndType(providerKey,'llm');
+  var sel=document.getElementById(fnKey+'_model');
+  sel.innerHTML='';
+  models.forEach(function(m){
+    sel.innerHTML+='<option value="'+m.key+'">'+esc(m.info.name)+'</option>';
+  });
+  if(models.length){
+    document.getElementById(fnKey+'_endpoint').value=models[0].info.api;
+    document.getElementById(fnKey+'_maxtokens').value=models[0].info.maxTokens||4096;
+  }
+}
+
+function onModelChangeLLM(fnKey){
+  var providerKey=document.getElementById(fnKey+'_provider').value;
+  var modelKey=document.getElementById(fnKey+'_model').value;
+  var reg=MODEL_REGISTRY[providerKey];
+  if(reg&&reg.models[modelKey]){
+    document.getElementById(fnKey+'_endpoint').value=reg.models[modelKey].api;
+    document.getElementById(fnKey+'_maxtokens').value=reg.models[modelKey].maxTokens||4096;
+  }
+}
+
+function onBackupProviderChange(fnKey){
+  var providerKey=document.getElementById(fnKey+'_backup_provider').value;
+  var sel=document.getElementById(fnKey+'_backup_model');
+  sel.innerHTML='';
+  if(!providerKey){
+    sel.innerHTML='<option value="">-- 先选择 Provider --</option>';
+    document.getElementById(fnKey+'_backup_endpoint').value='';
+    return;
+  }
+  var models=getModelsForProviderAndType(providerKey,'llm');
+  models.forEach(function(m){
+    sel.innerHTML+='<option value="'+m.key+'">'+esc(m.info.name)+'</option>';
+  });
+  if(models.length){
+    document.getElementById(fnKey+'_backup_endpoint').value=models[0].info.api;
+  }
+}
+
+function onBackupModelChange(fnKey){
+  var providerKey=document.getElementById(fnKey+'_backup_provider').value;
+  var modelKey=document.getElementById(fnKey+'_backup_model').value;
+  var reg=MODEL_REGISTRY[providerKey];
+  if(reg&&reg.models&&reg.models[modelKey]){
+    document.getElementById(fnKey+'_backup_endpoint').value=reg.models[modelKey].api;
+  }
+}
+
+function onProviderChangeEmbedding(){
+  var providerKey=document.getElementById('embedding_provider').value;
+  var models=getModelsForProviderAndType(providerKey,'embedding');
+  var sel=document.getElementById('embedding_model');
+  sel.innerHTML='';
+  models.forEach(function(m){
+    sel.innerHTML+='<option value="'+m.key+'">'+esc(m.info.name)+'</option>';
+  });
+  if(models.length){
+    document.getElementById('embedding_endpoint').value=models[0].info.api;
+    if(models[0].info.dims){
+      document.getElementById('embedding_dimensions').value=models[0].info.dims[0];
+    }
+  }
+}
+
+function onModelChangeEmbedding(){
+  var providerKey=document.getElementById('embedding_provider').value;
+  var modelKey=document.getElementById('embedding_model').value;
+  var reg=MODEL_REGISTRY[providerKey];
+  if(reg&&reg.models[modelKey]){
+    document.getElementById('embedding_endpoint').value=reg.models[modelKey].api;
+    if(reg.models[modelKey].dims){
+      document.getElementById('embedding_dimensions').value=reg.models[modelKey].dims[0];
+    }
+  }
+}
+
+function onProviderChangeASR(){
+  var providerKey=document.getElementById('asr_provider').value;
+  var models=getModelsForProviderAndType(providerKey,'asr');
+  var sel=document.getElementById('asr_model');
+  sel.innerHTML='';
+  models.forEach(function(m){
+    sel.innerHTML+='<option value="'+m.key+'">'+esc(m.info.name)+'</option>';
+  });
+  if(models.length){
+    document.getElementById('asr_endpoint').value=models[0].info.api;
+  }
+}
+
+function onModelChangeASR(){
+  var providerKey=document.getElementById('asr_provider').value;
+  var modelKey=document.getElementById('asr_model').value;
+  var reg=MODEL_REGISTRY[providerKey];
+  if(reg&&reg.models&&reg.models[modelKey]){
+    document.getElementById('asr_endpoint').value=reg.models[modelKey].api;
+  }
+}
+
+function triggerProviderChanges(){
+  ['llm_extract','llm_plan'].forEach(function(fnKey){
+    onProviderChangeLLM(fnKey);
+    var bkProv=document.getElementById(fnKey+'_backup_provider');
+    if(bkProv&&bkProv.value){onBackupProviderChange(fnKey)}
+  });
+  var embProv=document.getElementById('embedding_provider');
+  if(embProv)onProviderChangeEmbedding();
+  var asrProv=document.getElementById('asr_provider');
+  if(asrProv)onProviderChangeASR();
+
+  // Restore saved values after triggering
+  ['llm_extract','llm_plan'].forEach(function(fnKey){
+    var cfg=modelConfigs[fnKey]||{};
+    if(cfg.model_name){
+      var sel=document.getElementById(fnKey+'_model');
+      if(sel){var opts=sel.querySelectorAll('option');for(var i=0;i<opts.length;i++){if(opts[i].value===cfg.model_name){sel.selectedIndex=i;onModelChangeLLM(fnKey);break}}}
+    }
+    if(cfg.max_tokens){var mt=document.getElementById(fnKey+'_maxtokens');if(mt)mt.value=cfg.max_tokens}
+  });
+  var embCfg=modelConfigs.embedding||{};
+  if(embCfg.model_name){
+    var esel=document.getElementById('embedding_model');
+    if(esel){var eopts=esel.querySelectorAll('option');for(var i=0;i<eopts.length;i++){if(eopts[i].value===embCfg.model_name){esel.selectedIndex=i;onModelChangeEmbedding();break}}}
+  }
+  if(embCfg.dimensions){var ed=document.getElementById('embedding_dimensions');if(ed)ed.value=embCfg.dimensions}
+  var asrCfg=modelConfigs.asr||{};
+  if(asrCfg.model_name){
+    var asel=document.getElementById('asr_model');
+    if(asel){var aopts=asel.querySelectorAll('option');for(var i=0;i<aopts.length;i++){if(aopts[i].value===asrCfg.model_name){asel.selectedIndex=i;onModelChangeASR();break}}}
+  }
+}
+
+function saveModelConfig(fnKey){
+  var payload={function_key:fnKey};
+  payload.provider_name=document.getElementById(fnKey+'_provider').value;
+  payload.model_name=document.getElementById(fnKey+'_model').value;
+  payload.endpoint=document.getElementById(fnKey+'_endpoint').value;
+  payload.enabled=document.getElementById(fnKey+'_enabled').checked;
+
+  var apiKeyEl=document.getElementById(fnKey+'_apikey');
+  if(apiKeyEl.dataset.edited==='true'||apiKeyEl.value){
+    payload.api_key=apiKeyEl.value;
+  }
+
+  if(fnKey==='llm_extract'||fnKey==='llm_plan'){
+    payload.max_tokens=parseInt(document.getElementById(fnKey+'_maxtokens').value)||4096;
+    var bkProv=document.getElementById(fnKey+'_backup_provider').value;
+    if(bkProv){
+      payload.backup_provider_name=bkProv;
+      payload.backup_model_name=document.getElementById(fnKey+'_backup_model').value;
+      payload.backup_endpoint=document.getElementById(fnKey+'_backup_endpoint').value;
+      var bkKeyEl=document.getElementById(fnKey+'_backup_apikey');
+      if(bkKeyEl.dataset.edited==='true'||bkKeyEl.value){
+        payload.backup_api_key=bkKeyEl.value;
+      }
+    }
+  }else if(fnKey==='embedding'){
+    payload.dimensions=parseInt(document.getElementById('embedding_dimensions').value)||1024;
+  }else if(fnKey==='asr'){
+    payload.app_id=document.getElementById('asr_appid').value;
+    payload.language=document.getElementById('asr_language').value||'zh';
+    payload.max_wait=parseInt(document.getElementById('asr_maxwait').value)||300;
+    payload.poll_interval=parseInt(document.getElementById('asr_pollinterval').value)||5;
+  }
+
+  fetch('/admin/model-configs/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
+  .then(function(r){return r.json()}).then(function(d){
+    if(d.code===0){showToast('已保存','success');loadModelConfigs()}
+    else{showToast('保存失败: '+(d.message||''),'error')}
+  }).catch(function(){showToast('请求失败','error')});
+}
+
+function testModelConfig(fnKey){
+  var btn=document.querySelector('#card_'+fnKey+' .btn-success');
+  if(btn){btn.disabled=true;btn.textContent='测试中...'}
+  showToast('正在测试 '+fnKey+'...','success');
+  fetch('/admin/model-configs/test',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({function_key:fnKey})})
+  .then(function(r){return r.json()}).then(function(d){
+    if(btn){btn.disabled=false;btn.textContent='测试'}
+    if(d.code!==0){showToast('测试失败: '+(d.message||''),'error');return}
+    var r2=d.data;
+    if(r2&&r2.status==='ok'){
+      showToast(fnKey+' 测试通过 ('+r2.latency_ms+'ms)','success');
+    }else{
+      showToast(fnKey+' 测试失败: '+(r2?r2.error:'未知错误'),'error');
+    }
+  }).catch(function(){
+    if(btn){btn.disabled=false;btn.textContent='测试'}
+    showToast('请求失败','error');
+  });
+}
+
+function toggleCollapsible(el){
+  el.classList.toggle('open');
+  var body=el.nextElementSibling;
+  if(body)body.classList.toggle('open');
+}
+
+function bindCollapsibles(){
+  // Auto handled by onclick
+}
+
+function toggleKeyEdit(inputId){
+  var el=document.getElementById(inputId);
+  if(!el)return;
+  el.dataset.edited='true';
+  el.value='';
+  el.type='text';
+  el.focus();
+  el.addEventListener('blur',function(){
+    if(!el.value)el.type='password';
+  },{once:true});
+}
+
+function bindKeyToggles(){
+  // Auto handled by onclick
+}
+
+// ==================== Usage Tab ====================
+
+function loadUsage(){
+  fetch('/admin/usage').then(function(r){return r.json()}).then(function(d){
+    if(d.code!==0)throw new Error(d.message||'error');
+    var data=d.data||[];
+    var h='<div class="card"><h3 style="font-size:15px;margin-bottom:12px">近30天用量统计</h3>';
+
+    if(data.length===0){
+      h+='<div style="text-align:center;color:#9CA3AF;padding:40px">暂无用量数据</div>';
+    }else{
+      var dateSet={},providerSet={};
+      data.forEach(function(u){dateSet[u.date]=true;providerSet[u.provider_name]=true});
+      var dates=Object.keys(dateSet).sort();
+      var providers=Object.keys(providerSet);
+
+      h+='<div style="overflow-x:auto"><table><tr><th>日期</th>';
+      providers.forEach(function(p){h+='<th>'+esc(providerLabels[p]||p)+' 输入</th><th>'+esc(providerLabels[p]||p)+' 输出</th><th>调用次数</th>'});
+      h+='</tr>';
+      var dataMap={};
+      data.forEach(function(u){dataMap[u.date+'_'+u.provider_name]=u});
+      dates.forEach(function(dt){
+        h+='<tr><td style="font-weight:600">'+dt+'</td>';
+        providers.forEach(function(p){
+          var u=dataMap[dt+'_'+p];
+          if(u){
+            h+='<td>'+u.total_tokens_in.toLocaleString()+'</td><td>'+u.total_tokens_out.toLocaleString()+'</td><td>'+u.total_calls+'</td>';
+          }else{
+            h+='<td>0</td><td>0</td><td>0</td>';
+          }
+        });
+        h+='</tr>';
+      });
+      h+='</table></div>';
+      h+='<div style="margin-top:16px"><canvas id="usageChart" height="300"></canvas></div>';
+    }
+    h+='</div>';
+    document.getElementById('app').innerHTML=h;
+
+    if(data.length>0){
+      var dateSet2={},providerSet2={};
+      data.forEach(function(u){dateSet2[u.date]=true;providerSet2[u.provider_name]=true});
+      var dates2=Object.keys(dateSet2).sort();
+      var providers2=Object.keys(providerSet2);
+      var colors=['#1A56DB','#059669','#D97706','#7C3AED','#EC4899','#0EA5E9'];
+      var datasets=[];
+      providers2.forEach(function(p,pi){
+        var inData=[],outData=[];
+        dates2.forEach(function(dt){
+          var u=data.find(function(x){return x.date===dt&&x.provider_name===p});
+          inData.push(u?u.total_tokens_in:0);
+          outData.push(u?u.total_tokens_out:0);
+        });
+        var c=colors[pi%colors.length];
+        datasets.push({label:(providerLabels[p]||p)+' 输入',data:inData,backgroundColor:c+'CC',borderColor:c,borderWidth:1});
+        datasets.push({label:(providerLabels[p]||p)+' 输出',data:outData,backgroundColor:c+'44',borderColor:c+'88',borderWidth:1,borderDash:[4,4]});
+      });
+      new Chart(document.getElementById('usageChart'),{
+        type:'bar',
+        data:{labels:dates2,datasets:datasets},
+        options:{
+          responsive:true,
+          plugins:{legend:{position:'bottom',labels:{font:{size:11}}}},
+          scales:{x:{stacked:false},y:{beginAtZero:true,ticks:{callback:function(v){return v>=1000?(v/1000)+'k':v}}}}
+        }
+      });
+    }
+  }).catch(function(e){
+    document.getElementById('app').innerHTML='<div class="card"><h3>加载失败</h3><p>'+esc(e.message)+'</p></div>';
+  });
+}
+
+// ==================== Connectivity Tab ====================
+
+var testResults=[];
+
+function loadConnectivity(){
+  var h='<div class="card"><h3 style="font-size:15px;margin-bottom:12px">连通性测试</h3>';
+  h+='<p style="font-size:13px;color:#6B7280;margin-bottom:12px">测试各功能点及已启用 Provider 的连通性。</p>';
+  h+='<div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">';
+  h+='<button class="btn btn-primary" onclick="testAllProviders()" id="testAllBtn">全部 Provider 测试</button>';
+  ['llm_extract','llm_plan','embedding','asr'].forEach(function(fnKey){
+    var labels={'llm_extract':'LLM 数据提取','llm_plan':'LLM 方案生成','embedding':'Embedding 向量','asr':'ASR 语音识别'};
+    h+='<button class="btn btn-outline btn-sm" onclick="testModelConfigConnectivity(\''+fnKey+'\')">'+labels[fnKey]+'</button>';
+  });
+  h+='</div>';
+  h+='<div id="testResults">';
+  if(testResults.length>0){h+=renderTestResults()}
+  else{h+='<div style="text-align:center;color:#9CA3AF;padding:30px">尚未进行测试</div>'}
+  h+='</div></div>';
+  document.getElementById('app').innerHTML=h;
+}
+
+function renderTestResults(){
+  var h='<table><tr><th>目标</th><th>延迟</th><th>状态</th><th>响应预览</th></tr>';
+  testResults.forEach(function(r){
+    var statusBadge=r.status==='ok'?'<span class="badge bg-green">成功</span>':'<span class="badge bg-red">失败</span>';
+    var label=r.provider_name?(providerLabels[r.provider_name]||r.provider_name):(r.function_key||'');
+    h+='<tr>'+
+      '<td><span class="badge bg-blue">'+esc(label)+'</span></td>'+
+      '<td>'+(r.latency_ms||'-')+'ms</td>'+
+      '<td>'+statusBadge+'</td>'+
+      '<td style="font-size:12px;max-width:300px;overflow:hidden;text-overflow:ellipsis" title="'+esc(r.response_preview||r.error||'')+'">'+esc(r.response_preview||r.error||'-')+'</td>'+
+      '</tr>';
+  });
+  h+='</table>';
+  return h;
+}
+
+function testAllProviders(){
+  var btn=document.getElementById('testAllBtn');
+  btn.disabled=true;btn.textContent='测试中...';
+  testResults=[];
+  document.getElementById('testResults').innerHTML='<div style="text-align:center;padding:20px"><div class="spinner"></div>测试中...</div>';
+
+  var promises=allProviders.filter(function(p){return p.is_enabled}).map(function(p){
+    return fetch('/admin/providers/test',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({provider_name:p.provider_name})})
+    .then(function(r){return r.json()}).then(function(d){
+      if(d.code===0)testResults.push(d.data);
+    }).catch(function(){});
+  });
+
+  Promise.all(promises).then(function(){
+    btn.disabled=false;btn.textContent='全部 Provider 测试';
+    document.getElementById('testResults').innerHTML=renderTestResults();
+    var allOk=testResults.every(function(r){return r.status==='ok'});
+    showToast(allOk?'全部测试通过':'部分测试失败',allOk?'success':'error');
+  });
+}
+
+function testModelConfigConnectivity(fnKey){
+  var labels={'llm_extract':'LLM 数据提取','llm_plan':'LLM 方案生成','embedding':'Embedding 向量','asr':'ASR 语音识别'};
+  showToast('正在测试 '+labels[fnKey]+'...','success');
+  fetch('/admin/model-configs/test',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({function_key:fnKey})})
+  .then(function(r){return r.json()}).then(function(d){
+    if(d.code!==0){testResults.push({function_key:fnKey,status:'fail',error:d.message});showToast('测试失败: '+(d.message||''),'error');document.getElementById('testResults').innerHTML=renderTestResults();return}
+    var r2=d.data;
+    if(r2){
+      r2.function_key=fnKey;
+      testResults.push(r2);
+      document.getElementById('testResults').innerHTML=renderTestResults();
+      if(r2.status==='ok'){showToast(labels[fnKey]+' 测试通过 ('+r2.latency_ms+'ms)','success')}
+      else{showToast(labels[fnKey]+' 测试失败: '+(r2.error||''),'error')}
+    }
+  }).catch(function(e){showToast('请求失败','error')});
+}
+
+// ==================== Legacy Provider Tab ====================
+
+var providerDefaults={
+  deepseek:{endpoint:'https://api.deepseek.com/v1/chat/completions',model:'deepseek-chat'},
+  ali_bailian:{endpoint:'https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation',model:'qwen-plus'},
+  volc_ark:{endpoint:'https://ark.cn-beijing.volces.com/api/v3/chat/completions',model:'doubao-pro-32k'},
+  opencode_go:{endpoint:'http://localhost:11434/v1/chat/completions',model:'opencode-go'}
+};
 
 function loadProviders(){
   fetch('/admin/providers').then(function(r){return r.json()}).then(function(d){
-    if(d.code!==0) throw new Error(d.message||'error');
+    if(d.code!==0)throw new Error(d.message||'error');
     allProviders=d.data||[];
     renderProviders();
   }).catch(function(e){
@@ -130,7 +747,7 @@ function loadProviders(){
 }
 
 function renderProviders(){
-  var h='<div class="card"><h3 style="font-size:15px;margin-bottom:12px">已配置 Provider</h3>';
+  var h='<div class="card"><h3 style="font-size:15px;margin-bottom:12px">已配置 Provider <span class="badge bg-yellow" style="font-size:10px;margin-left:8px">Legacy</span></h3>';
   h+='<div style="overflow-x:auto"><table><tr><th>Provider</th><th>Endpoint</th><th>Model</th><th>MaxTokens</th><th>Priority</th><th>启用</th><th>主用</th><th>操作</th></tr>';
   allProviders.forEach(function(p){
     h+='<tr>'+
@@ -200,7 +817,7 @@ function resetForm(){
 
 function editProvider(name){
   var p=allProviders.find(function(x){return x.provider_name===name});
-  if(!p) return;
+  if(!p)return;
   document.getElementById('f_provider').value=p.provider_name;
   document.getElementById('f_endpoint').value=p.endpoint;
   document.getElementById('f_model').value=p.model_name;
@@ -247,132 +864,6 @@ function testOne(name){
       showToast((providerLabels[name]||name)+' 测试失败: '+(r2.error||''),'error');
     }
   }).catch(function(){showToast('请求失败','error')});
-}
-
-function loadUsage(){
-  fetch('/admin/usage').then(function(r){return r.json()}).then(function(d){
-    if(d.code!==0) throw new Error(d.message||'error');
-    var data=d.data||[];
-    var h='<div class="card"><h3 style="font-size:15px;margin-bottom:12px">近30天用量统计</h3>';
-
-    if(data.length===0){
-      h+='<div style="text-align:center;color:#9CA3AF;padding:40px">暂无用量数据</div>';
-    }else{
-      var dateSet={};
-      var providerSet={};
-      data.forEach(function(u){
-        dateSet[u.date]=true;
-        providerSet[u.provider_name]=true;
-      });
-      var dates=Object.keys(dateSet).sort();
-      var providers=Object.keys(providerSet);
-
-      h+='<div style="overflow-x:auto"><table><tr><th>日期</th>';
-      providers.forEach(function(p){h+='<th>'+esc(providerLabels[p]||p)+' 输入</th><th>'+esc(providerLabels[p]||p)+' 输出</th><th>调用次数</th>'});
-      h+='</tr>';
-      var dataMap={};
-      data.forEach(function(u){dataMap[u.date+'_'+u.provider_name]=u});
-      dates.forEach(function(dt){
-        h+='<tr><td style="font-weight:600">'+dt+'</td>';
-        providers.forEach(function(p){
-          var u=dataMap[dt+'_'+p];
-          if(u){
-            h+='<td>'+u.total_tokens_in.toLocaleString()+'</td><td>'+u.total_tokens_out.toLocaleString()+'</td><td>'+u.total_calls+'</td>';
-          }else{
-            h+='<td>0</td><td>0</td><td>0</td>';
-          }
-        });
-        h+='</tr>';
-      });
-      h+='</table></div>';
-      h+='<div style="margin-top:16px"><canvas id="usageChart" height="300"></canvas></div>';
-    }
-    h+='</div>';
-    document.getElementById('app').innerHTML=h;
-
-    if(data.length>0){
-      var dateSet2={},providerSet2={};
-      data.forEach(function(u){dateSet2[u.date]=true;providerSet2[u.provider_name]=true});
-      var dates2=Object.keys(dateSet2).sort();
-      var providers2=Object.keys(providerSet2);
-      var colors=['#1A56DB','#059669','#D97706','#7C3AED','#EC4899','#0EA5E9'];
-      var datasets=[];
-      providers2.forEach(function(p,pi){
-        var inData=[],outData=[];
-        dates2.forEach(function(dt){
-          var u=data.find(function(x){return x.date===dt && x.provider_name===p});
-          inData.push(u?u.total_tokens_in:0);
-          outData.push(u?u.total_tokens_out:0);
-        });
-        var c=colors[pi%colors.length];
-        datasets.push({label:(providerLabels[p]||p)+' 输入',data:inData,backgroundColor:c+'CC',borderColor:c,borderWidth:1});
-        datasets.push({label:(providerLabels[p]||p)+' 输出',data:outData,backgroundColor:c+'44',borderColor:c+'88',borderWidth:1,borderDash:[4,4]});
-      });
-      new Chart(document.getElementById('usageChart'),{
-        type:'bar',
-        data:{labels:dates2,datasets:datasets},
-        options:{
-          responsive:true,
-          plugins:{legend:{position:'bottom',labels:{font:{size:11}}}},
-          scales:{x:{stacked:false},y:{beginAtZero:true,ticks:{callback:function(v){return v>=1000?(v/1000)+'k':v}}}}
-        }
-      });
-    }
-  }).catch(function(e){
-    document.getElementById('app').innerHTML='<div class="card"><h3>加载失败</h3><p>'+esc(e.message)+'</p></div>';
-  });
-}
-
-var testResults=[];
-
-function loadConnectivity(){
-  var h='<div class="card"><h3 style="font-size:15px;margin-bottom:12px">连通性测试</h3>';
-  h+='<p style="font-size:13px;color:#6B7280;margin-bottom:12px">点击"全部测试"验证所有已启用 Provider 的连通性。</p>';
-  h+='<button class="btn btn-primary" onclick="testAll()" id="testAllBtn">全部测试</button>';
-  h+='<div id="testResults" style="margin-top:16px">';
-  if(testResults.length>0){
-    h+=renderTestResults();
-  }else{
-    h+='<div style="text-align:center;color:#9CA3AF;padding:30px">尚未进行测试</div>';
-  }
-  h+='</div></div>';
-  document.getElementById('app').innerHTML=h;
-}
-
-function renderTestResults(){
-  var h='<table><tr><th>Provider</th><th>延迟</th><th>状态</th><th>响应预览</th></tr>';
-  testResults.forEach(function(r){
-    var statusBadge=r.status==='ok'?'<span class="badge bg-green">成功</span>':'<span class="badge bg-red">失败</span>';
-    h+='<tr>'+
-      '<td><span class="badge bg-blue">'+esc(providerLabels[r.provider_name]||r.provider_name)+'</span></td>'+
-      '<td>'+r.latency_ms+'ms</td>'+
-      '<td>'+statusBadge+'</td>'+
-      '<td style="font-size:12px;max-width:300px;overflow:hidden;text-overflow:ellipsis" title="'+esc(r.response_preview||r.error||'')+'">'+esc(r.response_preview||r.error||'-')+'</td>'+
-      '</tr>';
-  });
-  h+='</table>';
-  return h;
-}
-
-function testAll(){
-  var btn=document.getElementById('testAllBtn');
-  btn.disabled=true;btn.textContent='测试中...';
-  testResults=[];
-  document.getElementById('testResults').innerHTML='<div style="text-align:center;padding:20px"><div class="spinner"></div>测试中...</div>';
-
-  var promises=allProviders.filter(function(p){return p.is_enabled}).map(function(p){
-    return fetch('/admin/providers/test',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({provider_name:p.provider_name})})
-    .then(function(r){return r.json()}).then(function(d){
-      if(d.code===0) testResults.push(d.data);
-    }).catch(function(){});
-  });
-
-  Promise.all(promises).then(function(){
-    btn.disabled=false;btn.textContent='全部测试';
-    document.getElementById('testResults').innerHTML=renderTestResults();
-    var allOk=testResults.every(function(r){return r.status==='ok'});
-    showToast(allOk?'全部测试通过':'部分测试失败',allOk?'success':'error');
-  });
 }
 </script>
 </body>
