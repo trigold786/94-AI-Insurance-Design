@@ -4,6 +4,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strings"
 )
 
 func LLMGatewayProxy(w http.ResponseWriter, r *http.Request) {
@@ -11,7 +12,14 @@ func LLMGatewayProxy(w http.ResponseWriter, r *http.Request) {
 	if llmGatewayURL == "" {
 		llmGatewayURL = "http://llm-gateway:39404"
 	}
-	path := r.URL.Path[len("/llm-gateway"):]
+
+	var path string
+	if strings.HasPrefix(r.URL.Path, "/llm-gateway") {
+		path = r.URL.Path[len("/llm-gateway"):]
+	} else {
+		path = r.URL.Path
+	}
+
 	targetURL := llmGatewayURL + path
 	if r.URL.RawQuery != "" {
 		targetURL += "?" + r.URL.RawQuery

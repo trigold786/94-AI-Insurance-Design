@@ -183,6 +183,11 @@ func main() {
 	mux.Handle("/v1/policies/similar", middleware.RecoveryMiddleware()(handler.SimilarSearchHandler(searcher)))
 	mux.Handle("/v1/policies/versions", middleware.RecoveryMiddleware()(handler.VersionsHandler(store)))
 	mux.Handle("/llm-gateway/", adminAuth(http.HandlerFunc(admin.LLMGatewayProxy)))
+	mux.Handle("/admin/model-configs", adminAuth(http.HandlerFunc(admin.LLMGatewayProxy)))
+	mux.Handle("/admin/model-configs/", adminAuth(http.HandlerFunc(admin.LLMGatewayProxy)))
+	mux.Handle("/admin/providers", adminAuth(http.HandlerFunc(admin.LLMGatewayProxy)))
+	mux.Handle("/admin/providers/", adminAuth(http.HandlerFunc(admin.LLMGatewayProxy)))
+	mux.Handle("/admin/usage", adminAuth(http.HandlerFunc(admin.LLMGatewayProxy)))
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json; charset=utf-8")
 		w.Write([]byte(`{"status":"ok"}`))
