@@ -70,17 +70,18 @@ textarea{width:100%;min-height:200px;border:1px solid #D1D5DB;border-radius:6px;
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 <script>
 var navItems=[
-  {id:'dashboard',label:'\u4eea\u8868\u76d8'},
-  {id:'sources',label:'\u6570\u636e\u6e90\u7ba1\u7406'},
-  {id:'claims',label:'\u653f\u7b56\u5ba1\u6838'},
-  {id:'search',label:'\u8bed\u4e49\u641c\u7d22'},
-  {id:'extract',label:'AI\u63d0\u53d6'},
-  {id:'relevance',label:'\u76f8\u5173\u6027\u89c4\u5219'},
-  {id:'logs',label:'\u722c\u53d6\u65e5\u5fd7'},
-  {id:'pipeline',label:'\u6570\u636e\u6d41\u6c34\u7ebf'},
-  {id:'extractLogs',label:'\u63d0\u53d6\u65e5\u5fd7'},
-  {id:'failures',label:'\u5931\u8d25\u5206\u6790'},
-  {id:'import',label:'+\u5bfc\u5165\u653f\u7b56',style:'color:#059669;font-weight:600'}
+  {id:'dashboard',label:'仪表盘'},
+  {id:'sources',label:'数据源管理'},
+  {id:'claims',label:'政策审核'},
+  {id:'search',label:'语义搜索'},
+  {id:'extract',label:'AI提取'},
+  {id:'relevance',label:'相关性规则'},
+  {id:'logs',label:'爬取日志'},
+  {id:'pipeline',label:'数据流水线'},
+  {id:'extractLogs',label:'提取日志'},
+  {id:'failures',label:'失败分析'},
+  {id:'import',label:'+导入政策',style:'color:#059669;font-weight:600'},
+  {id:'llm-gateway',label:'模型管理'}
 ];
 var currentPanel='dashboard';
 
@@ -106,9 +107,14 @@ function switchPanel(id){
   else if(id==='relevance')loadRelevanceRules();
   else if(id==='logs')loadLogs();
   else if(id==='extractLogs')loadExtractLogs();
-  else if(id==='failures')loadFailures();
-  else if(id==='pipeline')loadPipeline();
-  else if(id==='import')showImportForm();
+   else if(id==='failures')loadFailures();
+   else if(id==='pipeline')loadPipeline();
+   else if(id==='import')showImportForm();
+   else if(id==='llm-gateway'){
+     var h='';
+     h+='<div class="card"><iframe src="/llm-gateway/admin" style="width:100%;height:800px;border:0;"></iframe></div>';
+     app.innerHTML=h;
+   }
 }
 
 // 支持通过 hash 直接定位页面
