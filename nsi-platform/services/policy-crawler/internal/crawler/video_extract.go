@@ -132,20 +132,28 @@ func (w *VideoExtractWorker) extractSubtitle(videoURL, tmpBase string) (string, 
 }
 
 func (w *VideoExtractWorker) extractViaASR(videoURL, tmpBase string) (string, error) {
-	cmd := exec.Command("yt-dlp", "-x", "--audio-format", "mp3", "--audio-quality", "5",
-		"--output", tmpBase, "--ratelimit", "1M", videoURL)
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return "", fmt.Errorf("yt-dlp download: %w: %s", err, string(out))
-	}
-	audioPath := tmpBase + ".mp3"
-	if _, err := os.Stat(audioPath); err != nil {
-		return "", fmt.Errorf("audio file not found at %s", audioPath)
-	}
 	if w.asr == nil {
 		return "", fmt.Errorf("ASR provider not configured")
 	}
-	return w.asr.Transcribe(audioPath)
+
+	directAudioURL, err := GetDirectAudioURLFromVideo(videoURL)
+	if err != nil {
+		log.Printf("[video-extract] failed to get direct audio URL for %s: %v, downloading locally", videoURL, err)
+		cmd := exec.Command("yt-dlp", "-x", "--audio-format", "mp3", "--audio-quality", "5",
+			"--output", tmpBase, "--ratelimit", "1M", videoURL)
+		out, dlErr := cmd.CombinedOutput()
+		if dlErr != nil {
+			return "", fmt.Errorf("yt-dlp download: %w: %s", dlErr, string(out))
+		}
+		audioPath := tmpBase + ".mp3"
+		if _, statErr := os.Stat(audioPath); statErr != nil {
+			return "", fmt.Errorf("audio file not found at %s", audioPath)
+		}
+		return w.asr.Transcribe(audioPath, "")
+	}
+
+	log.Printf("[video-extract] using direct audio URL for ASR: %s", truncateForLog(directAudioURL, 80))
+	return w.asr.Transcribe("", directAudioURL)
 }
 
 func (w *VideoExtractWorker) handleFailure(task VideoExtractTask, err error) {

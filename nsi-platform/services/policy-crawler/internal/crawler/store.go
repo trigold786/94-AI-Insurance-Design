@@ -524,8 +524,8 @@ func (s *DBStore) SaveLLMConfig(cfg *admin.LLMConfig) error {
 
 func (s *DBStore) GetASRConfig() (ASRConfig, error) {
 	var cfg ASRConfig
-	err := s.db.QueryRow(`SELECT id, provider, api_key, endpoint, language, sample_rate, enabled FROM asr_configs ORDER BY id LIMIT 1`).
-		Scan(&cfg.ID, &cfg.Provider, &cfg.APIKey, &cfg.Endpoint, &cfg.Language, &cfg.SampleRate, &cfg.Enabled)
+	err := s.db.QueryRow(`SELECT id, provider, api_key, app_id, endpoint, resource_id, language, sample_rate, max_wait_seconds, poll_interval_seconds, enabled FROM asr_configs ORDER BY id LIMIT 1`).
+		Scan(&cfg.ID, &cfg.Provider, &cfg.APIKey, &cfg.AppID, &cfg.Endpoint, &cfg.ResourceID, &cfg.Language, &cfg.SampleRate, &cfg.MaxWaitSeconds, &cfg.PollIntervalSeconds, &cfg.Enabled)
 	if err != nil {
 		return ASRConfig{}, err
 	}
@@ -533,8 +533,8 @@ func (s *DBStore) GetASRConfig() (ASRConfig, error) {
 }
 
 func (s *DBStore) SaveASRConfig(cfg *ASRConfig) error {
-	_, err := s.db.Exec(`UPDATE asr_configs SET provider=$1, api_key=$2, endpoint=$3, language=$4, sample_rate=$5, enabled=$6, updated_at=now() WHERE id=$7`,
-		cfg.Provider, cfg.APIKey, cfg.Endpoint, cfg.Language, cfg.SampleRate, cfg.Enabled, cfg.ID)
+	_, err := s.db.Exec(`UPDATE asr_configs SET provider=$1, api_key=$2, app_id=$3, endpoint=$4, resource_id=$5, language=$6, sample_rate=$7, max_wait_seconds=$8, poll_interval_seconds=$9, enabled=$10, updated_at=now() WHERE id=$11`,
+		cfg.Provider, cfg.APIKey, cfg.AppID, cfg.Endpoint, cfg.ResourceID, cfg.Language, cfg.SampleRate, cfg.MaxWaitSeconds, cfg.PollIntervalSeconds, cfg.Enabled, cfg.ID)
 	return err
 }
 
@@ -600,7 +600,16 @@ func (s *DBStore) GetUnprocessedRawTexts(limit int) ([]extractor.RawTextEntry, e
 		COALESCE(prt.title,'')
 		FROM policy_raw_texts prt
 		LEFT JOIN policy_sources ps ON ps.source_id = prt.source_id
-		WHERE NOT prt.extracted AND LENGTH(prt.content) >= 500 AND (prt.video_extract_status IS NULL OR prt.video_extract_status = 'done') ORDER BY prt.id ASC LIMIT $1`, limit)
+		LEFT JOIN (
+			SELECT raw_text_id, COUNT(*) AS fail_count
+			FROM extract_logs
+			WHERE status = 'failed' AND raw_text_id > 0
+			GROUP BY raw_text_id
+		) ef ON ef.raw_text_id = prt.id
+		WHERE NOT prt.extracted AND LENGTH(prt.content) >= 500
+		  AND (prt.video_extract_status IS NULL OR prt.video_extract_status = 'done')
+		  AND (ef.fail_count IS NULL OR ef.fail_count < 3)
+		ORDER BY prt.id ASC LIMIT $1`, limit)
 	if err != nil {
 		return nil, err
 	}
