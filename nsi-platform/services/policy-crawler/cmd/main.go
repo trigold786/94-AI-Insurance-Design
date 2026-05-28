@@ -11,6 +11,7 @@ import (
 
 	"github.com/trigold786/94-AI-Insurance-Design/policy-crawler/internal/admin"
 	"github.com/trigold786/94-AI-Insurance-Design/policy-crawler/internal/crawler"
+	gwconfig "github.com/trigold786/94-AI-Insurance-Design/policy-crawler/internal/config"
 	"github.com/trigold786/94-AI-Insurance-Design/policy-crawler/internal/embeddings"
 	"github.com/trigold786/94-AI-Insurance-Design/policy-crawler/internal/handler"
 	authmw "github.com/trigold786/94-AI-Insurance-Design/policy-crawler/internal/middleware"
@@ -48,34 +49,18 @@ func main() {
 	}
 
 	var embedProv embeddings.EmbeddingProvider
-	llmCfg, llmErr := store.GetLLMConfig()
-	if llmErr == nil {
-		// 优先使用独立的 Embedding 配置（火山方舟 Doubao），否则回退到 LLM 配置
-		embedAPIKey := llmCfg.EmbeddingAPIKey
-		embedBaseURL := llmCfg.EmbeddingEndpoint
-		embedModel := llmCfg.EmbeddingModel
-		embedDims := llmCfg.EmbeddingDimensions
+	gwClient := gwconfig.NewGatewayConfigClient(cfg.LLMGatewayURL)
 
-		if embedAPIKey == "" {
-			embedAPIKey = llmCfg.APIKey
+	embedCfg, embedErr := gwClient.GetEmbeddingConfig(context.Background())
+	if embedErr == nil && embedCfg.APIKey != "" {
+		embedProv = embeddings.NewProviderFromConfig(embedCfg.APIKey, embedCfg.BaseURL, embedCfg.Model, embedCfg.Dimensions)
+		log.Printf("[embeddings] using %s (dims=%d) via %s [from llm-gateway]", embedProv.ModelName(), embedCfg.Dimensions, embedCfg.BaseURL)
+	} else {
+		if embedErr != nil {
+			log.Printf("[embeddings] warning: cannot read from llm-gateway: %v", embedErr)
 		}
-		if embedBaseURL == "" {
-			embedBaseURL = "https://ark.cn-beijing.volces.com/api/v3/embeddings"
-		}
-		if embedModel == "" {
-			embedModel = "doubao-embedding-vision"
-		}
-		if embedDims <= 0 {
-			embedDims = 1024
-		}
-		if embedAPIKey != "" {
-			embedProv = embeddings.NewProviderFromConfig(embedAPIKey, embedBaseURL, embedModel, embedDims)
-			log.Printf("[embeddings] using %s provider (dims=%d) via %s", embedProv.ModelName(), embedDims, embedBaseURL)
-		}
-	}
-	if embedProv == nil {
 		embedProv = embeddings.NewProviderFromConfig("", "", "", 1536)
-		log.Println("[embeddings] no embedding API key, using hash-bow fallback")
+		log.Println("[embeddings] no embedding config, using hash-bow fallback")
 	}
 
 	searcher := embeddings.NewVectorSearcher(database, embedProv)
@@ -103,8 +88,19 @@ func main() {
 		log.Println("[crawler] Chrome renderer enabled")
 	}
 
-	asrCfg, _ := store.GetASRConfig()
-	manager.InitFilterAndWorker(database, asrCfg)
+	asrCfg, asrErr := gwClient.GetASRConfig(context.Background())
+	if asrErr != nil {
+		log.Printf("[asr] warning: cannot read config from llm-gateway: %v", asrErr)
+	}
+	manager.InitFilterAndWorker(database, crawler.ASRConfig{
+		Provider:    asrCfg.Provider,
+		APIKey:      asrCfg.APIKey,
+		Endpoint:    asrCfg.Endpoint,
+		AppID:       asrCfg.AppID,
+		ResourceID:  asrCfg.ResourceID,
+		Language:    asrCfg.Language,
+		Enabled:     asrCfg.Enabled,
+	})
 
 	// 从 DB 加载启用的数据源配置
 	sources, err := store.ListEnabledSources()
@@ -161,12 +157,9 @@ func main() {
 	mux.Handle("/admin/relevance/thresholds/", adminAuth(admin.RelevanceThresholdHandler(database)))
 	mux.Handle("/admin/relevance/test", adminAuth(admin.RelevanceTestHandler(manager.GetFilter())))
 	mux.Handle("/admin/relevance/bulk-import", adminAuth(admin.RelevanceBulkImportHandler(database)))
-	mux.Handle("/admin/asr/config", adminAuth(admin.ASRConfigGetHandler(database)))
-	mux.Handle("/admin/asr/config/save", adminAuth(admin.ASRConfigSaveHandler(database)))
-	mux.Handle("/admin/llm/config", adminAuth(admin.LLMConfigGetHandler(store)))
-	mux.Handle("/admin/llm/config/save", adminAuth(admin.LLMConfigSaveHandler(store)))
+	mux.Handle("/admin/asr/test", adminAuth(admin.ASRTestHandler(database)))
 	mux.Handle("/admin/llm/status", adminAuth(admin.LLMStatusHandler(store)))
-	mux.Handle("/admin/llm/extract", adminAuth(middleware.RecoveryMiddleware()(admin.LLMExtractRunHandler(store, searcher, embedProv))))
+	mux.Handle("/admin/llm/extract", adminAuth(middleware.RecoveryMiddleware()(admin.LLMExtractRunHandler(store, searcher, embedProv, gwClient))))
 	mux.Handle("/admin/llm/pending", adminAuth(admin.LLMPendingHandler(store)))
 	mux.Handle("/admin/llm/progress", adminAuth(admin.LLMProgressHandler(store)))
 	mux.Handle("/admin/pipeline", adminAuth(admin.PipelineHandler(store)))

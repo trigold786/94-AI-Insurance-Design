@@ -1,12 +1,14 @@
 package admin
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"strings"
 
+	"github.com/trigold786/94-AI-Insurance-Design/policy-crawler/internal/config"
 	"github.com/trigold786/94-AI-Insurance-Design/policy-crawler/internal/embeddings"
 	"github.com/trigold786/94-AI-Insurance-Design/policy-crawler/internal/extractor"
 	"github.com/trigold786/94-AI-Insurance-Design/policy-crawler/internal/llm"
@@ -154,12 +156,11 @@ func LLMProgressHandler(store LLMStore) http.Handler {
 	})
 }
 
-func LLMExtractRunHandler(store interface{}, checker extractor.ReferenceChecker, embedProv embeddings.EmbeddingProvider) http.Handler {
+func LLMExtractRunHandler(store interface{}, checker extractor.ReferenceChecker, embedProv embeddings.EmbeddingProvider, gwClient *config.GatewayConfigClient) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// 类型断言：store 需要同时实现 LLMStore 和 extractor.RawTextStore
-		llmStore, ok1 := store.(LLMStore)
-		rawStore, ok2 := store.(extractor.RawTextStore)
-		if !ok1 || !ok2 {
+		rawStore, ok := store.(extractor.RawTextStore)
+		if !ok {
 			respondError(w, http.StatusInternalServerError, "store does not support extraction")
 			return
 		}
@@ -181,21 +182,19 @@ func LLMExtractRunHandler(store interface{}, checker extractor.ReferenceChecker,
 		p.Unlock()
 
 		go func() {
-			cfg, err := llmStore.GetLLMConfig()
+			llmCfg, backupCfg, err := gwClient.GetLLMConfig(context.Background())
 			if err != nil {
-				log.Printf("[extract] get config: %v", err)
+				log.Printf("[extract] get config from gateway: %v", err)
 				finishExtract("get config error: " + err.Error())
 				return
 			}
 
-			client := llm.NewClient(llm.Config{
-				Provider:  llm.ParseProvider(cfg.Provider),
-				APIKey:    cfg.APIKey,
-				Endpoint:  cfg.Endpoint,
-				ModelName: cfg.ModelName,
-				MaxTokens: cfg.MaxTokens,
-				Enabled:   cfg.Enabled,
-			})
+			var client *llm.Client
+			if backupCfg != nil {
+				client = llm.NewClientWithBackup(llmCfg, backupCfg)
+			} else {
+				client = llm.NewClient(llmCfg)
+			}
 
 			entries, err := rawStore.GetUnprocessedRawTexts(100)
 			if err != nil {
@@ -224,7 +223,7 @@ func LLMExtractRunHandler(store interface{}, checker extractor.ReferenceChecker,
 
 				if err := ext.ProcessOne(entry); err != nil {
 					log.Printf("[extract] failed id=%d source=%s: %v", entry.ID, entry.SourceID, err)
-					rawStore.SaveExtractLog(entry.SourceID, false, err.Error())
+					rawStore.SaveExtractLogDetailed(entry.ID, entry.SourceID, false, err.Error(), "", entry.Title, "", "")
 					p.Lock()
 					p.Failed++
 					p.Unlock()

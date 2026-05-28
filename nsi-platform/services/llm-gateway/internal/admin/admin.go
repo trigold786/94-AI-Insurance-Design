@@ -279,6 +279,31 @@ func (h *Handler) GetModelConfig(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (h *Handler) GetModelConfigInternal(w http.ResponseWriter, r *http.Request) {
+	functionKey := strings.TrimPrefix(r.URL.Path, "/internal/model-configs/")
+	functionKey = strings.TrimSuffix(functionKey, "/")
+	if functionKey == "" {
+		respondJSON(w, http.StatusBadRequest, map[string]interface{}{
+			"code":    400,
+			"message": "function_key is required",
+		})
+		return
+	}
+
+	cfg, err := h.mcStore.GetByKey(r.Context(), functionKey)
+	if err != nil {
+		respondJSON(w, http.StatusNotFound, map[string]interface{}{
+			"code":    404,
+			"message": err.Error(),
+		})
+		return
+	}
+	respondJSON(w, http.StatusOK, map[string]interface{}{
+		"code": 0,
+		"data": cfg,
+	})
+}
+
 func (h *Handler) TestModelConfig(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		FunctionKey string `json:"function_key"`

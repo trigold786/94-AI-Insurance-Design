@@ -180,6 +180,7 @@ func main() {
 	mux.HandleFunc("/admin/model-configs/save", adminHandler.BasicAuth(adminHandler.SaveModelConfig))
 	mux.HandleFunc("/admin/model-configs/test", adminHandler.BasicAuth(adminHandler.TestModelConfig))
 	mux.HandleFunc("/admin/model-configs/", adminHandler.BasicAuth(adminHandler.GetModelConfig))
+	mux.HandleFunc("/internal/model-configs/", adminHandler.GetModelConfigInternal)
 
 	mux.HandleFunc("/admin/", adminHandler.BasicAuth(adminHandler.AdminPage))
 

@@ -67,6 +67,7 @@ textarea{width:100%;min-height:200px;border:1px solid #D1D5DB;border-radius:6px;
 <div class="container" id="app"><div class="card" style="text-align:center;padding:40px"><div class="spinner"></div>加载中...</div></div>
 <div class="toast" id="toast"></div>
 
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 <script>
 var navItems=[
   {id:'dashboard',label:'\u4eea\u8868\u76d8'},
@@ -670,13 +671,14 @@ var embeddingProviderMap={
 function loadExtract(){
   var app=document.getElementById('app');app.innerHTML='<div class="card" style="text-align:center;padding:40px"><div class="spinner"></div>加载中...</div>';
   Promise.all([
-    fetch('/admin/llm/config').then(function(r){return r.json()}),
+    Promise.resolve({code:0,data:{provider:'',model_name:'',endpoint:'',api_key:'',enabled:false,embedding_model:'',embedding_dimensions:0,embedding_api_key:'',embedding_endpoint:'',backup_provider:'',backup_api_key:'',backup_endpoint:'',backup_model_name:''}}),
     fetch('/admin/llm/status').then(function(r){return r.json()}),
     fetch('/admin/llm/pending').then(function(r){return r.json()})
   ]).then(function(results){
     var cfg=results[0].data,st=results[1].data,pending=results[2].data||[];
     var prov=extractProviderMap[cfg.provider]||extractProviderMap['deepseek'];
-    var h='<div class="card"><h3 style="font-size:16px;margin-bottom:12px">AI 政策提取配置</h3>';
+    var h='<div class="card" style="background:#EFF6FF;border:1px solid #BFDBFE;padding:12px 16px;margin-bottom:12px;border-radius:8px"><div style="display:flex;align-items:center;gap:8px"><span style="font-size:16px">&#9881;</span><div><div style="font-weight:600;font-size:14px;color:#1A56DB">模型配置已迁移至 LLM Gateway</div><div style="font-size:12px;color:#6B7280;margin-top:2px">LLM、Embedding、ASR 统一在 Gateway 管理</div></div><a href="http://localhost:39404/admin/#model-configs" target="_blank" style="margin-left:auto;padding:6px 14px;background:#1A56DB;color:#fff;border-radius:6px;text-decoration:none;font-size:12px">前往配置 →</a></div></div>';
+    h+='<div class="card"><h3 style="font-size:16px;margin-bottom:12px">AI 提取配置</h3>';
     h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">';
     h+='<div><label style="font-size:12px;color:#6B7280;display:block;margin-bottom:4px">提供商</label>'+
       '<select id="llmProvider" onchange="updateLLMEndpoint()" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px">'+
@@ -724,17 +726,23 @@ function loadExtract(){
     h+='<div style="text-align:right"><span style="font-size:12px;color:#9CA3AF;margin-right:8px">保存 LLM 配置时一起保存</span></div>';
     h+='</div></div>';
 
-    h+='<div class="card" style="margin-top:12px"><h3 style="font-size:16px;margin-bottom:12px">ASR 语音识别配置</h3>';
+    h+='<div class="card" style="margin-top:12px"><h3 style="font-size:16px;margin-bottom:12px">ASR 语音识别配置（火山引擎大模型）</h3>';
     h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">';
-    h+='<div><label style="font-size:12px;color:#6B7280;display:block;margin-bottom:4px">Provider</label>'+
-      '<select id="asrProvider" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px">'+
-      '<option value="volcengine">火山引擎</option><option value="xfyun">讯飞</option></select></div>';
-    h+='<div><label style="font-size:12px;color:#6B7280;display:block;margin-bottom:4px">API Key</label><input id="asrKey" type="password" placeholder="ASR API Key" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px"></div>';
-    h+='<div style="grid-column:1/3"><label style="font-size:12px;color:#6B7280;display:block;margin-bottom:4px">Endpoint</label><input id="asrEndpoint" placeholder="https://..." style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px"></div>';
+    h+='<div><label style="font-size:12px;color:#6B7280;display:block;margin-bottom:4px">服务版本</label>'+
+      '<select id="asrResourceId" onchange="updateASRDefaults()" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px">'+
+      '<option value="volc.bigasr.auc">标准版（推荐）</option><option value="volc.bigasr.auc_idle">闲时版（低成本）</option></select></div>';
+    h+='<div><label style="font-size:12px;color:#6B7280;display:block;margin-bottom:4px">APP ID</label><input id="asrAppId" placeholder="火山引擎 APP ID" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px"></div>';
+    h+='<div><label style="font-size:12px;color:#6B7280;display:block;margin-bottom:4px">Access Token</label><input id="asrKey" type="password" placeholder="Access Token" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px"></div>';
     h+='<div><label style="font-size:12px;color:#6B7280;display:block;margin-bottom:4px">Language</label><input id="asrLang" value="zh" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px"></div>';
-    h+='<div><label style="font-size:13px;display:flex;align-items:center;gap:4px;cursor:pointer;padding-top:18px"><input id="asrEnabled" type="checkbox">启用 ASR</label></div>';
-    h+='<div style="text-align:right;grid-column:1/3"><button class="btn btn-primary" onclick="saveASRConfig()">保存 ASR 配置</button></div>';
-    h+='</div></div>';
+    h+='<div><label style="font-size:12px;color:#6B7280;display:block;margin-bottom:4px">最大等待时间（秒）</label><input id="asrMaxWait" type="number" value="300" min="30" max="3600" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px"></div>';
+    h+='<div><label style="font-size:12px;color:#6B7280;display:block;margin-bottom:4px">轮询间隔（秒）</label><input id="asrPollInterval" type="number" value="5" min="2" max="30" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px"></div>';
+    h+='<div style="grid-column:1/3"><label style="font-size:13px;display:flex;align-items:center;gap:4px;cursor:pointer"><input id="asrEnabled" type="checkbox">启用 ASR</label></div>';
+    h+='<div style="text-align:right;grid-column:1/3;display:flex;gap:8px;justify-content:flex-end">'+
+      '<button class="btn" style="background:#6B7280;color:#fff;border:none" onclick="testASR()">测试连接</button>'+
+      '<button class="btn btn-primary" onclick="saveASRConfig()">保存 ASR 配置</button></div>';
+    h+='</div>';
+    h+='<div id="asrTestResult" style="margin-top:8px;display:none"></div>';
+    h+='</div>';
 
     h+='<div class="card"><h3 style="font-size:16px;margin-bottom:12px">提取状态</h3>';
     h+='<div style="display:flex;gap:12px;flex-wrap:wrap">';
@@ -1075,25 +1083,45 @@ function loadASRConfig(){
   fetch('/admin/asr/config').then(function(r){return r.json()}).then(function(d){
     if(d.code!==0||!d.data)return;
     var c=d.data;
-    var pEl=document.getElementById('asrProvider');
+    var ridEl=document.getElementById('asrResourceId');
+    var aidEl=document.getElementById('asrAppId');
     var kEl=document.getElementById('asrKey');
-    var eEl=document.getElementById('asrEndpoint');
     var lEl=document.getElementById('asrLang');
+    var mwEl=document.getElementById('asrMaxWait');
+    var piEl=document.getElementById('asrPollInterval');
     var enEl=document.getElementById('asrEnabled');
-    if(pEl&&c.provider)pEl.value=c.provider;
+    if(ridEl&&c.resource_id)ridEl.value=c.resource_id;
+    if(aidEl&&c.app_id)aidEl.value=c.app_id;
     if(kEl&&c.api_key)kEl.value=c.api_key;
-    if(eEl&&c.endpoint)eEl.value=c.endpoint;
     if(lEl&&c.language)lEl.value=c.language;
+    if(mwEl&&c.max_wait_seconds)mwEl.value=c.max_wait_seconds;
+    if(piEl&&c.poll_interval_seconds)piEl.value=c.poll_interval_seconds;
     if(enEl&&c.enabled!==undefined)enEl.checked=!!c.enabled;
   }).catch(function(){});
 }
 
+function updateASRDefaults(){
+  var rid=document.getElementById('asrResourceId').value;
+  var mwEl=document.getElementById('asrMaxWait');
+  var piEl=document.getElementById('asrPollInterval');
+  if(rid==='volc.bigasr.auc_idle'){
+    if(mwEl)mwEl.value='3600';
+    if(piEl)piEl.value='10';
+  }else{
+    if(mwEl)mwEl.value='300';
+    if(piEl)piEl.value='5';
+  }
+}
+
 function saveASRConfig(){
   var payload={
-    provider:document.getElementById('asrProvider').value,
+    provider:'volcengine',
+    app_id:document.getElementById('asrAppId').value,
     api_key:document.getElementById('asrKey').value,
-    endpoint:document.getElementById('asrEndpoint').value,
+    resource_id:document.getElementById('asrResourceId').value,
     language:document.getElementById('asrLang').value,
+    max_wait_seconds:parseInt(document.getElementById('asrMaxWait').value)||300,
+    poll_interval_seconds:parseInt(document.getElementById('asrPollInterval').value)||5,
     enabled:document.getElementById('asrEnabled').checked
   };
   fetch('/admin/asr/config/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
@@ -1101,6 +1129,35 @@ function saveASRConfig(){
     if(d.code===0)showToast('ASR\u914d\u7f6e\u5df2\u4fdd\u5b58','success');
     else showToast('\u4fdd\u5b58\u5931\u8d25: '+(d.error||''),'error');
   }).catch(function(){showToast('\u4fdd\u5b58\u5931\u8d25','error')});
+}
+
+function testASR(){
+  var rid=document.getElementById('asrResourceId').value;
+  var aid=document.getElementById('asrAppId').value;
+  var key=document.getElementById('asrKey').value;
+  if(!aid||!key){showToast('\u8bf7\u5148\u586b\u5199 APP ID \u548c Access Token','error');return}
+  var resultEl=document.getElementById('asrTestResult');
+  resultEl.style.display='block';
+  resultEl.innerHTML='<div style="padding:8px;background:#FEF3C7;border-radius:4px;font-size:13px">\u6d4b\u8bd5\u4e2d...</div>';
+  var testURL='https://tos-volc-ai.bytedance.com/resource/doubao_bigmodel_asr_test.wav';
+  var payload={test_url:testURL};
+  fetch('/admin/asr/test',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
+  .then(function(r){return r.json()}).then(function(d){
+    if(d.code===0){
+      var text=(d.data&&d.data.text)||'';
+      var chars=(d.data&&d.data.char_count)||text.length;
+      resultEl.innerHTML='<div style="padding:8px;background:#D1FAE5;border-radius:4px;font-size:13px">'+
+        '<strong style="color:#059669">\u2705 \u8fde\u63a5\u6210\u529f</strong> ('+chars+' \u5b57)'+
+        (text?'<br><span style="color:#374151;margin-top:4px;display:block">\u8f6c\u5f55\u9884\u89c8: '+esc(text.substring(0,200))+(text.length>200?'...':'')+'</span>':'')+
+        '</div>';
+    }else{
+      resultEl.innerHTML='<div style="padding:8px;background:#FEE2E2;border-radius:4px;font-size:13px">'+
+        '<strong style="color:#DC2626">\u274c \u8fde\u63a5\u5931\u8d25</strong><br><span style="color:#374151">'+esc(d.error||'\u672a\u77e5\u9519\u8bef')+'</span></div>';
+    }
+  }).catch(function(e){
+    resultEl.innerHTML='<div style="padding:8px;background:#FEE2E2;border-radius:4px;font-size:13px">'+
+      '<strong style="color:#DC2626">\u274c \u8bf7\u6c42\u5931\u8d25</strong><br>'+esc(e.message)+'</div>';
+  });
 }
 
 var allRelevanceRules=[];
