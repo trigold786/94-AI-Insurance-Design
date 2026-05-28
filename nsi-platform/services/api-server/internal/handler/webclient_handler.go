@@ -488,59 +488,174 @@ function onGeneratePlan(){
     monthly_budget:_formData.budget,
     priority:'balanced',
   };
-  api('POST','/v1/plans/generate',req).then(function(plan){
+  api('POST','/v1/plans/generate',req).then(function(resp){
     btn.disabled=false;btn.textContent='再次生成';
+    var plan=resp.data||resp;
     window._lastPlan=plan;
     window._lastPlanId=plan.plan_id;
-    var schemes=plan.recommended_schemes||[];
-    var maxROI=0,schemesWithROI=schemes.map(function(s){
-      var roi=s.monthly_cost>0?s.projected_pension/s.monthly_cost:0;
-      if(roi>maxROI)maxROI=roi;
-      s._roi=roi;
-      return s;
-    });
-    var h='<div class="alert-success" style="margin-top:12px">方案生成成功！共 '+schemes.length+' 个方案</div>';
-    h+='<div class="chart-container" style="margin:12px 0"><canvas id="schemeChart"></canvas></div>';
-    schemesWithROI.forEach(function(s,i){
-      var isRec=s._roi===maxROI;
-      var roiClass=s._roi>=3?'roi-green':s._roi>=2?'roi-yellow':'roi-red';
-      h+='<div class="scheme-card'+(isRec?' recommended':'')+'">';
-      h+='<div class="scheme-header"><strong style="font-size:15px">'+esc(s.name)+'</strong>';
-      if(isRec)h+='<span class="rec-badge">推荐</span>';
-      h+='<span class="roi-badge '+roiClass+'">ROI '+s._roi.toFixed(1)+'x</span></div>';
-      h+='<div class="scheme-metrics">';
-      h+='<div class="scheme-metric"><div class="value">'+s.monthly_cost.toFixed(0)+'</div><div class="label">月缴(元)</div></div>';
-      h+='<div class="scheme-metric"><div class="value" style="color:#059669">'+s.projected_pension.toFixed(0)+'</div><div class="label">预计月养老金</div></div>';
-      if(s.after_tax_pension>0)h+='<div class="scheme-metric"><div class="value" style="color:#7C3AED">'+s.after_tax_pension.toFixed(0)+'</div><div class="label">税后月领</div></div>';
-      if(s.annual_subsidy>0)h+='<div class="scheme-metric"><div class="value" style="color:#D97706">'+s.annual_subsidy.toFixed(0)+'</div><div class="label">年补贴</div></div>';
-      h+='<div class="scheme-metric"><div class="value" style="font-size:16px;color:#6B7280">'+s.remaining_months+'</div><div class="label">还需缴(月)</div></div>';
-      h+='</div>';
-      if(s.subsidy_policy)h+='<div style="margin-top:8px;font-size:12px;color:#6B7280">'+esc(s.subsidy_policy)+'</div>';
-      if(s.cashflow&&s.cashflow.length>0){
-        h+='<div class="cashflow-toggle" onclick="toggleCashflow('+i+')">查看现金流趋势 ▼</div>';
-        h+='<div class="cashflow-panel" id="cf-panel-'+i+'"><div class="chart-container"><canvas id="cf-chart-'+i+'"></canvas></div></div>';
-      }
-      h+='</div>';
-    });
-    if(schemes.length>0){
-      h+='<div class="sim-section"><h3 style="font-size:14px;color:#1A56DB;margin-bottom:8px">退休金模拟器</h3>';
-      h+='<div class="sim-slider-row"><label>缴费基数</label><input type="range" id="sim-base" min="'+schemes[0].base_salary+'" max="'+schemes[schemes.length-1].base_salary+'" step="100" value="'+schemes[0].base_salary+'" oninput="onSimChange()"><span class="sim-val" id="sim-base-val">'+schemes[0].base_salary+'元</span></div>';
-      h+='<div class="sim-slider-row"><label>缴费年限</label><input type="range" id="sim-years" min="1" max="40" step="1" value="'+Math.max(1,Math.floor(_formData.months/12))+'" oninput="onSimChange()"><span class="sim-val" id="sim-years-val">'+Math.max(1,Math.floor(_formData.months/12))+'年</span></div>';
-      h+='<div class="sim-slider-row"><label>月预算</label><input type="range" id="sim-budget" min="500" max="10000" step="100" value="'+_formData.budget+'" oninput="onSimChange()"><span class="sim-val" id="sim-budget-val">'+_formData.budget+'元</span></div>';
-      h+='<div class="sim-result" id="sim-result">计算中...</div>';
-      h+='<div class="sim-result-sub" id="sim-detail"></div></div>';
+    var isNewFormat=plan.structured_schemes||plan.free_form_text;
+    if(!isNewFormat){
+      renderLegacyPlan(plan,btn);
+      return;
     }
+    var h='<div class="alert-success" style="margin-top:12px">方案生成成功！</div>';
+    h+='<div style="margin:12px 0;display:flex;align-items:center;gap:12px">';
+    h+='<label style="font-size:13px;color:#374151;font-weight:600">视图:</label>';
+    h+='<select id="planView" onchange="switchPlanView()" style="padding:6px 12px;border:1px solid #D1D5DB;border-radius:6px;font-size:13px;outline:none;cursor:pointer">';
+    h+='<option value="freeform">'+(plan.free_form_text?'自由文本':'结构化分析')+'</option>';
+    h+='<option value="structured">结构化分析</option>';
+    h+='</select></div>';
+    h+='<div id="planFreeForm" style="display:'+(plan.free_form_text?'block':'none')+'">';
+    h+='<div style="background:#fff;border:1px solid #E5E7EB;border-radius:10px;padding:20px;font-size:14px;line-height:1.8;color:#1F2937">'+renderSimpleMarkdown(plan.free_form_text||'')+'</div>';
+    h+='</div>';
+    h+='<div id="planStructured" style="display:'+(plan.free_form_text?'none':'block')+'">';
+    if(plan.recommendation){
+      h+='<div style="background:#EFF6FF;border:1px solid #BFDBFE;border-radius:8px;padding:12px 16px;margin:0 0 16px 0;font-size:13px;color:#1E40AF">';
+      h+='<strong>推荐方案: '+esc(plan.recommendation)+'</strong>';
+      if(plan.recommendation_reason)h+=' — '+esc(plan.recommendation_reason);
+      h+='</div>';
+    }
+    var schemes=plan.structured_schemes||[];
+    if(schemes.length>0){
+      h+='<table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:12px">';
+      h+='<thead><tr style="background:#F9FAFB;border-bottom:2px solid #E5E7EB">';
+      h+='<th style="padding:10px 12px;text-align:left;color:#374151">方案名称</th>';
+      h+='<th style="padding:10px 12px;text-align:left;color:#374151">说明</th>';
+      h+='<th style="padding:10px 12px;text-align:right;color:#374151">缴费基数</th>';
+      h+='<th style="padding:10px 12px;text-align:right;color:#374151">月缴(元)</th>';
+      h+='<th style="padding:10px 12px;text-align:right;color:#374151">年补贴</th>';
+      h+='<th style="padding:10px 12px;text-align:right;color:#374151">预计月养老金</th>';
+      h+='<th style="padding:10px 12px;text-align:right;color:#374151">总费用(元)</th>';
+      h+='<th style="padding:10px 12px;text-align:center;color:#374151">分析</th>';
+      h+='</tr></thead><tbody>';
+      schemes.forEach(function(s,i){
+        var isRec=plan.recommendation&&s.name===plan.recommendation;
+        h+='<tr style="border-bottom:1px solid #E5E7EB'+(isRec?';background:#EFF6FF':'')+'" id="scheme-row-'+i+'">';
+        h+='<td style="padding:10px 12px;font-weight:600;color:#1F2937">';
+        if(isRec)h+='<span class="rec-badge" style="margin-right:6px">推荐</span>';
+        h+=esc(s.name)+'</td>';
+        h+='<td style="padding:10px 12px;color:#6B7280;max-width:200px">'+esc(s.description||'')+'</td>';
+        h+='<td style="padding:10px 12px;text-align:right">'+((s.contribution_base||0).toFixed(0))+'</td>';
+        h+='<td style="padding:10px 12px;text-align:right;font-weight:600">'+((s.monthly_cost||0).toFixed(0))+'</td>';
+        h+='<td style="padding:10px 12px;text-align:right;color:#D97706">'+((s.annual_subsidy||0).toFixed(0))+'</td>';
+        h+='<td style="padding:10px 12px;text-align:right;color:#059669;font-weight:600">'+((s.projected_pension||0).toFixed(0))+'</td>';
+        h+='<td style="padding:10px 12px;text-align:right">'+((s.total_cost||0).toFixed(0))+'</td>';
+        h+='<td style="padding:10px 12px;text-align:center">';
+        if(s.analysis)h+='<button onclick="toggleAnalysis('+i+')" style="background:none;border:1px solid #D1D5DB;border-radius:4px;padding:2px 8px;cursor:pointer;font-size:11px;color:#374151">展开</button>';
+        h+='</td></tr>';
+        if(s.analysis){
+          h+='<tr id="analysis-'+i+'" style="display:none"><td colspan="8" style="padding:0">';
+          h+='<div style="padding:12px 16px;background:#F9FAFB;border-bottom:1px solid #E5E7EB;font-size:13px;color:#374151;line-height:1.7;border-left:3px solid #1A56DB">'+esc(s.analysis)+'</div>';
+          h+='</td></tr>';
+        }
+      });
+      h+='</tbody></table>';
+    }
+    var refs=plan.policy_references||[];
+    if(refs.length>0){
+      h+='<h3 style="font-size:14px;color:#1A56DB;margin:20px 0 10px 0">关联政策 ('+refs.length+')</h3>';
+      refs.forEach(function(r){
+        h+='<div style="border:1px solid #E5E7EB;border-radius:10px;padding:14px 16px;margin:8px 0">';
+        h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:4px">';
+        h+='<strong style="font-size:14px;color:#1F2937">'+esc(r.policy_title||'')+'</strong>';
+        if(r.document_number)h+='<span style="font-size:11px;color:#6B7280;background:#F3F4F6;padding:2px 8px;border-radius:4px">'+esc(r.document_number)+'</span>';
+        h+='</div>';
+        if(r.policy_url)h+='<a href="'+esc(r.policy_url)+'" target="_blank" style="font-size:12px;color:#1A56DB;text-decoration:none;display:inline-block;margin-bottom:8px">查看政策原文 →</a>';
+        if(r.relevant_excerpt)h+='<div style="background:#F9FAFB;border-left:3px solid #D1D5DB;padding:10px 14px;border-radius:0 6px 6px 0;font-size:13px;color:#4B5563;margin:8px 0;line-height:1.6">'+esc(r.relevant_excerpt)+'</div>';
+        if(r.how_applied)h+='<div style="font-size:12px;color:#374151;margin-top:6px"><strong>适用说明:</strong> '+esc(r.how_applied)+'</div>';
+        h+='</div>';
+      });
+    }
+    h+='</div>';
+    h+='<div style="margin-top:16px;padding:10px 14px;background:#F9FAFB;border-radius:6px;font-size:12px;color:#6B7280">方案ID: '+esc(plan.plan_id||'')+'</div>';
     h+='<button class="btn btn-outline" style="margin-top:12px" id="viewReportBtn" data-plan-id="'+esc(plan.plan_id)+'">查看完整报告</button>';
     document.getElementById('planResult').innerHTML=h;
     var vrBtn=document.getElementById('viewReportBtn');
     if(vrBtn)vrBtn.onclick=function(){viewReport(this.getAttribute('data-plan-id'));};
-    _cfCharts={};
-    renderSchemeChart(schemesWithROI);
-    schemesWithROI.forEach(function(s,i){
-      if(s.cashflow&&s.cashflow.length>0)renderCashflowChart(i,s.cashflow);
-    });
-    if(schemes.length>0)onSimChange();
   }).catch(function(e){btn.disabled=false;btn.textContent='生成方案';document.getElementById('planResult').innerHTML='<div class="alert-error">'+esc(e.message)+'</div>'});
+}
+function renderSimpleMarkdown(text){
+  if(!text)return '';
+  var lines=text.split('\\n');
+  var out='';
+  lines.forEach(function(line){
+    line=line.replace(/\\*\\*(.+?)\\*\\*/g,'<strong>$1</strong>');
+    if(line.charAt(0)==='#'){
+      var lvl=line.match(/^#{1,3}/)[0].length;
+      var txt=line.replace(/^#{1,3}\\s*/,'');
+      out+='<h'+lvl+' style="font-size:'+(20-lvl*2)+'px;color:#1F2937;margin:12px 0 6px">'+txt+'</h'+lvl+'>';
+    }else{
+      out+='<p style="margin:4px 0">'+(line||'&nbsp;')+'</p>';
+    }
+  });
+  return out;
+}
+function switchPlanView(){
+  var sel=document.getElementById('planView');
+  if(!sel)return;
+  var v=sel.value;
+  var ff=document.getElementById('planFreeForm');
+  var st=document.getElementById('planStructured');
+  if(ff)ff.style.display=v==='freeform'?'block':'none';
+  if(st)st.style.display=v==='structured'?'block':'none';
+}
+function toggleAnalysis(i){
+  var row=document.getElementById('analysis-'+i);
+  if(!row)return;
+  var btn=row.previousElementSibling&&row.previousElementSibling.querySelector('button');
+  if(row.style.display==='none'){row.style.display='table-row';if(btn)btn.textContent='收起';}
+  else{row.style.display='none';if(btn)btn.textContent='展开';}
+}
+function renderLegacyPlan(plan,btn){
+  var schemes=plan.recommended_schemes||[];
+  var maxROI=0,schemesWithROI=schemes.map(function(s){
+    var roi=s.monthly_cost>0?s.projected_pension/s.monthly_cost:0;
+    if(roi>maxROI)maxROI=roi;
+    s._roi=roi;
+    return s;
+  });
+  var h='<div class="alert-success" style="margin-top:12px">方案生成成功！共 '+schemes.length+' 个方案</div>';
+  h+='<div class="chart-container" style="margin:12px 0"><canvas id="schemeChart"></canvas></div>';
+  schemesWithROI.forEach(function(s,i){
+    var isRec=s._roi===maxROI;
+    var roiClass=s._roi>=3?'roi-green':s._roi>=2?'roi-yellow':'roi-red';
+    h+='<div class="scheme-card'+(isRec?' recommended':'')+'">';
+    h+='<div class="scheme-header"><strong style="font-size:15px">'+esc(s.name)+'</strong>';
+    if(isRec)h+='<span class="rec-badge">推荐</span>';
+    h+='<span class="roi-badge '+roiClass+'">ROI '+s._roi.toFixed(1)+'x</span></div>';
+    h+='<div class="scheme-metrics">';
+    h+='<div class="scheme-metric"><div class="value">'+s.monthly_cost.toFixed(0)+'</div><div class="label">月缴(元)</div></div>';
+    h+='<div class="scheme-metric"><div class="value" style="color:#059669">'+s.projected_pension.toFixed(0)+'</div><div class="label">预计月养老金</div></div>';
+    if(s.after_tax_pension>0)h+='<div class="scheme-metric"><div class="value" style="color:#7C3AED">'+s.after_tax_pension.toFixed(0)+'</div><div class="label">税后月领</div></div>';
+    if(s.annual_subsidy>0)h+='<div class="scheme-metric"><div class="value" style="color:#D97706">'+s.annual_subsidy.toFixed(0)+'</div><div class="label">年补贴</div></div>';
+    h+='<div class="scheme-metric"><div class="value" style="font-size:16px;color:#6B7280">'+s.remaining_months+'</div><div class="label">还需缴(月)</div></div>';
+    h+='</div>';
+    if(s.subsidy_policy)h+='<div style="margin-top:8px;font-size:12px;color:#6B7280">'+esc(s.subsidy_policy)+'</div>';
+    if(s.cashflow&&s.cashflow.length>0){
+      h+='<div class="cashflow-toggle" onclick="toggleCashflow('+i+')">查看现金流趋势 ▼</div>';
+      h+='<div class="cashflow-panel" id="cf-panel-'+i+'"><div class="chart-container"><canvas id="cf-chart-'+i+'"></canvas></div></div>';
+    }
+    h+='</div>';
+  });
+  if(schemes.length>0){
+    h+='<div class="sim-section"><h3 style="font-size:14px;color:#1A56DB;margin-bottom:8px">退休金模拟器</h3>';
+    h+='<div class="sim-slider-row"><label>缴费基数</label><input type="range" id="sim-base" min="'+schemes[0].base_salary+'" max="'+schemes[schemes.length-1].base_salary+'" step="100" value="'+schemes[0].base_salary+'" oninput="onSimChange()"><span class="sim-val" id="sim-base-val">'+schemes[0].base_salary+'元</span></div>';
+    h+='<div class="sim-slider-row"><label>缴费年限</label><input type="range" id="sim-years" min="1" max="40" step="1" value="'+Math.max(1,Math.floor(_formData.months/12))+'" oninput="onSimChange()"><span class="sim-val" id="sim-years-val">'+Math.max(1,Math.floor(_formData.months/12))+'年</span></div>';
+    h+='<div class="sim-slider-row"><label>月预算</label><input type="range" id="sim-budget" min="500" max="10000" step="100" value="'+_formData.budget+'" oninput="onSimChange()"><span class="sim-val" id="sim-budget-val">'+_formData.budget+'元</span></div>';
+    h+='<div class="sim-result" id="sim-result">计算中...</div>';
+    h+='<div class="sim-result-sub" id="sim-detail"></div></div>';
+  }
+  h+='<div style="margin-top:16px;padding:10px 14px;background:#F9FAFB;border-radius:6px;font-size:12px;color:#6B7280">方案ID: '+esc(plan.plan_id||'')+'</div>';
+  h+='<button class="btn btn-outline" style="margin-top:12px" id="viewReportBtn" data-plan-id="'+esc(plan.plan_id)+'">查看完整报告</button>';
+  document.getElementById('planResult').innerHTML=h;
+  var vrBtn=document.getElementById('viewReportBtn');
+  if(vrBtn)vrBtn.onclick=function(){viewReport(this.getAttribute('data-plan-id'));};
+  _cfCharts={};
+  renderSchemeChart(schemesWithROI);
+  schemesWithROI.forEach(function(s,i){
+    if(s.cashflow&&s.cashflow.length>0)renderCashflowChart(i,s.cashflow);
+  });
+  if(schemes.length>0)onSimChange();
 }
 function viewReport(pid){
   window._lastPlanId=pid;

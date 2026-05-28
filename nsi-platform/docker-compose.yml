@@ -13,6 +13,7 @@ services:
       ACTUARY_HTTP_ADDR: actuarial-engine:39402
       ACTUARY_SECRET: ${ACTUARY_SECRET:-}
       SERVER_PORT: "39401"
+      LLM_GATEWAY_URL: http://llm-gateway:39404
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:39401}
       WEBCLIENT_API_BASE_URL: ${WEBCLIENT_API_BASE_URL:-http://localhost:39401}
       JWT_SECRET: ${JWT_SECRET:-}
@@ -81,6 +82,33 @@ services:
           cpus: '1.0'
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:39403/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  llm-gateway:
+    image: nsi-llm-gateway:latest
+    container_name: nsi-llm-gateway
+    ports:
+      - "39404:39404"
+    environment:
+      DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@postgres:5432/nsi_llm?sslmode=disable
+      SERVER_PORT: "39404"
+      ADMIN_USER: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASS: ${ADMIN_PASSWORD:-changeme}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      db-migrate:
+        condition: service_completed_successfully
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:39404/healthz"]
       interval: 30s
       timeout: 5s
       retries: 3

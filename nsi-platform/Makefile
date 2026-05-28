@@ -3,7 +3,7 @@
 all: lint build test
 
 # Build all services
-build: build-shared build-api build-actuary build-crawler
+build: build-shared build-api build-actuary build-crawler build-llm-gateway
 
 build-shared:
 	cd shared && go build ./...
@@ -17,8 +17,11 @@ build-actuary:
 build-crawler:
 	cd services/policy-crawler && go build ./cmd/main.go
 
+build-llm-gateway:
+	cd services/llm-gateway && go build ./cmd/main.go
+
 # Test all services
-test: test-shared test-api test-actuary test-crawler
+test: test-shared test-api test-actuary test-crawler test-llm-gateway
 
 test-shared:
 	cd shared && go test ./... -count=1
@@ -32,11 +35,15 @@ test-actuary:
 test-crawler:
 	cd services/policy-crawler && go test ./... -count=1 -v
 
+test-llm-gateway:
+	cd services/llm-gateway && go test ./... -count=1 -v
+
 # Lint
 lint:
 	cd services/api-server && golangci-lint run ./... 2>/dev/null || true
 	cd services/actuarial-engine && golangci-lint run ./... 2>/dev/null || true
 	cd services/policy-crawler && golangci-lint run ./... 2>/dev/null || true
+	cd services/llm-gateway && golangci-lint run ./... 2>/dev/null || true
 
 # Docker compose
 docker-up:
@@ -65,3 +72,4 @@ clean:
 	rm -f services/api-server/api-server
 	rm -f services/actuarial-engine/actuarial-engine
 	rm -f services/policy-crawler/policy-crawler
+	rm -f services/llm-gateway/llm-gateway
