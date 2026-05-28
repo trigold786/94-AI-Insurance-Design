@@ -93,13 +93,16 @@ func main() {
 		log.Printf("[asr] warning: cannot read config from llm-gateway: %v", asrErr)
 	}
 	manager.InitFilterAndWorker(database, crawler.ASRConfig{
-		Provider:    asrCfg.Provider,
-		APIKey:      asrCfg.APIKey,
-		Endpoint:    asrCfg.Endpoint,
-		AppID:       asrCfg.AppID,
-		ResourceID:  asrCfg.ResourceID,
-		Language:    asrCfg.Language,
-		Enabled:     asrCfg.Enabled,
+		Provider:            asrCfg.Provider,
+		APIKey:              asrCfg.APIKey,
+		Endpoint:            asrCfg.Endpoint,
+		AppID:               asrCfg.AppID,
+		ResourceID:          asrCfg.ResourceID,
+		Language:            asrCfg.Language,
+		SampleRate:          asrCfg.SampleRate,
+		MaxWaitSeconds:      asrCfg.MaxWaitSeconds,
+		PollIntervalSeconds: asrCfg.PollIntervalSeconds,
+		Enabled:             asrCfg.Enabled,
 	})
 
 	// 从 DB 加载启用的数据源配置
@@ -157,8 +160,10 @@ func main() {
 	mux.Handle("/admin/relevance/thresholds/", adminAuth(admin.RelevanceThresholdHandler(database)))
 	mux.Handle("/admin/relevance/test", adminAuth(admin.RelevanceTestHandler(manager.GetFilter())))
 	mux.Handle("/admin/relevance/bulk-import", adminAuth(admin.RelevanceBulkImportHandler(database)))
+	mux.Handle("/admin/asr/config", adminAuth(admin.ASRConfigGetHandler(database)))
+	mux.Handle("/admin/asr/config/save", adminAuth(admin.ASRConfigSaveHandler(database)))
 	mux.Handle("/admin/asr/test", adminAuth(admin.ASRTestHandler(database)))
-	mux.Handle("/admin/llm/status", adminAuth(admin.LLMStatusHandler(store)))
+	mux.Handle("/admin/llm/status", adminAuth(admin.LLMStatusHandler(store, gwClient)))
 	mux.Handle("/admin/llm/extract", adminAuth(middleware.RecoveryMiddleware()(admin.LLMExtractRunHandler(store, searcher, embedProv, gwClient))))
 	mux.Handle("/admin/llm/pending", adminAuth(admin.LLMPendingHandler(store)))
 	mux.Handle("/admin/llm/progress", adminAuth(admin.LLMProgressHandler(store)))

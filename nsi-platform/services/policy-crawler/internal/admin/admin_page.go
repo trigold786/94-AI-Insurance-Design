@@ -678,54 +678,11 @@ function loadExtract(){
     var cfg=results[0].data,st=results[1].data,pending=results[2].data||[];
     var prov=extractProviderMap[cfg.provider]||extractProviderMap['deepseek'];
     var h='<div class="card" style="background:#EFF6FF;border:1px solid #BFDBFE;padding:12px 16px;margin-bottom:12px;border-radius:8px"><div style="display:flex;align-items:center;gap:8px"><span style="font-size:16px">&#9881;</span><div><div style="font-weight:600;font-size:14px;color:#1A56DB">模型配置已迁移至 LLM Gateway</div><div style="font-size:12px;color:#6B7280;margin-top:2px">LLM、Embedding、ASR 统一在 Gateway 管理</div></div><a href="http://localhost:39404/admin/#model-configs" target="_blank" style="margin-left:auto;padding:6px 14px;background:#1A56DB;color:#fff;border-radius:6px;text-decoration:none;font-size:12px">前往配置 →</a></div></div>';
-    h+='<div class="card"><h3 style="font-size:16px;margin-bottom:12px">AI 提取配置</h3>';
-    h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">';
-    h+='<div><label style="font-size:12px;color:#6B7280;display:block;margin-bottom:4px">提供商</label>'+
-      '<select id="llmProvider" onchange="updateLLMEndpoint()" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px">'+
-      '<option value="deepseek" '+(cfg.provider==='deepseek'?'selected':'')+'>DeepSeek</option>'+
-      '<option value="ali_bailian" '+(cfg.provider==='ali_bailian'?'selected':'')+'>阿里云百炼</option>'+
-      '<option value="volc_ark" '+(cfg.provider==='volc_ark'?'selected':'')+'>火山方舟</option>'+
-      '<option value="opencode_go" '+(cfg.provider==='opencode_go'?'selected':'')+'>OpenCode Go</option>'+
-      '</select></div>';
-    h+='<div><label style="font-size:12px;color:#6B7280;display:block;margin-bottom:4px">模型</label><input id="llmModel" value="'+esc(cfg.model_name||prov.model)+'" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px"></div>';
-    h+='<div style="grid-column:1/3"><label style="font-size:12px;color:#6B7280;display:block;margin-bottom:4px">API 地址</label><input id="llmEndpoint" value="'+esc(cfg.endpoint||prov.endpoint)+'" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px"></div>';
-    h+='<div style="grid-column:1/3"><label style="font-size:12px;color:#6B7280;display:block;margin-bottom:4px">API Key</label><input id="llmKey" type="password" value="'+esc(cfg.api_key)+'" placeholder="输入 API Key" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px"></div>';
-    h+='<div><label class="toggle"><input type="checkbox" id="llmEnabled" '+(cfg.api_key?'checked':'')+' onchange="saveLLMConfig()"><span class="slider"></span></label><span style="font-size:13px;margin-left:8px">启用 LLM 提取</span></div>';
-    h+='<div style="grid-column:1/3;border-top:1px solid #E5E7EB;padding-top:8px;margin-top:4px"><span style="font-size:11px;color:#9CA3AF">备用 LLM 配置（主 LLM 失败时自动切换）</span></div>';
-    h+='<div><label style="font-size:12px;color:#6B7280;display:block;margin-bottom:4px">备用Provider</label>'+
-      '<select id="backupProvider" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px">'+
-      '<option value="">未配置</option>'+
-      '<option value="deepseek" '+(cfg.backup_provider==='deepseek'?'selected':'')+'>DeepSeek</option>'+
-      '<option value="ali_bailian" '+(cfg.backup_provider==='ali_bailian'?'selected':'')+'>阿里云百炼</option>'+
-      '<option value="volc_ark" '+(cfg.backup_provider==='volc_ark'?'selected':'')+'>火山方舟</option>'+
-      '<option value="opencode_go" '+(cfg.backup_provider==='opencode_go'?'selected':'')+'>OpenCode Go</option>'+
-      '</select></div>';
-    h+='<div><label style="font-size:12px;color:#6B7280;display:block;margin-bottom:4px">备用Model</label><input id="backupModel" value="'+esc(cfg.backup_model_name||'')+'" placeholder="留空则用默认" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px"></div>';
-    h+='<div style="grid-column:1/3"><label style="font-size:12px;color:#6B7280;display:block;margin-bottom:4px">备用Endpoint</label><input id="backupEndpoint" value="'+esc(cfg.backup_endpoint||'')+'" placeholder="留空则用默认" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px"></div>';
-    h+='<div style="grid-column:1/3"><label style="font-size:12px;color:#6B7280;display:block;margin-bottom:4px">备用API Key</label><input id="backupKey" type="password" value="'+esc(cfg.backup_api_key||'')+'" placeholder="留空则不启用备用" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px"></div>';
-    h+='<div style="text-align:right;grid-column:1/3"><button class="btn btn-primary" onclick="saveLLMConfig()">保存配置</button></div>';
-    h+='</div></div>';
+    h+='<div class="card"><h3 style="font-size:16px;margin-bottom:12px">AI 提取状态</h3>';
+    h+='<div style="padding:8px 0;color:#6B7280;font-size:13px">模型配置请前往 LLM Gateway 管理</div>';
+    h+='</div>';
 
-    // Embedding 配置（选择服务商自动匹配 API 地址和维度，填写接入点 ID）
-    var embEndpoint=cfg.embedding_endpoint||'https://ark.cn-beijing.volces.com/api/v3/embeddings/multimodal';
-    var embProvKey='volc_ark';
-    for(var k in embeddingProviderMap){if(embEndpoint.indexOf(embeddingProviderMap[k].endpoint)>=0){embProvKey=k;break}}
-    var embProvInfo=embeddingProviderMap[embProvKey];
-    h+='<div class="card" style="margin-top:12px"><h3 style="font-size:16px;margin-bottom:12px">Embedding 向量配置</h3>';
-    h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">';
-    h+='<div><label style="font-size:12px;color:#6B7280;display:block;margin-bottom:4px">服务商</label>'+
-      '<select id="embProvider" onchange="updateEmbeddingEndpoint()" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px">'+
-      Object.keys(embeddingProviderMap).map(function(k){return '<option value="'+k+'" '+(embProvKey===k?'selected':'')+'>'+embeddingProviderMap[k].name+'</option>'}).join('')+
-      '</select></div>';
-    h+='<div><label style="font-size:12px;color:#6B7280;display:block;margin-bottom:4px">模型名/接入点 ID</label>'+
-      '<input id="embModel" value="'+esc(cfg.embedding_model||'')+'" placeholder="输入接入点 ID（如 ep-20260526-xxxxx）" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px"></div>';
-    h+='<div><label style="font-size:12px;color:#6B7280;display:block;margin-bottom:4px">向量维度</label>'+
-      '<input id="embDims" type="number" value="'+(cfg.embedding_dimensions||embProvInfo.dims)+'" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px"></div>';
-    h+='<div><label style="font-size:12px;color:#6B7280;display:block;margin-bottom:4px">API 地址</label><input id="embEndpoint" value="'+esc(cfg.embedding_endpoint||embProvInfo.endpoint)+'" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px"></div>';
-    h+='<div style="grid-column:1/3"><label style="font-size:12px;color:#6B7280;display:block;margin-bottom:4px">API Key（留空则复用 LLM 配置的 Key）</label><input id="embKey" type="password" value="'+esc(cfg.embedding_api_key)+'" placeholder="留空则复用 LLM API Key" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px"></div>';
-    h+='<div style="text-align:right"><span style="font-size:12px;color:#9CA3AF;margin-right:8px">保存 LLM 配置时一起保存</span></div>';
-    h+='</div></div>';
-
+    h+='<div class="card" style="margin-top:12px;background:#EFF6FF;border:1px solid #BFDBFE;padding:12px 16px;border-radius:8px"><div style="display:flex;align-items:center;gap:8px"><span style="font-size:16px">&#9881;</span><div><div style="font-weight:600;font-size:14px;color:#1A56DB">ASR 配置已迁移至 LLM Gateway</div><div style="font-size:12px;color:#6B7280;margin-top:2px">在 Gateway 管理 ASR 模型配置</div></div><a href="http://localhost:39404/admin/#model-configs" target="_blank" style="margin-left:auto;padding:6px 14px;background:#1A56DB;color:#fff;border-radius:6px;text-decoration:none;font-size:12px">前往配置 →</a></div></div>';
     h+='<div class="card" style="margin-top:12px"><h3 style="font-size:16px;margin-bottom:12px">ASR 语音识别配置（火山引擎大模型）</h3>';
     h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">';
     h+='<div><label style="font-size:12px;color:#6B7280;display:block;margin-bottom:4px">服务版本</label>'+

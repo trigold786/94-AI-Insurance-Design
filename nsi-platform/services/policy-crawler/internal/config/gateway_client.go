@@ -15,7 +15,7 @@ import (
 type GatewayConfigClient struct {
 	baseURL    string
 	httpClient *http.Client
-	mu         sync.Mutex
+	mu         sync.RWMutex
 	cache      map[string]*cacheEntry
 	ttl        time.Duration
 }
@@ -52,13 +52,16 @@ type EmbeddingConfig struct {
 }
 
 type ASRConfig struct {
-	Provider    string
-	APIKey      string
-	Endpoint    string
-	AppID       string
-	ResourceID  string
-	Language    string
-	Enabled     bool
+	Provider            string
+	APIKey              string
+	Endpoint            string
+	AppID               string
+	ResourceID          string
+	Language            string
+	SampleRate          int
+	MaxWaitSeconds      int
+	PollIntervalSeconds int
+	Enabled             bool
 }
 
 func NewGatewayConfigClient(baseURL string) *GatewayConfigClient {
@@ -76,12 +79,12 @@ func NewGatewayConfigClient(baseURL string) *GatewayConfigClient {
 }
 
 func (g *GatewayConfigClient) fetchConfig(ctx context.Context, functionKey string) (*modelConfigResponse, error) {
-	g.mu.Lock()
-	defer g.mu.Unlock()
-
+	g.mu.RLock()
 	if entry, ok := g.cache[functionKey]; ok && time.Since(entry.fetchedAt) < g.ttl {
+		g.mu.RUnlock()
 		return entry.data, nil
 	}
+	g.mu.RUnlock()
 
 	url := fmt.Sprintf("%s/internal/model-configs/%s", g.baseURL, functionKey)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
@@ -95,7 +98,7 @@ func (g *GatewayConfigClient) fetchConfig(ctx context.Context, functionKey strin
 	}
 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	if err != nil {
 		return nil, fmt.Errorf("read response: %w", err)
 	}
@@ -108,7 +111,9 @@ func (g *GatewayConfigClient) fetchConfig(ctx context.Context, functionKey strin
 		return nil, fmt.Errorf("gateway error: code=%d", result.Code)
 	}
 
+	g.mu.Lock()
 	g.cache[functionKey] = &cacheEntry{data: &result, fetchedAt: time.Now()}
+	g.mu.Unlock()
 	return &result, nil
 }
 
@@ -184,9 +189,12 @@ func (g *GatewayConfigClient) GetASRConfig(ctx context.Context) (ASRConfig, erro
 	}
 
 	type asrExtra struct {
-		AppID      string `json:"app_id"`
-		ResourceID string `json:"resource_id"`
-		Language   string `json:"language"`
+		AppID               string `json:"app_id"`
+		ResourceID          string `json:"resource_id"`
+		Language            string `json:"language"`
+		SampleRate          int    `json:"sample_rate"`
+		MaxWaitSeconds      int    `json:"max_wait_seconds"`
+		PollIntervalSeconds int    `json:"poll_interval_seconds"`
 	}
 	if resp.Data.ExtraParams != nil {
 		var ep asrExtra
@@ -194,6 +202,9 @@ func (g *GatewayConfigClient) GetASRConfig(ctx context.Context) (ASRConfig, erro
 			ac.AppID = ep.AppID
 			ac.ResourceID = ep.ResourceID
 			ac.Language = ep.Language
+			ac.SampleRate = ep.SampleRate
+			ac.MaxWaitSeconds = ep.MaxWaitSeconds
+			ac.PollIntervalSeconds = ep.PollIntervalSeconds
 		}
 	}
 

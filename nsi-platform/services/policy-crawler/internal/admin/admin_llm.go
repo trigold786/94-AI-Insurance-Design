@@ -99,20 +99,25 @@ func LLMConfigSaveHandler(store LLMStore) http.Handler {
 	})
 }
 
-func LLMStatusHandler(store LLMStore) http.Handler {
+func LLMStatusHandler(store LLMStore, gwClient *config.GatewayConfigClient) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		count, err := store.GetUnprocessedCount()
 		if err != nil {
 			respondError(w, http.StatusInternalServerError, fmt.Sprintf("count: %v", err))
 			return
 		}
-		cfg, _ := store.GetLLMConfig()
+		llmCfg, _, gwErr := gwClient.GetLLMConfig(context.Background())
+		llmConfigured := gwErr == nil && llmCfg.Enabled && llmCfg.APIKey != ""
+		provider := ""
+		if gwErr == nil {
+			provider = llmCfg.Provider.String()
+		}
 		respondJSON(w, http.StatusOK, map[string]interface{}{
 			"code": 0,
 			"data": map[string]interface{}{
 				"unprocessed":    count,
-				"llm_configured": cfg != nil && cfg.Enabled && cfg.APIKey != "",
-				"provider":       mapValue(cfg, func(c *LLMConfig) string { return c.Provider }),
+				"llm_configured": llmConfigured,
+				"provider":       provider,
 			},
 		})
 	})
