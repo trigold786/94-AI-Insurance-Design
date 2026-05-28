@@ -47,6 +47,10 @@ func (m *mockPolicyRepo) QueryByRegionAndStatus(ctx context.Context, regionCode,
 	return filtered, nil
 }
 
+func (m *mockPolicyRepo) QueryByRegionHierarchy(ctx context.Context, regionCode, status string) ([]models.PolicyClaim, error) {
+	return m.QueryByRegionAndStatus(ctx, regionCode, status)
+}
+
 func TestQueryPoliciesHandlerSuccess(t *testing.T) {
 	repo := &mockPolicyRepo{
 		claims: []models.PolicyClaim{

@@ -38,10 +38,6 @@ func main() {
 		log.Fatalf("failed to create policy repository: %v", err)
 	}
 
-	calculator := &handler.HTTPCalculator{
-		Endpoint: "http://" + cfg.ActuaryHTTPAddr,
-	}
-
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/v1/auth/token", func(w http.ResponseWriter, r *http.Request) {
@@ -141,7 +137,7 @@ func main() {
 	mux.Handle("/v1/plans/generate", middleware.Chain(
 		middleware.RecoveryMiddleware(),
 		authMW,
-	)(handler.GeneratePlanHandler(calculator, planRepo, profileRepo, policyRepo)))
+	)(handler.GeneratePlanHandler(cfg.LLMGatewayURL, planRepo, profileRepo, policyRepo)))
 
 	mux.Handle("/v1/plans/", middleware.Chain(
 		middleware.RecoveryMiddleware(),

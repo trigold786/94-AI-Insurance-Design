@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -14,52 +13,6 @@ import (
 	"github.com/trigold786/94-AI-Insurance-Design/shared/middleware"
 	"github.com/trigold786/94-AI-Insurance-Design/shared/models"
 )
-
-type CalculateRequest struct {
-	Age                  int     `json:"age"`
-	Gender               string  `json:"gender"`
-	GenderPensionAge     int     `json:"gender_pension_age"`
-	OriginalPensionAge   int     `json:"original_pension_age"`
-	Employment           string  `json:"employment"`
-	ContributionYears    int     `json:"contribution_years"`
-	ContributionMonths   int     `json:"contribution_months"`
-	CurrentBalance       float64 `json:"current_balance"`
-	MonthlyBudget        float64 `json:"monthly_budget"`
-	Priority             string  `json:"priority"`
-	LocalAvgSalary       float64 `json:"local_avg_salary"`
-	PensionEmployeeRate  float64 `json:"pension_employee_rate"`
-	PensionEmployerRate  float64 `json:"pension_employer_rate"`
-	MedicalEmployeeRate  float64 `json:"medical_employee_rate"`
-	MedicalEmployerRate  float64 `json:"medical_employer_rate"`
-	ContributionBaseMin  float64 `json:"contribution_base_min"`
-	ContributionBaseMax  float64 `json:"contribution_base_max"`
-}
-
-type SchemeResult struct {
-	Name                  string                `json:"name"`
-	BaseSalary            int                   `json:"base_salary"`
-	MonthlyCost           float64               `json:"monthly_cost"`
-	AnnualSubsidy         float64               `json:"annual_subsidy"`
-	SubsidyPolicy         string                `json:"subsidy_policy"`
-	SubsidyCondition      string                `json:"subsidy_condition"`
-	PaidMonths            int                   `json:"paid_months"`
-	TargetMonths          int                   `json:"target_months"`
-	RemainingMonths       int                   `json:"remaining_months"`
-	TotalPersonalCost     float64               `json:"total_personal_cost"`
-	RemainingPersonalCost float64               `json:"remaining_personal_cost"`
-	ProjectedPension      float64               `json:"projected_pension"`
-	AfterTaxPension       float64               `json:"after_tax_pension"`
-	Cashflow              []models.CashFlowItem `json:"cashflow,omitempty"`
-}
-
-type CalculateResponse struct {
-	Schemes           []SchemeResult `json:"schemes"`
-	CalculationTimeMs float64        `json:"calculation_time_ms"`
-}
-
-type Calculator interface {
-	Calculate(ctx context.Context, req *CalculateRequest) (*CalculateResponse, error)
-}
 
 type PlanRepository interface {
 	Save(ctx context.Context, plan *models.PlanSnapshot) error
@@ -70,170 +23,226 @@ type ProfileLookuper interface {
 	GetByUserID(ctx context.Context, userID string) (*models.UserProfile, error)
 }
 
-type HTTPCalculator struct {
-	Endpoint string
-	Client   *http.Client
+type LLMGatewayClient struct {
+	URL string
 }
 
-func (c *HTTPCalculator) getClient() *http.Client {
-	if c.Client != nil {
-		return c.Client
-	}
-	return &http.Client{Timeout: 10 * time.Second}
+type LLMChatRequest struct {
+	SystemPrompt string `json:"system_prompt"`
+	UserContent  string `json:"user_content"`
+	MaxTokens    int    `json:"max_tokens"`
+	Caller       string `json:"caller"`
 }
 
-func (c *HTTPCalculator) Calculate(ctx context.Context, req *CalculateRequest) (*CalculateResponse, error) {
-	body, err := json.Marshal(req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal request: %w", err)
-	}
+type LLMChatResponse struct {
+	Code         int    `json:"code"`
+	Content      string `json:"content"`
+	ProviderUsed string `json:"provider_used"`
+	LatencyMs    int64  `json:"latency_ms"`
+}
 
-	httpReq, err := http.NewRequestWithContext(ctx, "POST", c.Endpoint+"/v1/calculate", bytes.NewReader(body))
+func (c *LLMGatewayClient) Chat(ctx context.Context, systemPrompt, userContent string) (*LLMChatResponse, error) {
+	body, _ := json.Marshal(LLMChatRequest{
+		SystemPrompt: systemPrompt,
+		UserContent:  userContent,
+		MaxTokens:    8192,
+		Caller:       "api-server",
+	})
+	req, _ := http.NewRequestWithContext(ctx, "POST", c.URL+"/v1/chat", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	client := &http.Client{Timeout: 180 * time.Second}
+	resp, err := client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
-	}
-	httpReq.Header.Set("Content-Type", "application/json")
-	if secret := os.Getenv("ACTUARY_SECRET"); secret != "" {
-		httpReq.Header.Set("X-Actuary-Secret", secret)
-	}
-
-	resp, err := c.getClient().Do(httpReq)
-	if err != nil {
-		return nil, fmt.Errorf("failed to call calculator: %w", err)
+		return nil, fmt.Errorf("llm-gateway call failed: %w", err)
 	}
 	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("calculator returned status %d", resp.StatusCode)
+	var llmResp LLMChatResponse
+	if err := json.NewDecoder(resp.Body).Decode(&llmResp); err != nil {
+		return nil, fmt.Errorf("parse llm response: %w", err)
 	}
-
-	var calcResp CalculateResponse
-	if err := json.NewDecoder(resp.Body).Decode(&calcResp); err != nil {
-		return nil, fmt.Errorf("failed to decode calculator response: %w", err)
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("llm-gateway error: %s", llmResp.Content)
 	}
-
-	return &calcResp, nil
+	return &llmResp, nil
 }
 
-func GeneratePlanHandler(calc Calculator, repo PlanRepository, profileRepo ProfileLookuper, policyRepo PolicyQuerier) http.Handler {
+func buildPlanSystemPrompt() string {
+	return `你是一位资深社保政策顾问。根据用户的个人情况和所在地的社保政策，为用户量身定制最优社保参保方案。
+
+规则：
+1. 所有政策依据必须来自提供的政策库数据，不可编造
+2. 必须理解上位法与下位法的关系：国家法律 > 省级规定 > 市级细则 > 区级优惠
+3. 当地方政策与上位法冲突时，以有利于用户的原则解释
+4. 方案必须包含所有适用的优惠政策，不能遗漏
+5. 每一条建议都必须标注所依据的政策（标题+文号+链接）
+6. 数值计算必须精确，基于提供的费率和基数
+
+输出格式（必须严格遵守）：
+===FREE_FORM_START===
+[自由文本格式的方案建议书，面向普通用户，通俗易懂，2000字以内]
+===FREE_FORM_END===
+===STRUCTURED_START===
+{
+  "summary": "一句话总结",
+  "schemes": [
+    {
+      "name": "方案名称",
+      "description": "方案描述",
+      "monthly_cost": 0,
+      "annual_subsidy": 0,
+      "projected_pension": 0,
+      "total_cost": 0,
+      "contribution_base": 0,
+      "pension_employee_rate": 0,
+      "pension_employer_rate": 0,
+      "medical_employee_rate": 0,
+      "analysis": "该方案的详细分析",
+      "applicable_policies": ["claim_id_1"]
+    }
+  ],
+  "policy_references": [
+    {
+      "claim_id": "",
+      "policy_title": "",
+      "document_number": "",
+      "policy_url": "",
+      "relevant_excerpt": "提取的原文片段",
+      "how_applied": "如何应用于本方案"
+    }
+  ],
+  "recommendation": {
+    "recommended_scheme": "方案名称",
+    "reasoning": "推荐理由"
+  }
+}
+===STRUCTURED_END===`
+}
+
+func buildPlanUserContent(profile *models.UserProfile, policies []models.PolicyClaim) string {
+	policyJSON, _ := json.Marshal(policies)
+	profileJSON, _ := json.Marshal(profile)
+	return fmt.Sprintf(`## 用户画像
+%s
+
+## 适用政策（共%d条）
+%s
+
+## 请基于以上信息，为该用户生成最优社保参保方案。`, string(profileJSON), len(policies), string(policyJSON))
+}
+
+func parseLLMResponse(raw string) (freeForm string, structured *models.LLMSchemeResponse, err error) {
+	freeStart := strings.Index(raw, "===FREE_FORM_START===")
+	freeEnd := strings.Index(raw, "===FREE_FORM_END===")
+	if freeStart >= 0 && freeEnd > freeStart {
+		freeForm = strings.TrimSpace(raw[freeStart+len("===FREE_FORM_START===") : freeEnd])
+	}
+	structStart := strings.Index(raw, "===STRUCTURED_START===")
+	structEnd := strings.Index(raw, "===STRUCTURED_END===")
+	if structStart >= 0 && structEnd > structStart {
+		jsonStr := strings.TrimSpace(raw[structStart+len("===STRUCTURED_START===") : structEnd])
+		var resp models.LLMSchemeResponse
+		if jsonErr := json.Unmarshal([]byte(jsonStr), &resp); jsonErr != nil {
+			return freeForm, nil, fmt.Errorf("parse structured JSON: %w", jsonErr)
+		}
+		structured = &resp
+	}
+	if freeForm == "" && structured == nil {
+		return "", nil, fmt.Errorf("LLM response missing required markers")
+	}
+	return freeForm, structured, nil
+}
+
+func GeneratePlanHandler(llmGatewayURL string, repo PlanRepository, profileRepo ProfileLookuper, policyRepo PolicyQuerier) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		userID, _ := r.Context().Value(middleware.ContextKeyUserID).(string)
 
 		r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
-		var calcReq CalculateRequest
-		if err := json.NewDecoder(r.Body).Decode(&calcReq); err != nil {
-			respondJSON(w, http.StatusBadRequest, map[string]interface{}{"code": "VALIDATION_ERROR", "message": "invalid JSON"})
+		var req struct {
+			Age           int     `json:"age"`
+			Gender        string  `json:"gender"`
+			Employment    string  `json:"employment"`
+			MonthlyBudget float64 `json:"monthly_budget"`
+			Priority      string  `json:"priority"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			respondJSON(w, 400, map[string]interface{}{"code": "VALIDATION_ERROR", "message": "invalid JSON"})
+			return
+		}
+		if req.Age < 16 || req.Age > 70 {
+			respondJSON(w, 400, map[string]interface{}{"code": "VALIDATION_ERROR", "message": "age must be between 16 and 70"})
+			return
+		}
+		if req.Gender != "male" && req.Gender != "female" {
+			respondJSON(w, 400, map[string]interface{}{"code": "VALIDATION_ERROR", "message": "gender must be male or female"})
 			return
 		}
 
-		if calcReq.Age < 16 || calcReq.Age > 70 {
-			respondJSON(w, http.StatusBadRequest, map[string]interface{}{"code": "VALIDATION_ERROR", "message": "age must be between 16 and 70"})
-			return
-		}
-		if calcReq.Gender != "male" && calcReq.Gender != "female" {
-			respondJSON(w, http.StatusBadRequest, map[string]interface{}{"code": "VALIDATION_ERROR", "message": "gender must be male or female"})
-			return
-		}
-		if calcReq.MonthlyBudget <= 0 {
-			respondJSON(w, http.StatusBadRequest, map[string]interface{}{"code": "VALIDATION_ERROR", "message": "monthly_budget must be positive"})
-			return
-		}
-		if calcReq.ContributionYears < 0 {
-			respondJSON(w, http.StatusBadRequest, map[string]interface{}{"code": "VALIDATION_ERROR", "message": "contribution_years must be non-negative"})
-			return
-		}
+		var profile *models.UserProfile
 		if profileRepo != nil {
-			if profile, err := profileRepo.GetByUserID(r.Context(), userID); err == nil {
-				code := profile.CurrentResidenceCode
-				if code == "" {
-					code = profile.HouseholdRegionCode
-				}
-				// 从实际政策数据中提取费率参数
-				if policyRepo != nil && code != "" {
-					policies, err := policyRepo.QueryByRegionAndStatus(r.Context(), code, "verified")
-					if err == nil {
-						for _, p := range policies {
-							switch p.PolicyType {
-							case "pension":
-								calcReq.PensionEmployeeRate = parseRate(p.SubsidyCalcMethod, "个人")
-								calcReq.PensionEmployerRate = parseRate(p.SubsidyCalcMethod, "单位")
-								calcReq.GenderPensionAge = calcPensionAge(profile.DateOfBirth, profile.Gender, calcReq.OriginalPensionAge)
-							case "medical":
-								calcReq.MedicalEmployeeRate = parseRate(p.SubsidyCalcMethod, "个人")
-								calcReq.MedicalEmployerRate = parseRate(p.SubsidyCalcMethod, "单位")
-							case "subsidy":
-								if p.SubsidyAmountMin != nil {
-									calcReq.ContributionBaseMin = *p.SubsidyAmountMin
-								}
-								if p.SubsidyAmountMax != nil {
-									calcReq.ContributionBaseMax = *p.SubsidyAmountMax
-									if calcReq.LocalAvgSalary <= 0 {
-										calcReq.LocalAvgSalary = *p.SubsidyAmountMax
-									}
-								}
-							}
-						}
-					}
-				}
-				if calcReq.LocalAvgSalary <= 0 {
-					if ci := GetCityInfo(code); ci != nil {
-						calcReq.LocalAvgSalary = ci.AvgSalary
-					}
-				}
+			if p, err := profileRepo.GetByUserID(r.Context(), userID); err == nil {
+				profile = p
 			}
 		}
-		if calcReq.LocalAvgSalary <= 0 {
-			// fallback: 使用上海平均工资
-			if ci := GetCityInfo("310000"); ci != nil {
-				calcReq.LocalAvgSalary = ci.AvgSalary
+		if profile == nil {
+			profile = &models.UserProfile{
+				UserID:           userID,
+				Age:              req.Age,
+				Gender:           req.Gender,
+				EmploymentStatus: req.Employment,
 			}
 		}
-		if calcReq.LocalAvgSalary <= 0 {
-			respondJSON(w, http.StatusBadRequest, map[string]interface{}{"code": "VALIDATION_ERROR", "message": "无法确定当地平均工资，请完善用户信息"})
-			return
+
+		var policies []models.PolicyClaim
+		code := profile.CurrentResidenceCode
+		if code == "" {
+			code = profile.HouseholdRegionCode
+		}
+		if policyRepo != nil && code != "" {
+			policies, _ = policyRepo.QueryByRegionAndStatus(r.Context(), code, "verified")
+		}
+		if policies == nil {
+			policies = []models.PolicyClaim{}
 		}
 
-		if calc == nil {
-			respondError(w, fmt.Errorf("calculator not configured"))
+		if llmGatewayURL == "" {
+			respondJSON(w, 500, map[string]interface{}{"code": "CONFIG_ERROR", "message": "LLM gateway not configured"})
 			return
 		}
-
-		calcResp, err := calc.Calculate(r.Context(), &calcReq)
+		client := &LLMGatewayClient{URL: llmGatewayURL}
+		systemPrompt := buildPlanSystemPrompt()
+		userContent := buildPlanUserContent(profile, policies)
+		llmResp, err := client.Chat(r.Context(), systemPrompt, userContent)
 		if err != nil {
 			respondError(w, err)
 			return
 		}
 
-		var totalCost, totalSubsidy float64
-		var schemes []models.Scheme
-		for _, s := range calcResp.Schemes {
-			totalCost += s.MonthlyCost * 12
-			totalSubsidy += s.AnnualSubsidy
-			schemes = append(schemes, models.Scheme{
-				Name:                  s.Name,
-				BaseSalary:            s.BaseSalary,
-				MonthlyCost:           s.MonthlyCost,
-				AnnualSubsidy:         s.AnnualSubsidy,
-				SubsidyPolicy:         s.SubsidyPolicy,
-				SubsidyCondition:      s.SubsidyCondition,
-				PaidMonths:            s.PaidMonths,
-				TargetMonths:          s.TargetMonths,
-				RemainingMonths:       s.RemainingMonths,
-				TotalPersonalCost:     s.TotalPersonalCost,
-				RemainingPersonalCost: s.RemainingPersonalCost,
-				ProjectedPension:      s.ProjectedPension,
-				AfterTaxPension:       s.AfterTaxPension,
-				Cashflow:              s.Cashflow,
-			})
+		freeForm, structured, err := parseLLMResponse(llmResp.Content)
+		if err != nil {
+			respondError(w, err)
+			return
 		}
 
 		snapshot := &models.PlanSnapshot{
-			PlanID:             fmt.Sprintf("plan-%d", time.Now().UnixNano()),
-			UserID:             userID,
-			RecommendedSchemes: schemes,
-			TotalCost:          totalCost,
-			TotalSubsidy:       totalSubsidy,
-			GeneratedAt:        time.Now(),
+			PlanID:       fmt.Sprintf("plan-%d", time.Now().UnixNano()),
+			UserID:       userID,
+			FreeFormText: freeForm,
+			GeneratedAt:  time.Now(),
+		}
+
+		if structured != nil {
+			snapshot.StructuredSchemes = structured.Schemes
+			snapshot.PolicyReferences = structured.PolicyReferences
+			snapshot.Recommendation = structured.Recommendation.RecommendedScheme
+			snapshot.RecommendationReason = structured.Recommendation.Reasoning
+
+			var totalCost, totalSubsidy float64
+			for _, s := range structured.Schemes {
+				totalCost += s.TotalCost
+				totalSubsidy += s.AnnualSubsidy
+			}
+			snapshot.TotalCost = totalCost
+			snapshot.TotalSubsidy = totalSubsidy
 		}
 
 		if repo != nil {
@@ -243,7 +252,7 @@ func GeneratePlanHandler(calc Calculator, repo PlanRepository, profileRepo Profi
 			}
 		}
 
-		respondJSON(w, http.StatusOK, map[string]interface{}{"code": 0, "data": snapshot})
+		respondJSON(w, 200, map[string]interface{}{"code": 0, "data": snapshot})
 	})
 }
 
@@ -317,9 +326,6 @@ func calcPensionAge(dob, gender string, originalPensionAge int) int {
 	return baseAge + delay/12
 }
 
-// parseRate 从 subsidy_calc_method 中解析费率
-// 格式如 "基数*8%+基数*16%" 中提取个人部分(第一个)和单位部分(第二个)
-// label: "个人" 返回第一个费率, "单位" 返回第二个费率
 func parseRate(method, label string) float64 {
 	if method == "" {
 		return 0

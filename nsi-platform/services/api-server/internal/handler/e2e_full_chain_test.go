@@ -10,25 +10,33 @@ import (
 
 	"github.com/trigold786/94-AI-Insurance-Design/shared/middleware"
 	"github.com/trigold786/94-AI-Insurance-Design/shared/models"
+	"github.com/trigold786/94-AI-Insurance-Design/api-server/internal/repository"
 )
 
 // E2E test covering: profile → plan → report → compliance → guide → feedback → rights
 func TestE2EFullChainV2(t *testing.T) {
-	// Mock actuarial engine
-	aeSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	llmSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(`{"schemes":[
-			{"name":"最低基数 (60%)","base_salary":6000,"monthly_cost":600,"projected_pension":2500,"annual_subsidy":1200},
-			{"name":"中等基数 (100%)","base_salary":10000,"monthly_cost":1000,"projected_pension":4000,"annual_subsidy":2000},
-			{"name":"最高基数 (300%)","base_salary":30000,"monthly_cost":3000,"projected_pension":8000,"annual_subsidy":6000}
-		],"total_cost":600,"total_subsidy":1200,"calculation_time_ms":8.2}`))
+		json.NewEncoder(w).Encode(LLMChatResponse{Code: 200, Content: `===FREE_FORM_START===
+建议您选择中等缴费基数方案...
+===FREE_FORM_END===
+===STRUCTURED_START===
+{
+  "summary": "推荐中等基数方案",
+  "schemes": [
+    {"name":"最低基数 (60%)","description":"低基数","monthly_cost":600,"annual_subsidy":1200,"projected_pension":2500,"total_cost":7200,"contribution_base":6000,"analysis":"适合预算有限","applicable_policies":["pol-1"]},
+    {"name":"中等基数 (100%)","description":"中等基数","monthly_cost":1000,"annual_subsidy":2000,"projected_pension":4000,"total_cost":12000,"contribution_base":10000,"analysis":"性价比最优","applicable_policies":["pol-1"]},
+    {"name":"最高基数 (300%)","description":"高基数","monthly_cost":3000,"annual_subsidy":6000,"projected_pension":8000,"total_cost":36000,"contribution_base":30000,"analysis":"适合高收入","applicable_policies":["pol-1"]}
+  ],
+  "policy_references": [],
+  "recommendation": {"recommended_scheme":"中等基数 (100%)","reasoning":"性价比最优"}
+}
+===STRUCTURED_END===`})
 	}))
-	defer aeSrv.Close()
-
-	calc := &HTTPCalculator{Endpoint: aeSrv.URL}
+	defer llmSrv.Close()
 	planRepo := &mockPlanRepo{}
 	profileRepo := &mockProfileRepo{}
-	policyRepo := &mockPolicyRepo{claims: []models.PolicyClaim{
+	policyRepo := &e2ePolicyRepo{claims: []models.PolicyClaim{
 		{ClaimID: "pol-1", PolicyID: "SH-FLEX-001", PolicyType: "subsidy", RegionCode: "310000", 
 		 SubsidyCalcMethod: "灵活就业社保补贴50%", SourceName: "上海人社局", PolicyURL: "https://rsj.sh.gov.cn/policy/001"},
 		{ClaimID: "pol-2", PolicyID: "BJ-PEN-001", PolicyType: "pension", RegionCode: "110000",
@@ -71,8 +79,8 @@ func TestE2EFullChainV2(t *testing.T) {
 
 	// Step 3: Generate plan
 	t.Log("Step 3: Generate plan")
-	genHandler := middleware.AuthMiddleware("")(GeneratePlanHandler(calc, planRepo, nil, nil))
-	genBody := `{"age":30,"gender":"male","employment":"flexible","contribution_years":10,"current_balance":50000,"monthly_budget":3000,"priority":"balanced","local_avg_salary":10000}`
+	genHandler := middleware.AuthMiddleware("")(GeneratePlanHandler(llmSrv.URL, planRepo, nil, nil))
+	genBody := `{"age":30,"gender":"male","employment":"flexible","monthly_budget":3000}`
 	greq := httptest.NewRequest("POST", "/v1/plans/generate", strings.NewReader(genBody))
 	greq.Header.Set("x-user-id", userID)
 	gw := httptest.NewRecorder()
@@ -91,8 +99,8 @@ func TestE2EFullChainV2(t *testing.T) {
 	if genWrapper.Data == nil || genWrapper.Data.PlanID == "" {
 		t.Fatal("GeneratePlan: expected non-empty plan_id")
 	}
-	if len(genWrapper.Data.RecommendedSchemes) != 3 {
-		t.Fatalf("GeneratePlan: expected 3 schemes, got %d", len(genWrapper.Data.RecommendedSchemes))
+	if len(genWrapper.Data.StructuredSchemes) != 3 {
+		t.Fatalf("GeneratePlan: expected 3 schemes, got %d", len(genWrapper.Data.StructuredSchemes))
 	}
 	planID := genWrapper.Data.PlanID
 	planRepo.savedPlan.PlanID = planID
@@ -118,10 +126,10 @@ func TestE2EFullChainV2(t *testing.T) {
 		t.Errorf("PlanDetail expected plan_id %s, got %s", planID, detailWrapper.Data.PlanID)
 	}
 	// Verify first scheme
-	if len(detailWrapper.Data.RecommendedSchemes) > 0 {
-		s := detailWrapper.Data.RecommendedSchemes[0]
-		if s.BaseSalary != 6000 {
-			t.Errorf("PlanDetail expected BaseSalary 6000, got %d", s.BaseSalary)
+	if len(detailWrapper.Data.StructuredSchemes) > 0 {
+		s := detailWrapper.Data.StructuredSchemes[0]
+		if s.ContributionBase != 6000 {
+			t.Errorf("PlanDetail expected ContributionBase 6000, got %f", s.ContributionBase)
 		}
 	}
 
@@ -270,4 +278,27 @@ type mockFeedbackRepo struct{}
 
 func (m *mockFeedbackRepo) SaveFeedback(_ context.Context, _, _, _, _ string) error {
 	return nil
+}
+
+type e2ePolicyRepo struct {
+	claims []models.PolicyClaim
+}
+
+func (m *e2ePolicyRepo) Query(_ context.Context, filter repository.PolicyFilter) ([]models.PolicyClaim, error) {
+	return m.claims, nil
+}
+
+func (m *e2ePolicyRepo) GetByID(_ context.Context, _ string) (*models.PolicyClaim, error) {
+	if len(m.claims) > 0 {
+		return &m.claims[0], nil
+	}
+	return nil, nil
+}
+
+func (m *e2ePolicyRepo) QueryByRegionAndStatus(_ context.Context, _, _ string) ([]models.PolicyClaim, error) {
+	return m.claims, nil
+}
+
+func (m *e2ePolicyRepo) QueryByRegionHierarchy(_ context.Context, _, _ string) ([]models.PolicyClaim, error) {
+	return m.claims, nil
 }
