@@ -3,7 +3,6 @@
 services:
   postgres:
     image: pgvector/pgvector:pg18
-    container_name: nsi-postgres
     environment:
       POSTGRES_DB: nsi
       POSTGRES_USER: postgres
@@ -20,7 +19,6 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: nsi-redis
     ports:
       - "39479:6379"
     volumes:
@@ -33,7 +31,6 @@ services:
 
   minio:
     image: minio/minio
-    container_name: nsi-minio
     command: server /data --console-address ":9001"
     ports:
       - "39490:9000"

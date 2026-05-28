@@ -4,7 +4,6 @@ include:
 services:
   api-server:
     image: nsi-api-server:latest
-    container_name: nsi-api-server
     ports:
       - "39401:39401"
     environment:
@@ -38,7 +37,6 @@ services:
 
   actuarial-engine:
     image: nsi-actuarial-engine:latest
-    container_name: nsi-actuarial-engine
     ports:
       - "39402:39402"
     environment:
@@ -62,7 +60,6 @@ services:
 
   policy-crawler:
     image: nsi-policy-crawler:latest
-    container_name: nsi-policy-crawler
     ports:
       - "39403:39403"
     environment:
@@ -89,7 +86,6 @@ services:
 
   llm-gateway:
     image: nsi-llm-gateway:latest
-    container_name: nsi-llm-gateway
     ports:
       - "39404:39404"
     environment:
@@ -116,7 +112,6 @@ services:
 
   db-init:
     image: postgres:18-alpine
-    container_name: nsi-db-init
     environment:
       PGPASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
     entrypoint: >
@@ -132,7 +127,6 @@ services:
 
   db-migrate:
     image: postgres:18-alpine
-    container_name: nsi-db-migrate
     environment:
       PGPASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
     volumes:
