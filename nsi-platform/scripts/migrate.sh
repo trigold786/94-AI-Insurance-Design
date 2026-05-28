@@ -26,6 +26,9 @@ run_migrations nsi_api /migrations/api
 echo 'Running crawler migrations...'
 run_migrations nsi_crawler /migrations/crawler
 
+echo 'Running llm-gateway migrations...'
+run_migrations nsi_llm /migrations/llm
+
 echo 'Seeding default user...'
 psql -h postgres -U postgres -d nsi_api -c "INSERT INTO users (user_id) VALUES ('default-user') ON CONFLICT DO NOTHING" 2>/dev/null
 
