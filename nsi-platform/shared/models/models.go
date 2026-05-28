@@ -114,13 +114,19 @@ type PolicyCompliance struct {
 
 // PlanSnapshot 方案快照
 type PlanSnapshot struct {
-	PlanID              string    `db:"plan_id" json:"plan_id"`
-	UserID              string    `db:"user_id" json:"user_id"`
-	PolicyVersionSnapshotID string `db:"policy_version_snapshot_id" json:"policy_version_snapshot_id"`
-	RecommendedSchemes  []Scheme  `db:"recommended_schemes" json:"recommended_schemes"`
-	TotalCost           float64   `db:"total_cost" json:"total_cost"`
-	TotalSubsidy        float64   `db:"total_subsidy" json:"total_subsidy"`
-	GeneratedAt         time.Time `db:"generated_at" json:"generated_at"`
+	PlanID                   string              `db:"plan_id" json:"plan_id"`
+	UserID                   string              `db:"user_id" json:"user_id"`
+	PolicyVersionSnapshotID  string              `db:"policy_version_snapshot_id" json:"policy_version_snapshot_id"`
+	RecommendedSchemes       []Scheme            `db:"recommended_schemes" json:"recommended_schemes"`
+	FreeFormText             string              `db:"free_form_text" json:"free_form_text"`
+	StructuredSchemes        []LLMScheme         `db:"structured_schemes" json:"structured_schemes"`
+	PolicyReferences         []PolicyReference   `db:"policy_references" json:"policy_references"`
+	Recommendation           string              `db:"recommendation" json:"recommendation"`
+	RecommendationReason     string              `db:"recommendation_reason" json:"recommendation_reason"`
+	VerificationResult       *VerificationResult `db:"verification_result" json:"verification_result,omitempty"`
+	TotalCost                float64             `db:"total_cost" json:"total_cost"`
+	TotalSubsidy             float64             `db:"total_subsidy" json:"total_subsidy"`
+	GeneratedAt              time.Time           `db:"generated_at" json:"generated_at"`
 }
 
 // Scheme 推荐方案
@@ -192,4 +198,51 @@ type VersionSnapshot struct {
 	SnapshotData  *json.RawMessage  `db:"snapshot_data" json:"snapshot_data"`
 	SupersededBy  string           `db:"superseded_by" json:"superseded_by,omitempty"`
 	CreatedAt     string           `db:"created_at" json:"created_at"`
+}
+
+type LLMScheme struct {
+	Name                string   `json:"name"`
+	Description         string   `json:"description"`
+	MonthlyCost         float64  `json:"monthly_cost"`
+	AnnualSubsidy       float64  `json:"annual_subsidy"`
+	ProjectedPension    float64  `json:"projected_pension"`
+	TotalCost           float64  `json:"total_cost"`
+	ContributionBase    float64  `json:"contribution_base"`
+	PensionEmployeeRate float64  `json:"pension_employee_rate"`
+	PensionEmployerRate float64  `json:"pension_employer_rate"`
+	MedicalEmployeeRate float64  `json:"medical_employee_rate"`
+	Analysis            string   `json:"analysis"`
+	ApplicablePolicies  []string `json:"applicable_policies"`
+}
+
+type PolicyReference struct {
+	ClaimID         string `json:"claim_id"`
+	PolicyTitle     string `json:"policy_title"`
+	DocumentNumber  string `json:"document_number"`
+	PolicyURL       string `json:"policy_url"`
+	RelevantExcerpt string `json:"relevant_excerpt"`
+	HowApplied      string `json:"how_applied"`
+}
+
+type DeviationDetail struct {
+	Metric       string  `json:"metric"`
+	LLMValue     float64 `json:"llm_value"`
+	ActuaryValue float64 `json:"actuary_value"`
+	DeviationPct float64 `json:"deviation_pct"`
+}
+
+type VerificationResult struct {
+	Status       string            `json:"status"`
+	MaxDeviation float64           `json:"max_deviation_pct"`
+	Details      []DeviationDetail `json:"details"`
+}
+
+type LLMSchemeResponse struct {
+	Summary          string            `json:"summary"`
+	Schemes          []LLMScheme       `json:"schemes"`
+	PolicyReferences []PolicyReference `json:"policy_references"`
+	Recommendation   struct {
+		RecommendedScheme string `json:"recommended_scheme"`
+		Reasoning         string `json:"reasoning"`
+	} `json:"recommendation"`
 }
