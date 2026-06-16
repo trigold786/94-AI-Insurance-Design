@@ -65,7 +65,7 @@ services/llm-gateway/
 **公共端点**：
 - `POST /v1/chat` — 发送 prompt，返回 LLM 响应
   - 请求：`{"model_preference":"deepseek","system_prompt":"...","user_content":"...","max_tokens":4096,"caller":"api-server"}`
-  - 响应：`{"content":"...","provider_used":"deepseek","model":"deepseek-chat","tokens_in":500,"tokens_out":2000,"latency_ms":1200}`
+  - 响应：`{"content":"...","provider_used":"deepseek","model":"deepseek-v4-flash","tokens_in":500,"tokens_out":2000,"latency_ms":1200}`
 - `GET /healthz`
 
 **管理员端点**（Basic Auth）：
@@ -79,8 +79,8 @@ services/llm-gateway/
 
 | Provider | endpoint | model | 格式 |
 |----------|----------|-------|------|
-| DeepSeek | `https://api.deepseek.com/v1/chat/completions` | `deepseek-chat` | OpenAI 兼容 |
-| 阿里云百炼 | `https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation` | `qwen-plus` | 百炼格式 |
+| DeepSeek | `https://api.deepseek.com/v1/chat/completions` | `deepseek-v4-flash` | OpenAI 兼容 |
+| 阿里云百炼 | `https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions` | `qwen3.6-plus` | OpenAI 兼容 |
 | 火山方舟 | `https://ark.cn-beijing.volces.com/api/v3/chat/completions` | `doubao-pro-32k` | OpenAI 兼容 |
 | OpenCode Go | `http://localhost:11434/v1/chat/completions` | `opencode-go` | OpenAI 兼容 |
 

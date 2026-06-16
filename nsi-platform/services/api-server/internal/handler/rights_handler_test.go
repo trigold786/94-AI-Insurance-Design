@@ -69,9 +69,9 @@ func TestPaymentStatusHandler(t *testing.T) {
 			},
 		}
 
-		handler := middleware.AuthMiddleware("")(PaymentStatusHandler(repo))
+		handler := middleware.AuthMiddleware(testJWTSecret)(PaymentStatusHandler(repo))
 		req := httptest.NewRequest("GET", "/v1/rights/payment-status", nil)
-		req.Header.Set("x-user-id", "user-1")
+		setAuth(req, "user-1")
 		w := httptest.NewRecorder()
 		handler.ServeHTTP(w, req)
 
@@ -105,9 +105,9 @@ func TestPaymentStatusHandler(t *testing.T) {
 	})
 
 	t.Run("returns empty summary when no records", func(t *testing.T) {
-		handler := middleware.AuthMiddleware("")(PaymentStatusHandler(&mockRightsRepo{records: []models.PaymentRecord{}}))
+		handler := middleware.AuthMiddleware(testJWTSecret)(PaymentStatusHandler(&mockRightsRepo{records: []models.PaymentRecord{}}))
 		req := httptest.NewRequest("GET", "/v1/rights/payment-status", nil)
-		req.Header.Set("x-user-id", "user-1")
+		setAuth(req, "user-1")
 		w := httptest.NewRecorder()
 		handler.ServeHTTP(w, req)
 
@@ -130,9 +130,9 @@ func TestAlertListHandler(t *testing.T) {
 			},
 		}
 
-		handler := middleware.AuthMiddleware("")(AlertListHandler(repo))
+		handler := middleware.AuthMiddleware(testJWTSecret)(AlertListHandler(repo))
 		req := httptest.NewRequest("GET", "/v1/rights/alerts", nil)
-		req.Header.Set("x-user-id", "user-1")
+		setAuth(req, "user-1")
 		w := httptest.NewRecorder()
 		handler.ServeHTTP(w, req)
 
@@ -158,9 +158,9 @@ func TestAlertListHandler(t *testing.T) {
 			},
 		}
 
-		handler := middleware.AuthMiddleware("")(AlertListHandler(repo))
+		handler := middleware.AuthMiddleware(testJWTSecret)(AlertListHandler(repo))
 		req := httptest.NewRequest("GET", "/v1/rights/alerts?unread_only=true", nil)
-		req.Header.Set("x-user-id", "user-1")
+		setAuth(req, "user-1")
 		w := httptest.NewRecorder()
 		handler.ServeHTTP(w, req)
 
@@ -174,9 +174,9 @@ func TestAlertListHandler(t *testing.T) {
 	})
 
 	t.Run("mark alert as read", func(t *testing.T) {
-		handler := middleware.AuthMiddleware("")(MarkAlertReadHandler(&mockRightsRepo{}))
+		handler := middleware.AuthMiddleware(testJWTSecret)(MarkAlertReadHandler(&mockRightsRepo{}))
 		req := httptest.NewRequest("PUT", "/v1/rights/alerts/read?alert_id=a1", nil)
-		req.Header.Set("x-user-id", "user-1")
+		setAuth(req, "user-1")
 		w := httptest.NewRecorder()
 		handler.ServeHTTP(w, req)
 		if w.Code != http.StatusOK {
@@ -185,9 +185,9 @@ func TestAlertListHandler(t *testing.T) {
 	})
 
 	t.Run("mark alert requires alert_id", func(t *testing.T) {
-		handler := middleware.AuthMiddleware("")(MarkAlertReadHandler(&mockRightsRepo{}))
+		handler := middleware.AuthMiddleware(testJWTSecret)(MarkAlertReadHandler(&mockRightsRepo{}))
 		req := httptest.NewRequest("PUT", "/v1/rights/alerts/read", nil)
-		req.Header.Set("x-user-id", "user-1")
+		setAuth(req, "user-1")
 		w := httptest.NewRecorder()
 		handler.ServeHTTP(w, req)
 		if w.Code != http.StatusBadRequest {

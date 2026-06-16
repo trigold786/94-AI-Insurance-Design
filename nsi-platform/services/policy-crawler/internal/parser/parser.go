@@ -98,14 +98,26 @@ func ParsePolicyText(text, apiKey, endpoint string) (*PolicyClaim, error) {
   "expire_date": "失效日期 YYYY-MM-DD(可选)"
 }`, text)
 
-	reqBody, _ := json.Marshal(map[string]interface{}{
-		"model": "qwen-plus",
-		"input": map[string]interface{}{
+	var reqBody []byte
+	var isCompat bool
+	if strings.Contains(endpoint, "compatible-mode") {
+		isCompat = true
+		reqBody, _ = json.Marshal(map[string]interface{}{
+			"model": "qwen3.6-plus",
 			"messages": []map[string]string{
 				{"role": "user", "content": prompt},
 			},
-		},
-	})
+		})
+	} else {
+		reqBody, _ = json.Marshal(map[string]interface{}{
+			"model": "qwen-plus",
+			"input": map[string]interface{}{
+				"messages": []map[string]string{
+					{"role": "user", "content": prompt},
+				},
+			},
+		})
+	}
 
 	req, err := http.NewRequest("POST", endpoint, bytes.NewReader(reqBody))
 	if err != nil {
@@ -129,6 +141,23 @@ func ParsePolicyText(text, apiKey, endpoint string) (*PolicyClaim, error) {
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("LLM API returned status %d: %s", resp.StatusCode, string(body))
+	}
+
+	if isCompat {
+		var apiResp struct {
+			Choices []struct {
+				Message struct {
+					Content string `json:"content"`
+				} `json:"message"`
+			} `json:"choices"`
+		}
+		if err := json.Unmarshal(body, &apiResp); err != nil {
+			return nil, fmt.Errorf("failed to parse LLM API response: %w", err)
+		}
+		if len(apiResp.Choices) == 0 {
+			return nil, fmt.Errorf("empty response choices")
+		}
+		return ParseLLMResponse(apiResp.Choices[0].Message.Content)
 	}
 
 	var apiResp struct {

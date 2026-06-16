@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -63,7 +64,7 @@ func DefaultConfig() Config {
 	return Config{
 		Provider:  ProviderDeepSeek,
 		Endpoint:  "https://api.deepseek.com/v1/chat/completions",
-		ModelName: "deepseek-chat",
+		ModelName: "deepseek-v4-flash",
 		MaxTokens: 4096,
 		Enabled:   false,
 	}
@@ -74,8 +75,8 @@ var providerDefaults = map[Provider]struct {
 	endpoint  string
 	modelName string
 }{
-	ProviderDeepSeek:    {"https://api.deepseek.com/v1/chat/completions", "deepseek-chat"},
-	ProviderAliBailian:  {"https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation", "qwen-plus"},
+	ProviderDeepSeek:    {"https://api.deepseek.com/v1/chat/completions", "deepseek-v4-flash"},
+	ProviderAliBailian:  {"https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions", "qwen3.6-plus"},
 	ProviderVolcArk:     {"https://ark.cn-beijing.volces.com/api/v3/chat/completions", "doubao-pro-32k"},
 	ProviderOpenCodeGo:  {"http://localhost:11434/v1/chat/completions", "opencode-go"},
 }
@@ -119,15 +120,16 @@ type bailianResponse struct {
 
 // Client 统一的 LLM 客户端
 type Client struct {
-	config  Config
-	backup  *Config
-	http    *http.Client
+	config      Config
+	backup      *Config
+	http        *http.Client
+	usedBackup  bool
 }
 
 func NewClient(cfg Config) *Client {
 	return &Client{
 		config: cfg,
-		http:   &http.Client{Timeout: 60 * time.Second},
+		http:   &http.Client{Timeout: 300 * time.Second},
 	}
 }
 
@@ -135,32 +137,49 @@ func NewClientWithBackup(cfg Config, backup *Config) *Client {
 	return &Client{
 		config: cfg,
 		backup: backup,
-		http:   &http.Client{Timeout: 60 * time.Second},
+		http:   &http.Client{Timeout: 300 * time.Second},
 	}
 }
 
 func (c *Client) ModelName() string {
+	if c.usedBackup && c.backup != nil {
+		return c.backup.ModelName
+	}
 	return c.config.ModelName
 }
 
-// Chat 发送对话请求，返回文本响应
-func (c *Client) Chat(systemPrompt, userContent string) (string, error) {
+func (c *Client) UsedBackup() bool {
+	return c.usedBackup
+}
+
+func (c *Client) chatPrimary(systemPrompt, userContent string) (string, error) {
 	switch c.config.Provider {
 	case ProviderAliBailian:
-		result, err := c.chatBailianWithConfig(c.config, systemPrompt, userContent)
-		if err != nil && c.backup != nil {
-			log.Printf("[llm] primary failed, trying backup: %v", err)
-			return c.chatWithBackup(systemPrompt, userContent)
-		}
-		return result, err
+		return c.chatBailianWithConfig(c.config, systemPrompt, userContent)
 	default:
-		result, err := c.chatOpenAIWithConfig(c.config, systemPrompt, userContent)
-		if err != nil && c.backup != nil {
-			log.Printf("[llm] primary failed, trying backup: %v", err)
-			return c.chatWithBackup(systemPrompt, userContent)
-		}
-		return result, err
+		return c.chatOpenAIWithConfig(c.config, systemPrompt, userContent)
 	}
+}
+
+func (c *Client) Chat(systemPrompt, userContent string) (string, error) {
+	c.usedBackup = false
+	const maxPrimaryRetries = 5
+	for attempt := 1; attempt <= maxPrimaryRetries; attempt++ {
+		result, err := c.chatPrimary(systemPrompt, userContent)
+		if err == nil {
+			return result, nil
+		}
+		if c.backup == nil {
+			return "", err
+		}
+		log.Printf("[llm] primary model attempt %d/%d failed: %v", attempt, maxPrimaryRetries, err)
+		if attempt < maxPrimaryRetries {
+			time.Sleep(time.Duration(attempt) * 2 * time.Second)
+		}
+	}
+	log.Printf("[llm] primary model failed %d times, falling back to backup", maxPrimaryRetries)
+	c.usedBackup = true
+	return c.chatWithBackup(systemPrompt, userContent)
 }
 
 func (c *Client) chatWithBackup(systemPrompt, userContent string) (string, error) {
@@ -183,8 +202,12 @@ func doChatOpenAI(cfg Config, httpClient *http.Client, systemPrompt, userContent
 		MaxTokens: cfg.MaxTokens,
 	}
 
+	endpoint := cfg.Endpoint
+	if !strings.Contains(endpoint, "/chat/completions") && !strings.Contains(endpoint, "/embeddings") {
+		endpoint = strings.TrimRight(endpoint, "/") + "/chat/completions"
+	}
 	body, _ := json.Marshal(req)
-	httpReq, err := http.NewRequest("POST", cfg.Endpoint, bytes.NewReader(body))
+	httpReq, err := http.NewRequest("POST", endpoint, bytes.NewReader(body))
 	if err != nil {
 		return "", fmt.Errorf("create request: %w", err)
 	}
@@ -218,6 +241,11 @@ func (c *Client) chatOpenAIWithConfig(cfg Config, systemPrompt, userContent stri
 
 // chatBailian 阿里云百炼（通义千问）格式
 func (c *Client) chatBailianWithConfig(cfg Config, systemPrompt, userContent string) (string, error) {
+	// 2026-05: 阿里云百炼已全面支持 OpenAI 兼容模式
+	if strings.Contains(cfg.Endpoint, "compatible-mode") {
+		return c.chatOpenAIWithConfig(cfg, systemPrompt, userContent)
+	}
+
 	req := bailianRequest{
 		Model: cfg.ModelName,
 		Parameters: map[string]interface{}{

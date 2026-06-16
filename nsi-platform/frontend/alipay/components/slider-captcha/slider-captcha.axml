@@ -1,0 +1,11 @@
+<view class="captcha {{verified ? 'verified' : ''}}">
+  <movable-area class="track" id="track">
+    <text class="track-text">{{text}}</text>
+    <movable-view class="handle {{verified ? 'ok' : ''}}" id="handle"
+      direction="horizontal" x="{{left}}" damping="60"
+      friction="{{50}}" inertia="{{false}}" out-of-bounds="{{false}}"
+      onChange="onChange" onTouchEnd="onTouchEnd">
+      <text class="handle-icon">{{verified ? '✓' : '›››'}}</text>
+    </movable-view>
+  </movable-area>
+</view>

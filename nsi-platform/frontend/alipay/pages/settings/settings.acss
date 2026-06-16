@@ -1,0 +1,35 @@
+.page-title { font-size: 36rpx; font-weight: 700; margin: 20rpx 0; display: block; }
+.section-title { font-size: 28rpx; font-weight: 600; display: block; }
+
+.font-group { display: flex; flex-direction: row; gap: 32rpx; }
+.font-item { display: flex; align-items: center; gap: 8rpx; }
+.font-label { color: #374151; }
+.font-label.size-small { font-size: 24rpx; }
+.font-label.size-medium { font-size: 28rpx; }
+.font-label.size-large { font-size: 36rpx; }
+
+.picker-value {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24rpx;
+  background: #F9FAFB;
+  border-radius: 12rpx;
+  font-size: 28rpx;
+  color: #1F2937;
+}
+.picker-arrow { color: #9CA3AF; font-size: 32rpx; }
+
+.notify-text { flex: 1; padding-right: 24rpx; }
+.notify-desc { display: block; }
+
+.btn-logout {
+  background: #fff;
+  color: #EF4444;
+  border: 2rpx solid #FCA5A5;
+  border-radius: 48rpx;
+  padding: 22rpx 0;
+  font-size: 30rpx;
+  font-weight: 600;
+}
+.btn-logout:active { background: #FEF2F2; }

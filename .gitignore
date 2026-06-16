@@ -6,6 +6,28 @@ Thumbs.db
 *.swp
 *.swo
 *~
+.idea/
+.vscode/
 
 # Temp
 *.bak
+
+# Go binaries
+bin/
+*.exe
+nsi-platform/services/*/bin/
+nsi-platform/services/*/policy-crawler
+nsi-platform/services/*/api-server
+nsi-platform/services/*/actuarial-engine
+nsi-platform/services/*/llm-gateway
+
+# Environment
+.env
+.env.local
+*.pem
+*.key
+
+# Build artifacts
+*.apk
+*.ipa
+*.aab

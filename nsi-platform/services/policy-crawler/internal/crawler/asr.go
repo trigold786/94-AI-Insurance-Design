@@ -2,12 +2,13 @@ package crawler
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
-	"os/exec"
+	"os"
 	"strings"
 	"time"
 )
@@ -53,37 +54,30 @@ func NewVolcengineASR(cfg ASRConfig) *VolcengineASR {
 }
 
 func (v *VolcengineASR) Transcribe(audioPath string, audioURL string) (string, error) {
-	if audioURL == "" {
-		url, err := v.getDirectAudioURL(audioPath)
-		if err != nil {
-			return "", fmt.Errorf("no audio URL available and cannot extract from yt-dlp: %w", err)
-		}
-		audioURL = url
-	}
+	submitURL, queryURL := v.buildAPIURLs()
 
-	submitURL := "https://openspeech.bytedance.com/api/v3/auc/bigmodel/submit"
-	resourceID := v.config.ResourceID
-	if resourceID == "" {
-		resourceID = "volc.bigasr.auc"
-	}
-	if strings.Contains(resourceID, "idle") {
-		submitURL = "https://openspeech.bytedance.com/api/v3/auc/bigmodel/idle/submit"
+	var audioMap map[string]string
+	if audioURL != "" {
+		audioMap = map[string]string{"url": audioURL, "format": "mp4"}
+	} else {
+		data, err := os.ReadFile(audioPath)
+		if err != nil {
+			return "", fmt.Errorf("read audio file: %w", err)
+		}
+		encoded := base64.StdEncoding.EncodeToString(data)
+		audioMap = map[string]string{"audio": encoded, "format": "mp4"}
+		log.Printf("[asr] audio file: %d bytes, format=%s", len(data), audioMap["format"])
 	}
 
 	taskID := fmt.Sprintf("nsi-asr-%d", time.Now().UnixNano())
 
-	taskID, err := v.submitTask(submitURL, audioURL, taskID, resourceID)
+	submittedID, err := v.submitTask(submitURL, taskID, audioMap)
 	if err != nil {
 		return "", fmt.Errorf("submit ASR task: %w", err)
 	}
-	log.Printf("[asr] submitted task %s for url=%s (resource=%s)", taskID, truncateForLog(audioURL, 80), resourceID)
+	log.Printf("[asr] submitted task %s (resource=%s)", submittedID, v.config.ResourceID)
 
-	queryURL := "https://openspeech.bytedance.com/api/v3/auc/bigmodel/query"
-	if strings.Contains(resourceID, "idle") {
-		queryURL = "https://openspeech.bytedance.com/api/v3/auc/bigmodel/idle/query"
-	}
-
-	text, err := v.pollResult(queryURL, taskID, resourceID)
+	text, err := v.pollResult(queryURL, submittedID)
 	if err != nil {
 		return "", fmt.Errorf("poll ASR result: %w", err)
 	}
@@ -93,11 +87,31 @@ func (v *VolcengineASR) Transcribe(audioPath string, audioURL string) (string, e
 	return text, nil
 }
 
-func (v *VolcengineASR) submitTask(submitURL, audioURL, taskID, resourceID string) (string, error) {
+func (v *VolcengineASR) buildAPIURLs() (submitURL, queryURL string) {
+	submitURL = "https://openspeech.bytedance.com/api/v3/auc/bigmodel/submit"
+	queryURL = "https://openspeech.bytedance.com/api/v3/auc/bigmodel/query"
+	resourceID := v.config.ResourceID
+	if resourceID == "" {
+		resourceID = "volc.bigasr.auc"
+	}
+	if strings.Contains(resourceID, "idle") {
+		submitURL = "https://openspeech.bytedance.com/api/v3/auc/bigmodel/idle/submit"
+		queryURL = "https://openspeech.bytedance.com/api/v3/auc/bigmodel/idle/query"
+	}
+	return
+}
+
+func (v *VolcengineASR) submitTask(submitURL, taskID string, audioMap map[string]string) (string, error) {
+	resourceID := v.config.ResourceID
+	if resourceID == "" {
+		resourceID = "volc.bigasr.auc"
+	}
 	reqBody := map[string]interface{}{
-		"user":    map[string]string{"uid": v.config.AppID},
-		"audio":   map[string]string{"url": audioURL},
-		"request": map[string]string{"model_name": "bigmodel"},
+		"audio":   audioMap,
+		"request": map[string]interface{}{"model_name": "bigmodel", "result_type": "single"},
+	}
+	if v.config.AppID != "" {
+		reqBody["user"] = map[string]string{"uid": v.config.AppID}
 	}
 	body, _ := json.Marshal(reqBody)
 
@@ -120,11 +134,17 @@ func (v *VolcengineASR) submitTask(submitURL, audioURL, taskID, resourceID strin
 		msg := resp.Header.Get("X-Api-Message")
 		return "", fmt.Errorf("submit failed: status=%s message=%s body=%s", statusCode, msg, truncateBytes(respBody, 200))
 	}
+	respBody, _ := io.ReadAll(resp.Body)
+	log.Printf("[asr] submit response: status=%s body=%s", statusCode, truncateBytes(respBody, 300))
 
 	return taskID, nil
 }
 
-func (v *VolcengineASR) pollResult(queryURL, taskID, resourceID string) (string, error) {
+func (v *VolcengineASR) pollResult(queryURL, taskID string) (string, error) {
+	resourceID := v.config.ResourceID
+	if resourceID == "" {
+		resourceID = "volc.bigasr.auc"
+	}
 	deadline := time.Now().Add(time.Duration(v.config.MaxWaitSeconds) * time.Second)
 	for time.Now().Before(deadline) {
 		time.Sleep(time.Duration(v.config.PollIntervalSeconds) * time.Second)
@@ -162,26 +182,27 @@ func (v *VolcengineASR) pollResult(queryURL, taskID, resourceID string) (string,
 			continue
 		default:
 			msg := resp.Header.Get("X-Api-Message")
-			return "", fmt.Errorf("ASR query failed: status=%s message=%s", statusCode, msg)
+			return "", fmt.Errorf("ASR query failed: status=%s message=%s body=%s", statusCode, msg, truncateBytes(respBody, 500))
 		}
 	}
 	return "", fmt.Errorf("ASR task %s timed out after %d seconds", taskID, v.config.MaxWaitSeconds)
 }
 
 func (v *VolcengineASR) setHeaders(req *http.Request, taskID, resourceID string) {
-	req.Header.Set("X-Api-App-Key", v.config.AppID)
+	if v.config.AppID != "" {
+		req.Header.Set("X-Api-App-Key", v.config.AppID)
+	} else {
+		log.Printf("[asr] WARNING: no AppID configured, X-Api-App-Key will be empty")
+	}
 	req.Header.Set("X-Api-Access-Key", v.config.APIKey)
 	req.Header.Set("X-Api-Resource-Id", resourceID)
 	req.Header.Set("X-Api-Request-Id", taskID)
 	req.Header.Set("X-Api-Sequence", "-1")
-}
-
-func (v *VolcengineASR) getDirectAudioURL(audioPath string) (string, error) {
-	return "", fmt.Errorf("audio URL extraction not supported for local files, need yt-dlp video URL")
+	log.Printf("[asr] request %s: AppKey=%s AccessKey=%.10s... Resource=%s", taskID, v.config.AppID, v.config.APIKey, resourceID)
 }
 
 func GetDirectAudioURLFromVideo(videoURL string) (string, error) {
-	cmd := exec.Command("yt-dlp", "-g", "-f", "bestaudio", videoURL)
+	cmd := ytDlpCmd("-g", "-f", "bestaudio", videoURL)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return "", fmt.Errorf("yt-dlp get-url: %w: %s", err, string(out))

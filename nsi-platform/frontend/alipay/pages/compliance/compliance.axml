@@ -45,4 +45,8 @@
       <text class="doc-optional" a:if="{{item.optional}}">非必需材料</text>
     </view>
   </view>
+
+  <view class="mt-24 flex-center">
+    <button class="btn-secondary" onTap="onGuideTap" style="width:60%">查看办理指南</button>
+  </view>
 </view>

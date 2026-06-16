@@ -1,9 +1,13 @@
 package handler
 
 import (
+	"bytes"
 	"context"
 	"html/template"
+	"io"
 	"net/http"
+	"os"
+	"os/exec"
 	"strings"
 	"time"
 
@@ -119,9 +123,34 @@ func PlanReportPDFHandler(repo PlanRepository, policyRepo PolicySearcher, profil
 			}
 		}
 
+		var htmlBuf bytes.Buffer
+		renderPDFReport(&htmlBuf, plan, policies, profile, cityName)
+		htmlFile := "/tmp/nsi-report-" + planID + ".html"
+		pdfFile := "/tmp/nsi-report-" + planID + ".pdf"
+		os.WriteFile(htmlFile, htmlBuf.Bytes(), 0644)
+		chromeBin := os.Getenv("CHROME_BIN")
+		if chromeBin == "" {
+			chromeBin = "chromium-browser"
+		}
+		cmd := exec.Command(chromeBin, "--headless", "--no-sandbox", "--disable-gpu",
+			"--print-to-pdf="+pdfFile, htmlFile)
+		cmd.Stdout = nil
+		cmd.Stderr = nil
+		pdfErr := cmd.Run()
+		if pdfErr == nil {
+			pdfData, readErr := os.ReadFile(pdfFile)
+			if readErr == nil && len(pdfData) > 0 {
+				w.Header().Set("Content-Type", "application/pdf")
+				w.Header().Set("Content-Disposition", `attachment; filename="social-insurance-report.pdf"`)
+				w.Write(pdfData)
+				os.Remove(htmlFile)
+				os.Remove(pdfFile)
+				return
+			}
+		}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.Header().Set("Content-Disposition", `attachment; filename="social-insurance-report.html"`)
-		renderPDFReport(w, plan, policies, profile, cityName)
+		w.Write(htmlBuf.Bytes())
 	})
 }
 
@@ -133,7 +162,7 @@ type pdfReportData struct {
 	GeneratedAt string
 }
 
-func renderPDFReport(w http.ResponseWriter, plan *models.PlanSnapshot, policies []models.PolicyClaim, profile *models.UserProfile, cityName string) {
+func renderPDFReport(w io.Writer, plan *models.PlanSnapshot, policies []models.PolicyClaim, profile *models.UserProfile, cityName string) {
 	data := pdfReportData{
 		Plan:        plan,
 		Policies:    policies,
@@ -396,6 +425,18 @@ tr:nth-child(even){background:#FAFBFC}
 <li>按时缴费：每月按时足额缴纳社保费用，避免断缴影响待遇</li>
 <li>定期查看权益：通过本平台跟踪缴费记录和权益状态</li>
 </ol>
+
+<h2>风险提示</h2>
+<div style="background:#FEF3C7;border:1px solid #F59E0B;border-radius:6px;padding:10px 14px;margin:6px 0 14px">
+<p style="color:#92400E;font-weight:600;margin-bottom:4px">请仔细阅读以下风险提示：</p>
+<ul style="padding-left:18px;color:#78350F;font-size:12px;line-height:1.8">
+<li><b>政策变动风险：</b>社保政策可能随国家和地方政策调整而变化，本报告基于当前有效政策生成，建议定期更新。</li>
+<li><b>断缴风险：</b>社保断缴可能影响购房资格、落户积分、医保待遇等连续性要求，请确保按时足额缴纳。</li>
+<li><b>基数选择风险：</b>缴费基数过低可能导致退休后养老金偏低，过高则增加当期经济压力，请根据个人经济能力合理选择。</li>
+<li><b>不合规操作风险：</b>切勿通过虚构劳动关系、挂靠代缴等方式违规参保，可能导致行政处罚和个人信用受损。</li>
+<li><b>地区差异风险：</b>不同城市社保政策差异较大，跨地区转移社保关系时可能存在待遇差异，请提前咨询当地社保经办机构。</li>
+</ul>
+</div>
 
 <div class="footer">
 <p>本报告由 AI社保智筹 生成，仅供参考。具体政策以当地人社局官方发布为准。</p>

@@ -15,6 +15,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.nsi.app.Routes
 import com.nsi.app.models.AppViewModel
 import com.nsi.app.models.Scheme
 import com.nsi.app.theme.AppColors
@@ -26,8 +27,13 @@ fun PlanDetailScreen(navController: NavController, viewModel: AppViewModel, plan
     val uiState by viewModel.uiState.collectAsState()
     var schemes by remember { mutableStateOf<List<Scheme>>(emptyList()) }
     var currentIndex by remember { mutableIntStateOf(0) }
+    var isUnlocked by remember { mutableStateOf(true) }
 
     LaunchedEffect(planId) {
+        try {
+            val client = NSIClient("http://127.0.0.1:39401", uiState.userInfo.nickName)
+            isUnlocked = client.checkUnlock(planId).unlocked
+        } catch (_: Exception) {}
         val cached = uiState.planResult
         if (cached != null) {
             schemes = cached.recommendedSchemes
@@ -99,6 +105,31 @@ fun PlanDetailScreen(navController: NavController, viewModel: AppViewModel, plan
 
             Spacer(modifier = Modifier.height(24.dp))
 
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = AppColors.BackgroundLight,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(
+                    "详细行动清单和风险提示请在Web端查看",
+                    modifier = Modifier.padding(12.dp),
+                    fontSize = 13.sp,
+                    color = AppColors.TextSecondary,
+                )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Button(
+                onClick = { navController.navigate(Routes.COMPLIANCE) },
+                modifier = Modifier.fillMaxWidth().height(48.dp),
+                shape = RoundedCornerShape(48.dp),
+            ) {
+                Text("立即申请补贴")
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
             Button(
                 onClick = {},
                 modifier = Modifier.fillMaxWidth().height(48.dp),
@@ -116,6 +147,17 @@ fun PlanDetailScreen(navController: NavController, viewModel: AppViewModel, plan
             ) {
                 Text("分享方案")
             }
+        }
+
+        if (!isUnlocked) {
+            AlertDialog(
+                onDismissRequest = { navController.popBackStack() },
+                title = { Text("未解锁") },
+                text = { Text("请先解锁完整报告") },
+                confirmButton = {
+                    TextButton(onClick = { navController.popBackStack() }) { Text("返回") }
+                },
+            )
         }
     }
 }

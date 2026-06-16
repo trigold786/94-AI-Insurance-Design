@@ -34,6 +34,15 @@ var chinaRegions = []Region{
 	{Code: "110114", Name: "昌平区", Level: "district", Parent: "110100"},
 	{Code: "110115", Name: "大兴区", Level: "district", Parent: "110100"},
 
+	// 北京市街道级
+	{Code: "110101001", Name: "东华门街道", Level: "street", Parent: "110101"}, // 东城区
+	{Code: "110101002", Name: "景山街道", Level: "street", Parent: "110101"},
+	{Code: "110101003", Name: "交道口街道", Level: "street", Parent: "110101"},
+	{Code: "110108001", Name: "中关村街道", Level: "street", Parent: "110108"}, // 海淀区
+	{Code: "110108002", Name: "学院路街道", Level: "street", Parent: "110108"},
+	{Code: "110105001", Name: "建外街道", Level: "street", Parent: "110105"}, // 朝阳区
+	{Code: "110105002", Name: "三里屯街道", Level: "street", Parent: "110105"},
+
 	{Code: "120000", Name: "天津市", Level: "province"},
 	{Code: "120100", Name: "天津市辖区", Level: "city", Parent: "120000"},
 	{Code: "120101", Name: "和平区", Level: "district", Parent: "120100"},
@@ -89,6 +98,15 @@ var chinaRegions = []Region{
 	{Code: "310118", Name: "青浦区", Level: "district", Parent: "310100"},
 	{Code: "310120", Name: "奉贤区", Level: "district", Parent: "310100"},
 
+	// 上海市街道级
+	{Code: "310115001", Name: "花木街道", Level: "street", Parent: "310115"}, // 浦东新区
+	{Code: "310115002", Name: "张江镇", Level: "street", Parent: "310115"},
+	{Code: "310115003", Name: "陆家嘴街道", Level: "street", Parent: "310115"},
+	{Code: "310101001", Name: "南京东路街道", Level: "street", Parent: "310101"}, // 黄浦区
+	{Code: "310101002", Name: "外滩街道", Level: "street", Parent: "310101"},
+	{Code: "310106001", Name: "静安寺街道", Level: "street", Parent: "310106"}, // 静安区
+	{Code: "310106002", Name: "南京西路街道", Level: "street", Parent: "310106"},
+
 	{Code: "320000", Name: "江苏省", Level: "province"},
 	{Code: "320100", Name: "南京市", Level: "city", Parent: "320000"},
 	{Code: "320200", Name: "无锡市", Level: "city", Parent: "320000"},
@@ -96,6 +114,13 @@ var chinaRegions = []Region{
 	{Code: "320400", Name: "常州市", Level: "city", Parent: "320000"},
 	{Code: "320500", Name: "苏州市", Level: "city", Parent: "320000"},
 	{Code: "320600", Name: "南通市", Level: "city", Parent: "320000"},
+	{Code: "320700", Name: "连云港市", Level: "city", Parent: "320000"},
+	{Code: "320800", Name: "淮安市", Level: "city", Parent: "320000"},
+	{Code: "320900", Name: "盐城市", Level: "city", Parent: "320000"},
+	{Code: "321000", Name: "扬州市", Level: "city", Parent: "320000"},
+	{Code: "321100", Name: "镇江市", Level: "city", Parent: "320000"},
+	{Code: "321200", Name: "泰州市", Level: "city", Parent: "320000"},
+	{Code: "321300", Name: "宿迁市", Level: "city", Parent: "320000"},
 
 	{Code: "330000", Name: "浙江省", Level: "province"},
 	{Code: "330100", Name: "杭州市", Level: "city", Parent: "330000"},
@@ -105,6 +130,16 @@ var chinaRegions = []Region{
 	{Code: "330108", Name: "滨江区", Level: "district", Parent: "330100"},
 	{Code: "330109", Name: "萧山区", Level: "district", Parent: "330100"},
 	{Code: "330110", Name: "余杭区", Level: "district", Parent: "330100"},
+
+	// 杭州市街道级
+	{Code: "330106001", Name: "北山街道", Level: "street", Parent: "330106"}, // 西湖区
+	{Code: "330106002", Name: "翠苑街道", Level: "street", Parent: "330106"},
+	{Code: "330106003", Name: "西溪街道", Level: "street", Parent: "330106"},
+	{Code: "330102001", Name: "湖滨街道", Level: "street", Parent: "330102"}, // 上城区
+	{Code: "330102002", Name: "清波街道", Level: "street", Parent: "330102"},
+	{Code: "330108001", Name: "浦沿街道", Level: "street", Parent: "330108"}, // 滨江区
+	{Code: "330108002", Name: "西兴街道", Level: "street", Parent: "330108"},
+
 	{Code: "330200", Name: "宁波市", Level: "city", Parent: "330000"},
 	{Code: "330300", Name: "温州市", Level: "city", Parent: "330000"},
 	{Code: "330400", Name: "嘉兴市", Level: "city", Parent: "330000"},
@@ -145,6 +180,16 @@ var chinaRegions = []Region{
 	{Code: "440113", Name: "番禺区", Level: "district", Parent: "440100"},
 	{Code: "440114", Name: "花都区", Level: "district", Parent: "440100"},
 	{Code: "440115", Name: "南沙区", Level: "district", Parent: "440100"},
+
+	// 广州市街道级
+	{Code: "440106001", Name: "五山街道", Level: "street", Parent: "440106"}, // 天河区
+	{Code: "440106002", Name: "天园街道", Level: "street", Parent: "440106"},
+	{Code: "440106003", Name: "员村街道", Level: "street", Parent: "440106"},
+	{Code: "440104001", Name: "北京街道", Level: "street", Parent: "440104"}, // 越秀区
+	{Code: "440104002", Name: "六榕街道", Level: "street", Parent: "440104"},
+	{Code: "440105001", Name: "赤岗街道", Level: "street", Parent: "440105"}, // 海珠区
+	{Code: "440105002", Name: "新港街道", Level: "street", Parent: "440105"},
+
 	{Code: "440200", Name: "韶关市", Level: "city", Parent: "440000"},
 	{Code: "440300", Name: "深圳市", Level: "city", Parent: "440000"},
 	{Code: "440303", Name: "罗湖区", Level: "district", Parent: "440300"},
@@ -153,6 +198,15 @@ var chinaRegions = []Region{
 	{Code: "440306", Name: "宝安区", Level: "district", Parent: "440300"},
 	{Code: "440307", Name: "龙岗区", Level: "district", Parent: "440300"},
 	{Code: "440308", Name: "盐田区", Level: "district", Parent: "440300"},
+
+	// 深圳市街道级
+	{Code: "440304001", Name: "福田街道", Level: "street", Parent: "440304"}, // 福田区
+	{Code: "440304002", Name: "香蜜湖街道", Level: "street", Parent: "440304"},
+	{Code: "440305001", Name: "南头街道", Level: "street", Parent: "440305"}, // 南山区
+	{Code: "440305002", Name: "蛇口街道", Level: "street", Parent: "440305"},
+	{Code: "440303001", Name: "桂园街道", Level: "street", Parent: "440303"}, // 罗湖区
+	{Code: "440303002", Name: "东门街道", Level: "street", Parent: "440303"},
+
 	{Code: "440400", Name: "珠海市", Level: "city", Parent: "440000"},
 	{Code: "440500", Name: "汕头市", Level: "city", Parent: "440000"},
 	{Code: "440600", Name: "佛山市", Level: "city", Parent: "440000"},

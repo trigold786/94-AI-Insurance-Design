@@ -1,5 +1,8 @@
 package com.nsi.app.ui.compliance
 
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -9,6 +12,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -27,6 +31,7 @@ import kotlinx.serialization.json.jsonPrimitive
 @Composable
 fun ComplianceScreen(navController: NavController, viewModel: AppViewModel) {
     val uiState by viewModel.uiState.collectAsState()
+    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var matchedPolicies by remember { mutableStateOf<List<JsonObject>>(emptyList()) }
     var requiredDocs by remember { mutableStateOf<List<JsonObject>>(emptyList()) }
@@ -161,6 +166,21 @@ fun ComplianceScreen(navController: NavController, viewModel: AppViewModel) {
                             }
                         }
                     }
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                OutlinedButton(
+                    onClick = {
+                        val url = "http://127.0.0.1:39401/v1/guide?city_code=${uiState.currentCityCode}"
+                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        context.startActivity(intent)
+                    },
+                    modifier = Modifier.fillMaxWidth().height(48.dp),
+                    shape = RoundedCornerShape(48.dp),
+                ) {
+                    Text("查看办理指南")
                 }
             }
         }

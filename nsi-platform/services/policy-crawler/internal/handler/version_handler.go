@@ -8,6 +8,7 @@ import (
 
 type VersionLister interface {
 	ListVersions(policyID string) ([]models.VersionSnapshot, error)
+	GetVersionAtTime(policyID string, timestamp string) (*models.VersionSnapshot, error)
 }
 
 func VersionsHandler(store VersionLister) http.Handler {
@@ -15,6 +16,16 @@ func VersionsHandler(store VersionLister) http.Handler {
 		policyID := r.URL.Query().Get("policy_id")
 		if policyID == "" {
 			respondJSON(w, http.StatusBadRequest, map[string]interface{}{"code": -1, "msg": "policy_id query param required"})
+			return
+		}
+
+		if ts := r.URL.Query().Get("as_of"); ts != "" {
+			vs, err := store.GetVersionAtTime(policyID, ts)
+			if err != nil {
+				respondJSON(w, http.StatusOK, map[string]interface{}{"code": 0, "data": nil, "msg": "no version found at that time"})
+				return
+			}
+			respondJSON(w, http.StatusOK, map[string]interface{}{"code": 0, "data": vs})
 			return
 		}
 

@@ -135,6 +135,26 @@ func main() {
 		manager.CrawlAll()
 	}()
 
+	// 自动 AI 提取：每 15 分钟检查待提取条目，>=100 条时自动提取
+	go func() {
+		// 启动后等 30 秒首次检查，之后每 15 分钟
+		time.Sleep(30 * time.Second)
+		ticker := time.NewTicker(15 * time.Minute)
+		defer ticker.Stop()
+		for {
+			count, err := store.GetUnprocessedCount()
+			if err != nil {
+				log.Printf("[auto-extract] count error: %v", err)
+			} else if count >= 100 {
+				log.Printf("[auto-extract] pending=%d >= 100, starting extraction", count)
+				go admin.RunAutoExtraction(store, gwClient, searcher, embedProv)
+			} else {
+				log.Printf("[auto-extract] pending=%d < 100, skip", count)
+			}
+			<-ticker.C
+		}
+	}()
+
 	// HTTP 路由
 	mux := http.NewServeMux()
 	mux.Handle("/admin", adminAuth(admin.AdminPageHandler()))
@@ -188,6 +208,7 @@ func main() {
 	mux.Handle("/admin/providers", adminAuth(http.HandlerFunc(admin.LLMGatewayProxy)))
 	mux.Handle("/admin/providers/", adminAuth(http.HandlerFunc(admin.LLMGatewayProxy)))
 	mux.Handle("/admin/usage", adminAuth(http.HandlerFunc(admin.LLMGatewayProxy)))
+	mux.Handle("/admin/usage/", adminAuth(http.HandlerFunc(admin.LLMGatewayProxy)))
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json; charset=utf-8")
 		w.Write([]byte(`{"status":"ok"}`))

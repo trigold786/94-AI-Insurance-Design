@@ -68,6 +68,16 @@ public class NSIClient {
         public let requiredDocs: [String]?
     }
 
+    public struct Order: Codable {
+        public let orderID: String?
+        public let amount: Double?
+        public let status: String?
+    }
+
+    public struct UnlockResult: Codable {
+        public let unlocked: Bool
+    }
+
     private func request<T: Codable>(_ path: String, method: String = "GET", body: Data? = nil) async throws -> T {
         guard let url = URL(string: path, relativeTo: baseURL) else {
             throw NSError(domain: "NSIAPI", code: 2, userInfo: [NSLocalizedDescriptionKey: "Invalid path"])
@@ -131,6 +141,15 @@ public class NSIClient {
     }
     public func markAlertRead(alertID: String) async throws -> [String: String] {
         try await request("/v1/rights/alerts/read", method: "POST", body: try JSONEncoder().encode(["alert_id": alertID]))
+    }
+    public func createOrder(planID: String) async throws -> Order {
+        try await request("/v1/orders", method: "POST", body: try JSONEncoder().encode(["plan_id": planID]))
+    }
+    public func payOrder(orderID: String, paymentMethod: String = "wechat") async throws -> Order {
+        try await request("/v1/orders/\(orderID)/pay", method: "POST", body: try JSONEncoder().encode(["payment_method": paymentMethod]))
+    }
+    public func checkUnlock(planID: String) async throws -> UnlockResult {
+        try await request("/v1/orders/check-unlock?plan_id=\(planID)")
     }
 
     private struct ResponseWrapper<T: Codable>: Codable {

@@ -147,11 +147,11 @@ func ASRTestHandler(db *sql.DB) http.Handler {
 			return
 		}
 
-		var appID, apiKey, resourceID string
+		var appID, apiKey, endpoint, resourceID string
 		var maxWait, pollInterval int
 		err := db.QueryRow(
-			"SELECT app_id, api_key, resource_id, max_wait_seconds, poll_interval_seconds FROM asr_configs LIMIT 1",
-		).Scan(&appID, &apiKey, &resourceID, &maxWait, &pollInterval)
+			"SELECT app_id, api_key, endpoint, resource_id, max_wait_seconds, poll_interval_seconds FROM asr_configs LIMIT 1",
+		).Scan(&appID, &apiKey, &endpoint, &resourceID, &maxWait, &pollInterval)
 		if err != nil {
 			respondError(w, http.StatusInternalServerError, fmt.Sprintf("load config error: %v", err))
 			return
@@ -172,7 +172,10 @@ func ASRTestHandler(db *sql.DB) http.Handler {
 
 		submitURL := "https://openspeech.bytedance.com/api/v3/auc/bigmodel/submit"
 		queryURL := "https://openspeech.bytedance.com/api/v3/auc/bigmodel/query"
-		if resourceID == "volc.bigasr.auc_idle" {
+		if endpoint != "" {
+			submitURL = endpoint + "/submit"
+			queryURL = endpoint + "/query"
+		} else if resourceID == "volc.bigasr.auc_idle" {
 			submitURL = "https://openspeech.bytedance.com/api/v3/auc/bigmodel/idle/submit"
 			queryURL = "https://openspeech.bytedance.com/api/v3/auc/bigmodel/idle/query"
 		}

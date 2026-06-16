@@ -1,0 +1,111 @@
+<view class="container">
+  <view class="header">
+    <text class="page-title">方案沙盘</text>
+    <text class="text-muted">调整参数实时模拟您的社保方案</text>
+  </view>
+
+  <view class="card">
+    <view class="ctrl-row">
+      <text class="ctrl-label">城市</text>
+      <picker class="ctrl-picker" range="{{cities}}" range-key="name" value="{{cityIndex}}" onChange="onCityChange">
+        <text class="ctrl-value">{{cities[cityIndex].name}} ›</text>
+      </picker>
+    </view>
+    <view class="ctrl-row">
+      <text class="ctrl-label">性别</text>
+      <picker class="ctrl-picker" range="{{genderOptions}}" range-key="label" value="{{genderIndex}}" onChange="onGenderChange">
+        <text class="ctrl-value">{{genderOptions[genderIndex].label}} ›</text>
+      </picker>
+    </view>
+
+    <view class="slider-block">
+      <view class="flex-between">
+        <text class="ctrl-label">当前年龄</text>
+        <text class="slider-val">{{age}} 岁</text>
+      </view>
+      <slider min="16" max="70" value="{{age}}" activeColor="#1A56DB"
+        onChanging="onAgeChanging" onChange="onAgeChange" />
+    </view>
+
+    <view class="slider-block">
+      <view class="flex-between">
+        <text class="ctrl-label">缴费基数</text>
+        <text class="slider-val">{{basePercent}}%</text>
+      </view>
+      <slider min="60" max="300" step="10" value="{{basePercent}}" activeColor="#1A56DB"
+        onChanging="onBaseChanging" onChange="onBaseChange" />
+    </view>
+
+    <view class="slider-block">
+      <view class="flex-between">
+        <text class="ctrl-label">已缴年限</text>
+        <text class="slider-val">{{paidYears}} 年</text>
+      </view>
+      <slider min="0" max="35" value="{{paidYears}}" activeColor="#1A56DB"
+        onChanging="onPaidChanging" onChange="onPaidChange" />
+    </view>
+
+    <view class="slider-block">
+      <view class="flex-between">
+        <text class="ctrl-label">计划缴纳</text>
+        <text class="slider-val">{{planYears}} 年</text>
+      </view>
+      <slider min="0" max="35" value="{{planYears}}" activeColor="#1A56DB"
+        onChanging="onPlanChanging" onChange="onPlanChange" />
+    </view>
+
+    <view class="ctrl-row">
+      <text class="ctrl-label">就业形式</text>
+      <picker class="ctrl-picker" range="{{employmentOptions}}" range-key="label" value="{{employmentIndex}}" onChange="onEmploymentChange">
+        <text class="ctrl-value">{{employmentOptions[employmentIndex].label}} ›</text>
+      </picker>
+    </view>
+
+    <view class="ctrl-row">
+      <text class="ctrl-label">本地户籍</text>
+      <switch checked="{{hukou}}" onChange="onHukouChange" color="#1A56DB" />
+    </view>
+  </view>
+
+  <view class="output-row">
+    <view class="output-card">
+      <text class="out-num red">{{result.monthly_cost}}</text>
+      <text class="out-label">月缴(元)</text>
+    </view>
+    <view class="output-card">
+      <text class="out-num green">{{result.monthly_pension}}</text>
+      <text class="out-label">月领(元)</text>
+    </view>
+    <view class="output-card">
+      <text class="out-num yellow">{{result.subsidy}}</text>
+      <text class="out-label">补贴(元)</text>
+    </view>
+    <view class="output-card">
+      <text class="out-num blue">{{result.net}}</text>
+      <text class="out-label">净收益</text>
+    </view>
+  </view>
+
+  <view class="loading-tip" a:if="{{calculating}}">计算中...</view>
+
+  <view class="banner {{item.level}}" a:for="{{result.triggers}}" a:key="title">
+    <text class="banner-title">{{item.title}}</text>
+    <text class="banner-desc">{{item.description}}</text>
+  </view>
+
+  <view class="card">
+    <text class="section-title">收益对比</text>
+    <view class="chart">
+      <view class="bar-col" a:for="{{result.chart}}" a:key="label">
+        <view class="bar-track">
+          <view class="bar" style="height: {{item.height}}rpx; background: {{item.color}};"></view>
+        </view>
+        <text class="bar-value">{{item.value}}</text>
+        <text class="bar-label">{{item.label}}</text>
+      </view>
+      <view class="bar-col empty" a:if="{{!result.chart || result.chart.length === 0}}">
+        <text class="text-muted">暂无数据</text>
+      </view>
+    </view>
+  </view>
+</view>

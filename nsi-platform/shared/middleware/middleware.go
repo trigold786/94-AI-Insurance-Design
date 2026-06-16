@@ -1,3 +1,5 @@
+// Package middleware provides HTTP middleware for authentication, CORS,
+// rate limiting, security headers, and panic recovery.
 package middleware
 
 import (
@@ -24,36 +26,33 @@ func Chain(middlewares ...Middleware) Middleware {
 	}
 }
 
+// AuthMiddleware enforces JWT authentication. If jwtSecret is empty,
+// all requests are rejected with 500 (fail-closed security).
 func AuthMiddleware(jwtSecret string) Middleware {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if jwtSecret != "" {
-				authHeader := r.Header.Get("Authorization")
-				if !strings.HasPrefix(authHeader, "Bearer ") {
-					http.Error(w, `{"code":"UNAUTHORIZED","message":"Authorization Bearer token required"}`, http.StatusUnauthorized)
-					return
-				}
-				tokenStr := strings.TrimPrefix(authHeader, "Bearer ")
-				claims, err := auth.ValidateToken(jwtSecret, tokenStr)
-				if err != nil {
-					http.Error(w, `{"code":"UNAUTHORIZED","message":"invalid or expired token"}`, http.StatusUnauthorized)
-					return
-				}
-				ctx := context.WithValue(r.Context(), ContextKeyUserID, claims.UserID)
-				next.ServeHTTP(w, r.WithContext(ctx))
+			if jwtSecret == "" {
+				http.Error(w, `{"code":"INTERNAL_ERROR","message":"JWT secret not configured"}`, http.StatusInternalServerError)
 				return
 			}
-			userID := r.Header.Get("x-user-id")
-			if userID == "" {
-				http.Error(w, `{"code":"UNAUTHORIZED","message":"x-user-id header required"}`, http.StatusUnauthorized)
+			authHeader := r.Header.Get("Authorization")
+			if !strings.HasPrefix(authHeader, "Bearer ") {
+				http.Error(w, `{"code":"UNAUTHORIZED","message":"Authorization Bearer token required"}`, http.StatusUnauthorized)
 				return
 			}
-			ctx := context.WithValue(r.Context(), ContextKeyUserID, userID)
+			tokenStr := strings.TrimPrefix(authHeader, "Bearer ")
+			claims, err := auth.ValidateToken(jwtSecret, tokenStr)
+			if err != nil {
+				http.Error(w, `{"code":"UNAUTHORIZED","message":"invalid or expired token"}`, http.StatusUnauthorized)
+				return
+			}
+			ctx := context.WithValue(r.Context(), ContextKeyUserID, claims.UserID)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
 }
 
+// RecoveryMiddleware catches panics in downstream handlers and returns 500.
 func RecoveryMiddleware() Middleware {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -88,7 +87,7 @@ func CORSMiddleware(allowedOrigins string) Middleware {
 				w.Header().Set("Vary", "Origin")
 			}
 			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, x-user-id")
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 			w.Header().Set("Access-Control-Allow-Credentials", "true")
 			w.Header().Set("Access-Control-Max-Age", "86400")
 

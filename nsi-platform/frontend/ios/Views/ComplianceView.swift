@@ -140,6 +140,13 @@ struct ComplianceView: View {
                             .cornerRadius(12)
                         }
                     }
+
+                    Button("查看办理指南") {
+                        if let url = URL(string: "\(AppConstants.apiBaseURL)/v1/guide?city_code=\(appState.currentCityCode)") {
+                            UIApplication.shared.open(url)
+                        }
+                    }
+                    .buttonStyle(SecondaryButtonStyle())
                 }
                 .padding()
             }

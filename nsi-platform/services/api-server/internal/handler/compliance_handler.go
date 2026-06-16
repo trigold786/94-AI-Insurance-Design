@@ -3,8 +3,10 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -49,6 +51,32 @@ func (e *ComplianceEvaluator) Evaluate(user *models.UserProfile, policy *models.
 }
 
 func (e *ComplianceEvaluator) matchTag(tag string, user *models.UserProfile) bool {
+	tag = strings.TrimSpace(tag)
+	if tag == "" {
+		return true
+	}
+	if strings.Contains(tag, "&&") {
+		parts := strings.Split(tag, "&&")
+		result := true
+		for _, p := range parts {
+			if !e.matchTag(p, user) {
+				result = false
+			}
+		}
+		return result
+	}
+	if strings.Contains(tag, "||") {
+		parts := strings.Split(tag, "||")
+		for _, p := range parts {
+			if e.matchTag(p, user) {
+				return true
+			}
+		}
+		return false
+	}
+	if matched, ok := e.tryComparison(tag, user); ok {
+		return matched
+	}
 	switch tag {
 	case "flexible_employment":
 		return user.EmploymentStatus == "flexible"
@@ -58,19 +86,102 @@ func (e *ComplianceEvaluator) matchTag(tag string, user *models.UserProfile) boo
 		return user.EmploymentStatus == "employed"
 	case "has_children":
 		return user.HasChildren
-	case "age_40_plus", "4050":
+	case "age_40_plus":
 		return user.Age >= 40
 	case "age_50_plus":
+		return user.Age >= 50
+	case "4050":
+		if user.Gender == "female" {
+			return user.Age >= 40
+		}
 		return user.Age >= 50
 	case "female":
 		return user.Gender == "female"
 	case "male":
 		return user.Gender == "male"
+	case "is_local_hukou":
+		return user.IsLocalHukou
+	case "has_elderly_dependents":
+		return user.HasElderlyDependents
+	case "has_skill_certificate":
+		return user.SkillCertificateLevel != nil && *user.SkillCertificateLevel != ""
 	case "low_income":
-		return false // requires income field on UserProfile (Phase 2)
+		return user.MonthlyIncome > 0 && user.MonthlyIncome < 3000
 	default:
 		return false
 	}
+}
+
+func (e *ComplianceEvaluator) tryComparison(expr string, user *models.UserProfile) (bool, bool) {
+	operators := []string{">=", "<=", "!=", "==", ">", "<"}
+	for _, op := range operators {
+		if idx := strings.Index(expr, op); idx > 0 {
+			left := strings.TrimSpace(expr[:idx])
+			right := strings.TrimSpace(expr[idx+len(op):])
+			right = strings.Trim(right, "'\"")
+			leftVal, ok := getFieldValue(user, left)
+			if !ok {
+				return false, false
+			}
+			leftNum, leftIsNum := toFloat(leftVal)
+			rightNum, rightIsNum := toFloat(right)
+			if leftIsNum && rightIsNum {
+				switch op {
+				case ">=":
+					return leftNum >= rightNum, true
+				case "<=":
+					return leftNum <= rightNum, true
+				case "!=":
+					return leftNum != rightNum, true
+				case "==":
+					return leftNum == rightNum, true
+				case ">":
+					return leftNum > rightNum, true
+				case "<":
+					return leftNum < rightNum, true
+				}
+			}
+			switch op {
+			case "==":
+				return strings.EqualFold(leftVal, right), true
+			case "!=":
+				return !strings.EqualFold(leftVal, right), true
+			}
+		}
+	}
+	return false, false
+}
+
+func getFieldValue(user *models.UserProfile, field string) (string, bool) {
+	switch strings.ToLower(field) {
+	case "age":
+		return strconv.Itoa(user.Age), true
+	case "gender":
+		return user.Gender, true
+	case "social_security_years", "contribution_years":
+		return strconv.Itoa(user.SocialSecurityYears), true
+	case "contribution_months":
+		return strconv.Itoa(user.ContributionMonths), true
+	case "employment_status", "employment":
+		return user.EmploymentStatus, true
+	case "is_local_hukou", "local_hukou":
+		return strconv.FormatBool(user.IsLocalHukou), true
+	case "has_children":
+		return strconv.FormatBool(user.HasChildren), true
+	case "has_elderly_dependents":
+		return strconv.FormatBool(user.HasElderlyDependents), true
+	case "child_age_range":
+		return user.ChildAgeRange, true
+	}
+	return "", false
+}
+
+func toFloat(s string) (float64, bool) {
+	f, err := strconv.ParseFloat(s, 64)
+	if err != nil {
+		return 0, false
+	}
+	return f, true
 }
 
 func (e *ComplianceEvaluator) isBuiltinTag(tag string) bool {
@@ -78,6 +189,8 @@ func (e *ComplianceEvaluator) isBuiltinTag(tag string) bool {
 		"flexible_employment": true, "unemployed": true, "employed": true,
 		"has_children": true, "age_40_plus": true, "age_50_plus": true,
 		"4050": true, "female": true, "male": true, "low_income": true,
+		"is_local_hukou": true, "has_elderly_dependents": true,
+		"has_skill_certificate": true,
 	}
 	return builtin[tag]
 }
@@ -122,7 +235,7 @@ func ComplianceChecklistHandler(evaluator *ComplianceEvaluator, policyRepo Polic
 
 		for _, p := range policies {
 			if p.EffectiveDate != "" {
-				effectiveDate, parseErr := time.Parse("2006-01-02", p.EffectiveDate)
+				effectiveDate, parseErr := parseDateFlexible(p.EffectiveDate)
 				if parseErr != nil {
 					log.Printf("[compliance] failed to parse effective_date for %s: %v", p.ClaimID, parseErr)
 					continue
@@ -132,7 +245,7 @@ func ComplianceChecklistHandler(evaluator *ComplianceEvaluator, policyRepo Polic
 				}
 			}
 			if p.ExpireDate != nil && *p.ExpireDate != "" {
-				expireDate, parseErr := time.Parse("2006-01-02", *p.ExpireDate)
+				expireDate, parseErr := parseDateFlexible(*p.ExpireDate)
 				if parseErr == nil && expireDate.Before(today) {
 					continue
 				}
@@ -251,4 +364,13 @@ func uniqueStrings(s []string) []string {
 		}
 	}
 	return r
+}
+
+func parseDateFlexible(s string) (time.Time, error) {
+	for _, layout := range []string{"2006-01-02", "2006-01-02T15:04:05Z", "2006-01-02 15:04:05", time.RFC3339} {
+		if t, err := time.Parse(layout, s); err == nil {
+			return t, nil
+		}
+	}
+	return time.Time{}, fmt.Errorf("unparseable date: %s", s)
 }

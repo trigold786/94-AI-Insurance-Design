@@ -13,17 +13,21 @@ type UserProfile struct {
 	Gender                   string   `db:"gender" json:"gender"`
 	HouseholdRegionCode      string   `db:"household_region_code" json:"household_region_code"`
 	CurrentResidenceCode     string   `db:"current_residence_code" json:"current_residence_code"`
+	IsLocalHukou             bool     `db:"is_local_hukou" json:"is_local_hukou"`
 	EmploymentStatus         string   `db:"employment_status" json:"employment_status"`
 	UnemploymentRegDate      *string  `db:"unemployment_reg_date" json:"unemployment_reg_date,omitempty"`
 	FlexibleEmploymentRegDate *string `db:"flexible_employment_reg_date" json:"flexible_employment_reg_date,omitempty"`
 	SocialSecurityYears      int      `db:"social_security_years" json:"social_security_years"`
 	SkillCertificateLevel    *string  `db:"skill_certificate_level" json:"skill_certificate_level,omitempty"`
 	HasChildren              bool     `db:"has_children" json:"has_children"`
+	ChildAgeRange            string   `db:"child_age_range" json:"child_age_range"`
+	HasElderlyDependents     bool     `db:"has_elderly_dependents" json:"has_elderly_dependents"`
+	MonthlyIncome            float64  `db:"monthly_income" json:"monthly_income"`
 	// 新增字段
-	DateOfBirth           string  `db:"date_of_birth" json:"date_of_birth"`                       // 出生年月 YYYY-MM
-	ContributionMonths    int     `db:"contribution_months" json:"contribution_months"`            // 累计缴费月数
-	PensionTotalAmount    float64 `db:"pension_total_amount" json:"pension_total_amount"`          // 养老金本息总额
-	PensionPersonalAmount float64 `db:"pension_personal_amount" json:"pension_personal_amount"`    // 养老金总额个人部分
+	DateOfBirth           string  `db:"date_of_birth" json:"date_of_birth"`
+	ContributionMonths    int     `db:"contribution_months" json:"contribution_months"`
+	PensionTotalAmount    float64 `db:"pension_total_amount" json:"pension_total_amount"`
+	PensionPersonalAmount float64 `db:"pension_personal_amount" json:"pension_personal_amount"`
 }
 
 // PolicyClaim 结构化政策原子
@@ -39,6 +43,7 @@ type PolicyClaim struct {
 	SubsidyDuration   *int             `db:"subsidy_duration" json:"subsidy_duration,omitempty"`
 	EffectiveDate     string           `db:"effective_date" json:"effective_date"`
 	ExpireDate        *string          `db:"expire_date" json:"expire_date,omitempty"`
+	PublishDate       string           `db:"publish_date" json:"publish_date,omitempty"`
 	ConfidenceScore   float64          `db:"confidence_score" json:"confidence_score"`
 	Status            string           `db:"status" json:"status"`
 	VersionNumber     int              `db:"version_number" json:"version_number"`
@@ -245,4 +250,35 @@ type LLMSchemeResponse struct {
 		RecommendedScheme string `json:"recommended_scheme"`
 		Reasoning         string `json:"reasoning"`
 	} `json:"recommendation"`
+}
+
+type OrderData struct {
+	OrderID       string  `db:"order_id" json:"order_id"`
+	UserID        string  `db:"user_id" json:"user_id"`
+	PlanID        string  `db:"plan_id" json:"plan_id"`
+	Amount        float64 `db:"amount" json:"amount"`
+	Status        string  `db:"status" json:"status"`
+	PaymentMethod string  `db:"payment_method" json:"payment_method"`
+	PaidAt        *string `db:"paid_at" json:"paid_at,omitempty"`
+	CreatedAt     string  `db:"created_at" json:"created_at"`
+}
+
+type SimScenario struct {
+	ID        int             `db:"id" json:"id"`
+	UserID    string          `db:"user_id" json:"user_id"`
+	Name      string          `db:"name" json:"name"`
+	Params    json.RawMessage `db:"params" json:"params"`
+	Result    json.RawMessage `db:"result" json:"result"`
+	CreatedAt string          `db:"created_at" json:"created_at"`
+}
+
+type ThresholdData struct {
+	ClaimID    string          `db:"claim_id" json:"claim_id"`
+	Conditions json.RawMessage `db:"conditions" json:"conditions"`
+}
+
+type SettingsData struct {
+	FontScale      string `json:"font_scale"`
+	DefaultTab     string `json:"default_tab"`
+	NotificationsOn bool   `json:"notifications_on"`
 }

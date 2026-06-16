@@ -161,9 +161,107 @@ func LLMProgressHandler(store LLMStore) http.Handler {
 	})
 }
 
+func tryStartExtraction() bool {
+	p := GlobalExtProgress
+	p.Lock()
+	defer p.Unlock()
+	if p.Running {
+		return false
+	}
+	p.Total = 0
+	p.Completed = 0
+	p.Failed = 0
+	p.Running = true
+	p.Done = false
+	p.CurrentID = 0
+	p.CurrentSrc = ""
+	return true
+}
+
+func RunAutoExtraction(store extractor.RawTextStore, gwClient *config.GatewayConfigClient, checker extractor.ReferenceChecker, embedProv embeddings.EmbeddingProvider) {
+	p := GlobalExtProgress
+	p.Lock()
+	if p.Running {
+		p.Unlock()
+		log.Println("[auto-extract] already running, skip")
+		return
+	}
+	p.Running = true
+	p.Done = false
+	p.Total = 0
+	p.Completed = 0
+	p.Failed = 0
+	p.CurrentID = 0
+	p.CurrentSrc = ""
+	p.Unlock()
+
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("[auto-extract] panic recovered: %v", r)
+		}
+		finishExtract("")
+		p.Lock()
+		log.Printf("[auto-extract] finished: %d success, %d failed", p.Completed, p.Failed)
+		p.Unlock()
+	}()
+	llmCfg, backupCfg, err := gwClient.GetLLMConfig(context.Background())
+	if err != nil {
+		log.Printf("[auto-extract] get config from gateway: %v", err)
+		return
+	}
+
+	var client *llm.Client
+	if backupCfg != nil {
+		client = llm.NewClientWithBackup(llmCfg, backupCfg)
+	} else {
+		client = llm.NewClient(llmCfg)
+	}
+
+	entries, err := store.GetUnprocessedRawTexts(100)
+	if err != nil {
+		log.Printf("[auto-extract] get pending: %v", err)
+		return
+	}
+
+	p.Lock()
+	p.Total = len(entries)
+	p.Unlock()
+
+	if len(entries) == 0 {
+		log.Println("[auto-extract] no pending items, done")
+		return
+	}
+
+	ext := extractor.NewExtractor(store, client)
+	if checker != nil {
+		ext.SetReferenceChecker(checker)
+	}
+	if embedProv != nil {
+		ext.SetEmbeddingProvider(embedProv)
+	}
+
+	for _, entry := range entries {
+		p.Lock()
+		p.CurrentID = entry.ID
+		p.CurrentSrc = entry.SourceID
+		p.Unlock()
+
+		if err := ext.ProcessOne(entry); err != nil {
+			log.Printf("[auto-extract] failed id=%d source=%s: %v", entry.ID, entry.SourceID, err)
+			store.SaveExtractLogDetailed(entry.ID, entry.SourceID, false, err.Error(), "", entry.Title, client.ModelName(), "")
+			p.Lock()
+			p.Failed++
+			p.Unlock()
+		} else {
+			p.Lock()
+			p.Completed++
+			p.Unlock()
+		}
+	}
+}
+
 func LLMExtractRunHandler(store interface{}, checker extractor.ReferenceChecker, embedProv embeddings.EmbeddingProvider, gwClient *config.GatewayConfigClient) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// 类型断言：store 需要同时实现 LLMStore 和 extractor.RawTextStore
 		rawStore, ok := store.(extractor.RawTextStore)
 		if !ok {
 			respondError(w, http.StatusInternalServerError, "store does not support extraction")
@@ -177,70 +275,9 @@ func LLMExtractRunHandler(store interface{}, checker extractor.ReferenceChecker,
 			respondError(w, http.StatusConflict, "提取任务已在运行中")
 			return
 		}
-		p.Total = 0
-		p.Completed = 0
-		p.Failed = 0
-		p.Running = true
-		p.Done = false
-		p.CurrentID = 0
-		p.CurrentSrc = ""
 		p.Unlock()
 
-		go func() {
-			llmCfg, backupCfg, err := gwClient.GetLLMConfig(context.Background())
-			if err != nil {
-				log.Printf("[extract] get config from gateway: %v", err)
-				finishExtract("get config error: " + err.Error())
-				return
-			}
-
-			var client *llm.Client
-			if backupCfg != nil {
-				client = llm.NewClientWithBackup(llmCfg, backupCfg)
-			} else {
-				client = llm.NewClient(llmCfg)
-			}
-
-			entries, err := rawStore.GetUnprocessedRawTexts(100)
-			if err != nil {
-				log.Printf("[extract] get pending: %v", err)
-				finishExtract("get pending error: " + err.Error())
-				return
-			}
-
-			p.Lock()
-			p.Total = len(entries)
-			p.Unlock()
-
-			ext := extractor.NewExtractor(rawStore, client)
-			if checker != nil {
-				ext.SetReferenceChecker(checker)
-			}
-			if embedProv != nil {
-				ext.SetEmbeddingProvider(embedProv)
-			}
-
-			for _, entry := range entries {
-				p.Lock()
-				p.CurrentID = entry.ID
-				p.CurrentSrc = entry.SourceID
-				p.Unlock()
-
-				if err := ext.ProcessOne(entry); err != nil {
-					log.Printf("[extract] failed id=%d source=%s: %v", entry.ID, entry.SourceID, err)
-					rawStore.SaveExtractLogDetailed(entry.ID, entry.SourceID, false, err.Error(), "", entry.Title, "", "")
-					p.Lock()
-					p.Failed++
-					p.Unlock()
-				} else {
-					p.Lock()
-					p.Completed++
-					p.Unlock()
-				}
-			}
-
-			finishExtract("")
-		}()
+		go RunAutoExtraction(rawStore, gwClient, checker, embedProv)
 
 		respondJSON(w, http.StatusOK, map[string]interface{}{
 			"code":    0,

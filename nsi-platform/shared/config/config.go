@@ -1,3 +1,4 @@
+// Package config provides centralized configuration loading from environment variables.
 package config
 
 import (
@@ -5,6 +6,7 @@ import (
 	"strconv"
 )
 
+// Config holds all application configuration loaded from environment variables.
 type Config struct {
 	DatabaseURL         string
 	RedisURL            string
@@ -12,6 +14,7 @@ type Config struct {
 	LLMApiKey           string
 	LLMApiEndpoint      string
 	ActuaryHTTPAddr     string
+	ActuaryEngineURL    string
 	LLMGatewayURL       string
 	StorageEndpoint     string
 	StorageAccessKey    string
@@ -22,15 +25,18 @@ type Config struct {
 	WebClientAPIBaseURL string
 }
 
+// Load reads configuration from environment variables with sensible defaults.
 func Load() *Config {
 	return &Config{
 		DatabaseURL:      getEnv("DATABASE_URL", "postgres://localhost:39432/nsi?sslmode=disable"),
 		RedisURL:         getEnv("REDIS_URL", "redis://localhost:39479/0"),
 		JWTSecret:        getEnv("JWT_SECRET", ""),
 		ActuaryHTTPAddr:     getEnv("ACTUARY_HTTP_ADDR", "localhost:39402"),
+		ActuaryEngineURL:    getEnv("ACTUARY_ENGINE_URL", "http://localhost:39402"),
 		LLMGatewayURL:       getEnv("LLM_GATEWAY_URL", "http://localhost:39404"),
 		StorageEndpoint:  getEnv("STORAGE_ENDPOINT", "http://localhost:39490"),
 		ServerPort:       getEnvInt("SERVER_PORT", 39401),
+		AllowedOrigins:   getEnv("ALLOWED_ORIGINS", "http://localhost:39401"),
 		WebClientAPIBaseURL: getEnv("WEBCLIENT_API_BASE_URL", "http://127.0.0.1:39401"),
 	}
 }

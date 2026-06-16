@@ -16,10 +16,15 @@ import androidx.navigation.NavController
 import com.nsi.app.Routes
 import com.nsi.app.models.AppViewModel
 import com.nsi.app.theme.AppColors
+import com.nsi.sdk.NSIClient
+import kotlinx.coroutines.launch
 
 @Composable
 fun PreviewScreen(navController: NavController, viewModel: AppViewModel) {
     val uiState by viewModel.uiState.collectAsState()
+    val scope = rememberCoroutineScope()
+    var loading by remember { mutableStateOf(false) }
+    var pendingOrderId by remember { mutableStateOf<String?>(null) }
 
     Column(
         modifier = Modifier.fillMaxSize().background(AppColors.Background).padding(24.dp),
@@ -51,25 +56,58 @@ fun PreviewScreen(navController: NavController, viewModel: AppViewModel) {
 
         Button(
             onClick = {
-                val planId = uiState.planResult?.planId
-                if (planId != null) {
-                    navController.navigate(Routes.plan(planId))
+                val planId = uiState.planResult?.planId ?: return@Button
+                loading = true
+                scope.launch {
+                    try {
+                        val client = NSIClient("http://127.0.0.1:39401", uiState.userInfo.nickName)
+                        val order = client.createOrder(planId)
+                        pendingOrderId = order.orderId
+                    } catch (_: Exception) {}
+                    loading = false
                 }
             },
             modifier = Modifier.fillMaxWidth().height(48.dp),
             shape = RoundedCornerShape(48.dp),
             colors = ButtonDefaults.buttonColors(containerColor = AppColors.Primary),
         ) {
-            Text("解锁完整报告", fontWeight = FontWeight.SemiBold)
+            Text(if (loading) "处理中..." else "解锁完整报告", fontWeight = FontWeight.SemiBold)
         }
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        Text(
-            "解锁后可查看方案对比、年度现金流和行动清单",
-            fontSize = 13.sp,
-            color = AppColors.TextMuted,
-            textAlign = TextAlign.Center,
-        )
+            Text(
+                "解锁后可查看方案对比、年度现金流和行动清单",
+                fontSize = 13.sp,
+                color = AppColors.TextMuted,
+                textAlign = TextAlign.Center,
+            )
+
+        if (pendingOrderId != null) {
+            AlertDialog(
+                onDismissRequest = { pendingOrderId = null },
+                title = { Text("确认支付") },
+                text = { Text("支付 ¥19.90 解锁完整报告？") },
+                confirmButton = {
+                    TextButton(onClick = {
+                        val oid = pendingOrderId ?: return@TextButton
+                        pendingOrderId = null
+                        loading = true
+                        scope.launch {
+                            try {
+                                val client = NSIClient("http://127.0.0.1:39401", uiState.userInfo.nickName)
+                                client.payOrder(oid)
+                                val planId = uiState.planResult?.planId
+                                if (planId != null) navController.navigate(Routes.plan(planId))
+                            } catch (_: Exception) {}
+                            loading = false
+                        }
+                    }) { Text("确认支付") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { pendingOrderId = null }) { Text("取消") }
+                },
+            )
+        }
     }
 }

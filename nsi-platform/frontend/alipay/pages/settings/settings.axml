@@ -1,0 +1,33 @@
+<view class="container">
+  <text class="page-title">设置</text>
+
+  <view class="card">
+    <text class="section-title">字体大小</text>
+    <radio-group class="font-group mt-16" onChange="onFontChange">
+      <label class="font-item" a:for="{{fontOptions}}" a:key="value">
+        <radio value="{{item.value}}" checked="{{item.value === fontSize}}" color="#1A56DB" />
+        <text class="font-label size-{{item.value}}">{{item.label}}</text>
+      </label>
+    </radio-group>
+  </view>
+
+  <view class="card">
+    <text class="section-title">默认首页</text>
+    <picker class="mt-16" range="{{landingOptions}}" range-key="label" value="{{landingIndex}}" onChange="onLandingChange">
+      <view class="picker-value">
+        <text>{{landingOptions[landingIndex].label}}</text>
+        <text class="picker-arrow">›</text>
+      </view>
+    </picker>
+  </view>
+
+  <view class="card flex-between">
+    <view class="notify-text">
+      <text class="section-title">消息通知</text>
+      <text class="text-muted mt-8 notify-desc">接收缴费提醒与政策推送</text>
+    </view>
+    <switch checked="{{notifications}}" onChange="onNotifyChange" color="#1A56DB" />
+  </view>
+
+  <button class="btn-logout mt-24" onTap="onLogout">退出登录</button>
+</view>

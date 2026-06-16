@@ -1,0 +1,89 @@
+.header { margin: 20rpx 0 12rpx; }
+.page-title { font-size: 36rpx; font-weight: 700; display: block; }
+.section-title { font-size: 28rpx; font-weight: 600; display: block; margin-bottom: 16rpx; }
+
+.ctrl-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20rpx 0;
+  border-bottom: 2rpx solid #F3F4F6;
+}
+.ctrl-row:last-child { border-bottom: none; }
+.ctrl-label { font-size: 28rpx; color: #374151; }
+.ctrl-value { font-size: 28rpx; color: #1A56DB; }
+.ctrl-picker { display: flex; align-items: center; }
+
+.slider-block { padding: 20rpx 0; border-bottom: 2rpx solid #F3F4F6; }
+.slider-block:last-child { border-bottom: none; }
+.slider-val { font-size: 26rpx; color: #1A56DB; font-weight: 600; }
+
+.output-row {
+  display: flex;
+  gap: 12rpx;
+  margin: 8rpx 0 20rpx;
+}
+.output-card {
+  flex: 1;
+  background: #fff;
+  border-radius: 16rpx;
+  padding: 24rpx 8rpx;
+  text-align: center;
+  box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.04);
+}
+.out-num { font-size: 36rpx; font-weight: 700; display: block; }
+.out-label { font-size: 22rpx; color: #6B7280; display: block; margin-top: 8rpx; }
+.out-num.red { color: #EF4444; }
+.out-num.green { color: #059669; }
+.out-num.yellow { color: #D97706; }
+.out-num.blue { color: #1A56DB; }
+
+.loading-tip {
+  text-align: center; color: #9CA3AF; font-size: 24rpx;
+  padding: 8rpx 0 16rpx;
+}
+
+.banner {
+  border-radius: 12rpx;
+  padding: 20rpx 24rpx;
+  margin-bottom: 12rpx;
+}
+.banner-title { font-size: 26rpx; font-weight: 600; display: block; margin-bottom: 4rpx; }
+.banner-desc { font-size: 24rpx; display: block; opacity: 0.9; }
+.banner.info { background: #DBEAFE; color: #1A56DB; }
+.banner.warn { background: #FEF3C7; color: #D97706; }
+.banner.success { background: #D1FAE5; color: #059669; }
+.banner.danger { background: #FEE2E2; color: #EF4444; }
+
+.chart {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-around;
+  gap: 12rpx;
+  min-height: 320rpx;
+  padding-top: 16rpx;
+}
+.bar-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  height: 320rpx;
+  justify-content: flex-end;
+}
+.bar-col.empty { justify-content: center; height: auto; }
+.bar-track {
+  width: 48rpx;
+  height: 240rpx;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+.bar {
+  width: 100%;
+  border-radius: 8rpx 8rpx 0 0;
+  transition: height 0.2s ease;
+  min-height: 8rpx;
+}
+.bar-value { font-size: 22rpx; color: #6B7280; margin-top: 8rpx; }
+.bar-label { font-size: 22rpx; color: #374151; margin-top: 4rpx; }

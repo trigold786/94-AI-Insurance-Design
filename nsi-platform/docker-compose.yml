@@ -15,7 +15,9 @@ services:
       LLM_GATEWAY_URL: http://llm-gateway:39404
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:39401}
       WEBCLIENT_API_BASE_URL: ${WEBCLIENT_API_BASE_URL:-http://localhost:39401}
-      JWT_SECRET: ${JWT_SECRET:-}
+      JWT_SECRET: ${JWT_SECRET:-nsi-dev-jwt-secret-2026}
+      SERVICE_SECRET: ${SERVICE_SECRET:-nsi-service-secret-2026}
+      ACTUARY_ENGINE_URL: http://actuarial-engine:39402
     depends_on:
       postgres:
         condition: service_healthy
@@ -64,9 +66,11 @@ services:
       - "39403:39403"
     environment:
       DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@postgres:5432/nsi_crawler?sslmode=disable
+      LLM_GATEWAY_URL: ${LLM_GATEWAY_URL:-http://llm-gateway:39404}
       ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-changeme}
       CHROME_ENABLED: "true"
+      YT_DLP_COOKIES_FILE: ${YT_DLP_COOKIES_FILE:-}
     depends_on:
       postgres:
         condition: service_healthy

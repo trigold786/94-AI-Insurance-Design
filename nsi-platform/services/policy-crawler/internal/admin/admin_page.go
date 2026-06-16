@@ -107,14 +107,14 @@ function switchPanel(id){
   else if(id==='relevance')loadRelevanceRules();
   else if(id==='logs')loadLogs();
   else if(id==='extractLogs')loadExtractLogs();
-   else if(id==='failures')loadFailures();
-   else if(id==='pipeline')loadPipeline();
-   else if(id==='import')showImportForm();
-   else if(id==='llm-gateway'){
-     var h='';
-     h+='<div class="card"><iframe src="/llm-gateway/admin" style="width:100%;height:800px;border:0;"></iframe></div>';
-     app.innerHTML=h;
-   }
+  else if(id==='failures')loadFailures();
+  else if(id==='pipeline')loadPipeline();
+  else if(id==='import')showImportForm();
+  else if(id==='llm-gateway'){
+    var h='';
+    h+='<div class="card"><iframe src="/llm-gateway/admin" style="width:100%;height:800px;border:0;"></iframe></div>';
+    app.innerHTML=h;
+  }
 }
 
 // 支持通过 hash 直接定位页面
@@ -663,14 +663,15 @@ function updateClaim(id,status){
 }
 
 var extractProviderMap={
-  'deepseek':{name:'DeepSeek',endpoint:'https://api.deepseek.com/v1/chat/completions',model:'deepseek-chat'},
-  'ali_bailian':{name:'阿里云百炼',endpoint:'https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation',model:'qwen-plus'},
+  'deepseek':{name:'DeepSeek',endpoint:'https://api.deepseek.com/v1/chat/completions',model:'deepseek-v4-flash'},
+  'ali_bailian':{name:'阿里云百炼',endpoint:'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions',model:'qwen3.6-plus'},
   'volc_ark':{name:'火山方舟',endpoint:'https://ark.cn-beijing.volces.com/api/v3/chat/completions',model:'doubao-pro-32k'},
   'opencode_go':{name:'OpenCode Go',endpoint:'http://localhost:11434/v1/chat/completions',model:'opencode-go'}
 };
 
 var embeddingProviderMap={
   'volc_ark':{name:'火山方舟 Doubao',endpoint:'https://ark.cn-beijing.volces.com/api/v3/embeddings/multimodal',dims:1024},
+  'ali_bailian':{name:'阿里云百炼 Embedding',endpoint:'https://dashscope.aliyuncs.com/compatible-mode/v1/embeddings',dims:1024},
   'openai':{name:'OpenAI',endpoint:'https://api.openai.com/v1/embeddings',dims:1536}
 };
 

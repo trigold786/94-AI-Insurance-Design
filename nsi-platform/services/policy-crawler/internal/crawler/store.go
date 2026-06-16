@@ -112,16 +112,16 @@ func (s *DBStore) Ingest(claim *models.PolicyClaim) error {
 	_, err := s.db.Exec(`
 		INSERT INTO policy_claims (claim_id, policy_id, region_code, policy_type, target_group_tags,
 			subsidy_calc_method, subsidy_amount_min, subsidy_amount_max, subsidy_duration,
-			effective_date, expire_date, confidence_score, status, version_number,
+			effective_date, expire_date, publish_date, confidence_score, status, version_number,
 			conditions, required_documents, source_id, source_name, source_url, policy_url,
 			policy_title, issuing_authority, document_number, application_process,
 			contact_info, source_type, extraction_method, raw_text_length, split_count)
 		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,
-			$21,$22,$23,$24,$25,$26,$27,$28,$29)`,
+			$21,$22,$23,$24,$25,$26,$27,$28,$29,$30)`,
 		claim.ClaimID, claim.PolicyID, claim.RegionCode, claim.PolicyType,
 		claim.TargetGroupTags,
 		claim.SubsidyCalcMethod, claim.SubsidyAmountMin, claim.SubsidyAmountMax,
-		claim.SubsidyDuration, claim.EffectiveDate, claim.ExpireDate,
+		claim.SubsidyDuration, claim.EffectiveDate, claim.ExpireDate, claim.PublishDate,
 		claim.ConfidenceScore, claim.Status, claim.VersionNumber,
 		condJSON, docJSON,
 		claim.SourceID, claim.SourceName, claim.SourceURL, claim.PolicyURL,
@@ -647,16 +647,16 @@ func (s *DBStore) InsertClaim(claim *models.PolicyClaim) error {
 	_, err := s.db.Exec(`
 		INSERT INTO policy_claims (claim_id, policy_id, region_code, policy_type, target_group_tags,
 			subsidy_calc_method, subsidy_amount_min, subsidy_amount_max, subsidy_duration,
-			effective_date, expire_date, confidence_score, status, version_number,
+			effective_date, expire_date, publish_date, confidence_score, status, version_number,
 			conditions, required_documents, source_id, source_name, source_url, policy_url,
 			policy_title, issuing_authority, document_number, application_process,
 			contact_info, source_type, extraction_method, raw_text_length, split_count)
 		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,
-			$21,$22,$23,$24,$25,$26,$27,$28,$29)`,
+			$21,$22,$23,$24,$25,$26,$27,$28,$29,$30)`,
 		claim.ClaimID, claim.PolicyID, claim.RegionCode, claim.PolicyType,
 		pq.Array(claim.TargetGroupTags),
 		claim.SubsidyCalcMethod, claim.SubsidyAmountMin, claim.SubsidyAmountMax,
-		claim.SubsidyDuration, claim.EffectiveDate, claim.ExpireDate,
+		claim.SubsidyDuration, claim.EffectiveDate, claim.ExpireDate, claim.PublishDate,
 		claim.ConfidenceScore, claim.Status, claim.VersionNumber,
 		condJSON, docJSON,
 		claim.SourceID, claim.SourceName, claim.SourceURL, claim.PolicyURL,
@@ -771,6 +771,37 @@ func (s *DBStore) MarkSuperseded(oldClaimID, newClaimID string) error {
 	return err
 }
 
+// GetMaxVersionNumber 获取指定 policy_id 的最大版本号
+func (s *DBStore) GetMaxVersionNumber(policyID string) (int, error) {
+	var maxVer int
+	err := s.db.QueryRow(`SELECT COALESCE(MAX(version_number), 0) FROM policy_snapshots WHERE policy_id = $1`, policyID).Scan(&maxVer)
+	return maxVer, err
+}
+
+// GetLatestClaimByPolicyID 获取指定 policy_id 最新版本的 claim_id
+func (s *DBStore) GetLatestClaimByPolicyID(policyID string) (string, error) {
+	var claimID string
+	err := s.db.QueryRow(`SELECT claim_id FROM policy_snapshots WHERE policy_id = $1 ORDER BY version_number DESC LIMIT 1`, policyID).Scan(&claimID)
+	return claimID, err
+}
+
+// GetVersionAtTime 获取指定 policy_id 在某时间点之前的最新版本
+func (s *DBStore) GetVersionAtTime(policyID string, timestamp string) (*models.VersionSnapshot, error) {
+	var vs models.VersionSnapshot
+	err := s.db.QueryRow(`
+		SELECT id, claim_id, policy_id, version_number, snapshot_data,
+		       COALESCE(superseded_by, ''), created_at::text
+		FROM policy_snapshots
+		WHERE policy_id = $1 AND created_at <= $2::timestamptz
+		ORDER BY version_number DESC LIMIT 1`, policyID, timestamp).
+		Scan(&vs.ID, &vs.ClaimID, &vs.PolicyID, &vs.VersionNumber,
+			&vs.SnapshotData, &vs.SupersededBy, &vs.CreatedAt)
+	if err != nil {
+		return nil, err
+	}
+	return &vs, nil
+}
+
 // ListVersions 查询指定 policy_id 的所有版本历史
 func (s *DBStore) ListVersions(policyID string) ([]models.VersionSnapshot, error) {
 	rows, err := s.db.Query(`
@@ -853,6 +884,34 @@ func (s *DBStore) UpdateStatus(claimID, status string, confidence float64) error
 	if n == 0 {
 		return errors.NewNotFound("claim", claimID)
 	}
+
+	var sourceID string
+	s.db.QueryRow(`SELECT source_id FROM policy_claims WHERE claim_id = $1`, claimID).Scan(&sourceID)
+	if sourceID != "" {
+		var currentWeight float64
+		s.db.QueryRow(`SELECT weight FROM policy_sources WHERE source_id = $1`, sourceID).Scan(&currentWeight)
+		if currentWeight > 0 {
+			var newWeight float64
+			switch status {
+			case "verified":
+				newWeight = currentWeight + 0.02
+				if newWeight > 1.0 {
+					newWeight = 1.0
+				}
+			case "unverified":
+				newWeight = currentWeight - 0.05
+				if newWeight < 0.1 {
+					newWeight = 0.1
+				}
+			default:
+				return nil
+			}
+			if newWeight != currentWeight {
+				s.db.Exec(`UPDATE policy_sources SET weight = $1 WHERE source_id = $2`, newWeight, sourceID)
+				log.Printf("[store] source %s weight adjusted: %.2f -> %.2f (claim %s -> %s)", sourceID, currentWeight, newWeight, claimID, status)
+			}
+		}
+	}
 	return nil
 }
 
@@ -921,4 +980,96 @@ func (s *DBStore) GetPipeline() ([]admin.PipelineEntry, error) {
 		entries = append(entries, e)
 	}
 	return entries, rows.Err()
+}
+
+func (s *DBStore) GetClaimByID(claimID string) (*models.PolicyClaim, error) {
+	query := `SELECT claim_id, policy_id, region_code, policy_type, target_group_tags,
+		subsidy_calc_method, subsidy_amount_min, subsidy_amount_max, subsidy_duration,
+		effective_date, expire_date, COALESCE(publish_date,''), confidence_score, status, version_number,
+		conditions, required_documents, source_id, source_name, source_url, policy_url,
+		policy_title, issuing_authority, document_number, application_process,
+		contact_info, source_type, extraction_method, raw_text_length, split_count
+		FROM policy_claims WHERE claim_id = $1`
+
+	var c models.PolicyClaim
+	err := s.db.QueryRow(query, claimID).Scan(
+		&c.ClaimID, &c.PolicyID, &c.RegionCode, &c.PolicyType, pq.Array(&c.TargetGroupTags),
+		&c.SubsidyCalcMethod, &c.SubsidyAmountMin, &c.SubsidyAmountMax, &c.SubsidyDuration,
+		&c.EffectiveDate, &c.ExpireDate, &c.PublishDate, &c.ConfidenceScore, &c.Status, &c.VersionNumber,
+		&c.Conditions, &c.RequiredDocuments, &c.SourceID, &c.SourceName, &c.SourceURL, &c.PolicyURL,
+		&c.PolicyTitle, &c.IssuingAuthority, &c.DocumentNumber, &c.ApplicationProcess,
+		&c.ContactInfo, &c.SourceType, &c.ExtractionMethod, &c.RawTextLength, &c.SplitCount,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &c, nil
+}
+
+func (s *DBStore) SearchSimilarClaims(claimID string, limit int) ([]models.PolicyClaim, error) {
+	original, err := s.GetClaimByID(claimID)
+	if err != nil {
+		return nil, err
+	}
+	query := `SELECT claim_id, policy_id, region_code, policy_type, target_group_tags,
+		subsidy_calc_method, subsidy_amount_min, subsidy_amount_max, subsidy_duration,
+		effective_date, expire_date, COALESCE(publish_date,''), confidence_score, status, version_number,
+		conditions, required_documents, source_id, source_name, source_url, policy_url,
+		policy_title, issuing_authority, document_number, application_process,
+		contact_info, source_type, extraction_method, raw_text_length, split_count
+		FROM policy_claims
+		WHERE region_code = $1 AND policy_type = $2 AND claim_id != $3
+		ORDER BY confidence_score DESC LIMIT $4`
+	rows, err := s.db.Query(query, original.RegionCode, original.PolicyType, claimID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var claims []models.PolicyClaim
+	for rows.Next() {
+		var c models.PolicyClaim
+		if err := rows.Scan(
+			&c.ClaimID, &c.PolicyID, &c.RegionCode, &c.PolicyType, pq.Array(&c.TargetGroupTags),
+			&c.SubsidyCalcMethod, &c.SubsidyAmountMin, &c.SubsidyAmountMax, &c.SubsidyDuration,
+			&c.EffectiveDate, &c.ExpireDate, &c.PublishDate, &c.ConfidenceScore, &c.Status, &c.VersionNumber,
+			&c.Conditions, &c.RequiredDocuments, &c.SourceID, &c.SourceName, &c.SourceURL, &c.PolicyURL,
+			&c.PolicyTitle, &c.IssuingAuthority, &c.DocumentNumber, &c.ApplicationProcess,
+			&c.ContactInfo, &c.SourceType, &c.ExtractionMethod, &c.RawTextLength, &c.SplitCount,
+		); err != nil {
+			return nil, err
+		}
+		claims = append(claims, c)
+	}
+	return claims, rows.Err()
+}
+
+func (s *DBStore) UpdateClaimFields(claimID string, fields map[string]interface{}) error {
+	if len(fields) == 0 {
+		return nil
+	}
+	allowed := map[string]bool{
+		"subsidy_calc_method": true, "effective_date": true, "expire_date": true,
+		"policy_type": true, "region_code": true, "subsidy_amount_min": true,
+		"subsidy_amount_max": true, "subsidy_duration": true, "policy_title": true,
+		"issuing_authority": true, "document_number": true, "contact_info": true,
+	}
+	var setClauses []string
+	var args []interface{}
+	argIdx := 1
+	for field, val := range fields {
+		if !allowed[field] {
+			continue
+		}
+		setClauses = append(setClauses, fmt.Sprintf("%s = $%d", field, argIdx))
+		args = append(args, val)
+		argIdx++
+	}
+	if len(setClauses) == 0 {
+		return nil
+	}
+	args = append(args, claimID)
+	query := fmt.Sprintf("UPDATE policy_claims SET %s WHERE claim_id = $%d",
+		strings.Join(setClauses, ", "), argIdx)
+	_, err := s.db.Exec(query, args...)
+	return err
 }

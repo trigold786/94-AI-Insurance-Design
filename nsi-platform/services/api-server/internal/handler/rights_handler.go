@@ -183,17 +183,46 @@ func SubmitPaymentRecordHandler(repo RightsRepository) http.Handler {
 
 // AlertScheduler 断缴风险检测定时器
 type AlertScheduler struct {
-	repo    RightsRepository
-	stopCh  chan struct{}
-	ticker  *time.Ticker
-	once    sync.Once
+	repo        RightsRepository
+	policyRepo  PolicyChangeChecker
+	pusher      AlertPusher
+	stopCh      chan struct{}
+	ticker      *time.Ticker
+	once        sync.Once
+	lastCheck   time.Time
+}
+
+type AlertPusher interface {
+	NotifyAlert(payload NotifierPayload)
+}
+
+type NotifierPayload struct {
+	UserID  string `json:"user_id"`
+	Phone   string `json:"phone"`
+	Title   string `json:"title"`
+	Message string `json:"message"`
+	Type    string `json:"type"`
 }
 
 func NewAlertScheduler(repo RightsRepository) *AlertScheduler {
 	return &AlertScheduler{
-		repo:   repo,
-		stopCh: make(chan struct{}),
+		repo:      repo,
+		stopCh:    make(chan struct{}),
+		lastCheck: time.Now(),
 	}
+}
+
+func (s *AlertScheduler) SetPolicyChecker(pc PolicyChangeChecker) {
+	s.policyRepo = pc
+}
+
+func (s *AlertScheduler) SetPusher(p AlertPusher) {
+	s.pusher = p
+}
+
+type PolicyChangeChecker interface {
+	GetRecentlyUpdatedPolicies(ctx context.Context, since time.Time) ([]string, error)
+	GetUsersWithPlans(ctx context.Context) (map[string][]string, error)
 }
 
 func (s *AlertScheduler) Start(interval time.Duration) {
@@ -203,6 +232,7 @@ func (s *AlertScheduler) Start(interval time.Duration) {
 			select {
 			case <-s.ticker.C:
 				s.checkDisconnectionRisk()
+				s.checkPolicyChanges()
 			case <-s.stopCh:
 				s.ticker.Stop()
 				return
@@ -251,6 +281,104 @@ func (s *AlertScheduler) checkDisconnectionRisk() {
 			log.Printf("[alerts] failed to create alert for %s: %v", p.UserID, err)
 		} else {
 			log.Printf("[alerts] created disconnection risk alert for %s (%s)", p.UserID, p.PolicyType)
+			if s.pusher != nil {
+				s.pusher.NotifyAlert(NotifierPayload{
+					UserID: p.UserID, Title: alert.Title, Message: alert.Message, Type: "disconnection_risk",
+				})
+			}
+		}
+	}
+}
+
+func PolicyChangeNotifyHandler(repo RightsRepository, serviceSecret string) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if serviceSecret == "" || r.Header.Get("X-Service-Secret") != serviceSecret {
+			respondJSON(w, 401, map[string]interface{}{"code": "UNAUTHORIZED", "message": "invalid service secret"})
+			return
+		}
+		r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
+		var req struct {
+			PolicyID     string `json:"policy_id"`
+			PolicyTitle  string `json:"policy_title"`
+			ChangeType   string `json:"change_type"`
+			NewVersion   int    `json:"new_version"`
+			AffectedUsers []string `json:"affected_users"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			respondJSON(w, 400, map[string]interface{}{"code": "VALIDATION_ERROR", "message": "invalid JSON"})
+			return
+		}
+		if req.PolicyID == "" || len(req.AffectedUsers) == 0 {
+			respondJSON(w, 400, map[string]interface{}{"code": "VALIDATION_ERROR", "message": "policy_id and affected_users required"})
+			return
+		}
+
+		ctx := r.Context()
+		title := req.PolicyTitle
+		if title == "" {
+			title = req.PolicyID
+		}
+		msg := fmt.Sprintf("您关注的政策「%s」已更新到第%d版，建议重新查看您的社会保方案", title, req.NewVersion)
+		created := 0
+		for _, userID := range req.AffectedUsers {
+			alertID := fmt.Sprintf("POLCHG-%s-%s-v%d", userID, req.PolicyID, req.NewVersion)
+			alert := &models.Alert{
+				AlertID:   alertID,
+				UserID:    userID,
+				AlertType: "policy_change",
+				Severity:  "medium",
+				Title:     fmt.Sprintf("政策变更通知 - %s", title),
+				Message:   msg,
+			}
+			policyID := req.PolicyID
+			alert.PolicyID = &policyID
+			if err := repo.CreateAlert(ctx, alert); err != nil {
+				log.Printf("[alerts] failed to create policy_change alert for %s: %v", userID, err)
+				continue
+			}
+			created++
+		}
+		log.Printf("[alerts] policy_change: notified %d/%d users for policy %s v%d", created, len(req.AffectedUsers), req.PolicyID, req.NewVersion)
+	})
+}
+
+func (s *AlertScheduler) checkPolicyChanges() {
+	if s.policyRepo == nil {
+		return
+	}
+	ctx := context.Background()
+	now := time.Now()
+	since := s.lastCheck
+	s.lastCheck = now
+
+	policyIDs, err := s.policyRepo.GetRecentlyUpdatedPolicies(ctx, since)
+	if err != nil || len(policyIDs) == 0 {
+		return
+	}
+
+	userPolicies, err := s.policyRepo.GetUsersWithPlans(ctx)
+	if err != nil {
+		return
+	}
+
+	for _, pid := range policyIDs {
+		for userID, pids := range userPolicies {
+			for _, upid := range pids {
+				if upid == pid {
+					alertID := fmt.Sprintf("POLCHG-AUTO-%s-%s-%d", userID, pid, now.Unix())
+					alert := &models.Alert{
+						AlertID:   alertID,
+						UserID:    userID,
+						AlertType: "policy_change",
+						Severity:  "medium",
+						Title:     "政策变更通知",
+						Message:   fmt.Sprintf("您关注的政策「%s」已更新，建议重新查看社保方案", pid),
+					}
+					policyIDCopy := pid
+					alert.PolicyID = &policyIDCopy
+					s.repo.CreateAlert(ctx, alert)
+				}
+			}
 		}
 	}
 }

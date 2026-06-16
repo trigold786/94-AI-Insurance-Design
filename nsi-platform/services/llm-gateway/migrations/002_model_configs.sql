@@ -19,8 +19,8 @@ CREATE TABLE IF NOT EXISTS model_configs (
 );
 
 INSERT INTO model_configs (function_key, provider, model_id, api_endpoint, enabled) VALUES
-  ('llm_extract', 'deepseek', 'deepseek-chat', 'https://api.deepseek.com/v1/chat/completions', false),
-  ('llm_plan', 'deepseek', 'deepseek-chat', 'https://api.deepseek.com/v1/chat/completions', false),
+  ('llm_extract', 'deepseek', 'deepseek-v4-flash', 'https://api.deepseek.com/v1/chat/completions', false),
+  ('llm_plan', 'deepseek', 'deepseek-v4-flash', 'https://api.deepseek.com/v1/chat/completions', false),
   ('embedding', 'volc_ark', 'doubao-embedding-vision', 'https://ark.cn-beijing.volces.com/api/v3/embeddings/multimodal', false),
   ('asr', 'volcengine_asr', 'volc.bigasr.auc', 'https://openspeech.bytedance.com/api/v3/auc/bigmodel', false)
 ON CONFLICT (function_key) DO NOTHING;

@@ -72,7 +72,7 @@ func TestGeneratePlanHandlerLLMSuccess(t *testing.T) {
 	defer gw.Close()
 
 	repo := &mockPlanRepo{}
-	handler := GeneratePlanHandler(gw.URL, repo, nil, nil)
+	handler := GeneratePlanHandler(gw.URL, "", repo, nil, nil)
 
 	body := `{"age":30,"gender":"male","employment":"flexible","monthly_budget":3000}`
 	req := httptest.NewRequest("POST", "/v1/plans/generate", strings.NewReader(body))
@@ -113,7 +113,7 @@ func TestGeneratePlanHandlerLLMSuccess(t *testing.T) {
 }
 
 func TestGeneratePlanHandlerInvalidAge(t *testing.T) {
-	handler := GeneratePlanHandler("http://unused", nil, nil, nil)
+	handler := GeneratePlanHandler("http://unused", "", nil, nil, nil)
 
 	body := `{"age":-5,"gender":"male","monthly_budget":1000}`
 	req := httptest.NewRequest("POST", "/v1/plans/generate", strings.NewReader(body))
@@ -128,7 +128,7 @@ func TestGeneratePlanHandlerInvalidAge(t *testing.T) {
 }
 
 func TestGeneratePlanHandlerInvalidGender(t *testing.T) {
-	handler := GeneratePlanHandler("http://unused", nil, nil, nil)
+	handler := GeneratePlanHandler("http://unused", "", nil, nil, nil)
 
 	body := `{"age":30,"gender":"other","monthly_budget":1000}`
 	req := httptest.NewRequest("POST", "/v1/plans/generate", strings.NewReader(body))
@@ -143,7 +143,7 @@ func TestGeneratePlanHandlerInvalidGender(t *testing.T) {
 }
 
 func TestGeneratePlanHandlerInvalidJSON(t *testing.T) {
-	handler := GeneratePlanHandler("http://unused", nil, nil, nil)
+	handler := GeneratePlanHandler("http://unused", "", nil, nil, nil)
 
 	req := httptest.NewRequest("POST", "/v1/plans/generate", strings.NewReader(`not json`))
 	req.Header.Set("Content-Type", "application/json")
@@ -161,7 +161,7 @@ func TestGeneratePlanHandlerLLMError(t *testing.T) {
 	defer gw.Close()
 
 	repo := &mockPlanRepo{}
-	handler := GeneratePlanHandler(gw.URL, repo, nil, nil)
+	handler := GeneratePlanHandler(gw.URL, "", repo, nil, nil)
 
 	body := `{"age":30,"gender":"male","employment":"flexible","monthly_budget":3000}`
 	req := httptest.NewRequest("POST", "/v1/plans/generate", strings.NewReader(body))
@@ -185,7 +185,7 @@ func TestGeneratePlanHandlerParseError(t *testing.T) {
 	defer gw.Close()
 
 	repo := &mockPlanRepo{}
-	handler := GeneratePlanHandler(gw.URL, repo, nil, nil)
+	handler := GeneratePlanHandler(gw.URL, "", repo, nil, nil)
 
 	body := `{"age":30,"gender":"male","employment":"flexible","monthly_budget":3000}`
 	req := httptest.NewRequest("POST", "/v1/plans/generate", strings.NewReader(body))
@@ -206,7 +206,7 @@ func TestGeneratePlanHandlerParseError(t *testing.T) {
 
 func TestGeneratePlanHandlerNoGateway(t *testing.T) {
 	repo := &mockPlanRepo{}
-	handler := GeneratePlanHandler("", repo, nil, nil)
+	handler := GeneratePlanHandler("", "", repo, nil, nil)
 
 	body := `{"age":30,"gender":"male","employment":"flexible","monthly_budget":3000}`
 	req := httptest.NewRequest("POST", "/v1/plans/generate", strings.NewReader(body))

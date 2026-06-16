@@ -241,6 +241,19 @@ func (h *Handler) SaveModelConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if cfg.APIKey == "" {
+		existing, err := h.mcStore.GetByKey(r.Context(), cfg.FunctionKey)
+		if err == nil && existing.APIKey != "" {
+			cfg.APIKey = existing.APIKey
+		}
+	}
+	if cfg.BackupAPIKey == "" {
+		existing, err := h.mcStore.GetByKey(r.Context(), cfg.FunctionKey)
+		if err == nil && existing != nil && existing.BackupAPIKey != "" && cfg.BackupProvider != "" {
+			cfg.BackupAPIKey = existing.BackupAPIKey
+		}
+	}
+
 	if err := h.mcStore.Save(r.Context(), &cfg); err != nil {
 		respondJSON(w, http.StatusInternalServerError, map[string]interface{}{
 			"code":    500,

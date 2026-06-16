@@ -1,0 +1,22 @@
+<view class="chat-wrap">
+  <scroll-view class="chat-scroll" scroll-y scroll-into-view="{{scrollIntoView}}" scroll-with-animation>
+    <view class="msg-list">
+      <view class="msg-row" wx:for="{{messages}}" wx:key="index" id="msg-{{index}}">
+        <view class="bubble {{item.role}}">
+          <text>{{item.content}}</text>
+        </view>
+      </view>
+      <view class="msg-row" wx:if="{{loading}}" id="msg-loading">
+        <view class="bubble assistant loading">AI思考中...</view>
+      </view>
+      <view class="msg-bottom"></view>
+    </view>
+  </scroll-view>
+
+  <view class="input-bar">
+    <input class="chat-input" value="{{input}}" bindinput="onInput"
+      confirm-type="send" bindconfirm="onSend" placeholder="请输入您的问题..."
+      adjust-position="{{true}}" />
+    <button class="send-btn" bindtap="onSend" disabled="{{loading || !input}}">发送</button>
+  </view>
+</view>

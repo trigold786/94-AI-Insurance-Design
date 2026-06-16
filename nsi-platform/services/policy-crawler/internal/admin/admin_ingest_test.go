@@ -98,3 +98,6 @@ type mockStore struct {
 func (m *mockStore) ListByStatus(status string, regionCode string, sourceID string, policyType string, sourceLevel string) ([]models.PolicyClaim, error) { return nil, nil }
 func (m *mockStore) UpdateStatus(claimID, status string, confidence float64) error { return nil }
 func (m *mockStore) Ingest(claim *models.PolicyClaim) error { m.ingested = &[]bool{true}[0]; return nil }
+func (m *mockStore) GetClaimByID(claimID string) (*models.PolicyClaim, error) { return nil, nil }
+func (m *mockStore) SearchSimilarClaims(claimID string, limit int) ([]models.PolicyClaim, error) { return nil, nil }
+func (m *mockStore) UpdateClaimFields(claimID string, fields map[string]interface{}) error { return nil }

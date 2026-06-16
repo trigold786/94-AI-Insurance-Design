@@ -48,12 +48,12 @@ func TestComplianceEvaluator_Evaluate(t *testing.T) {
 		}
 	})
 
-	t.Run("user age 45 matches 4050 tag", func(t *testing.T) {
-		user := &models.UserProfile{Age: 45, EmploymentStatus: "flexible"}
+	t.Run("female age 45 matches 4050 tag", func(t *testing.T) {
+		user := &models.UserProfile{Age: 45, Gender: "female", EmploymentStatus: "flexible"}
 		policy := &models.PolicyClaim{TargetGroupTags: []string{"4050"}}
 		eligible, _ := eval.Evaluate(user, policy)
 		if !eligible {
-			t.Error("expected eligible for 4050")
+			t.Error("expected female age 45 eligible for 4050")
 		}
 	})
 
@@ -76,7 +76,7 @@ func TestComplianceEvaluator_Evaluate(t *testing.T) {
 	})
 
 	t.Run("multiple conditions all met", func(t *testing.T) {
-		user := &models.UserProfile{EmploymentStatus: "flexible", Age: 45, HasChildren: true, Gender: "male"}
+		user := &models.UserProfile{EmploymentStatus: "flexible", Age: 52, HasChildren: true, Gender: "male"}
 		policy := &models.PolicyClaim{TargetGroupTags: []string{"flexible_employment", "4050"}}
 		eligible, unmet := eval.Evaluate(user, policy)
 		if !eligible {
@@ -147,10 +147,10 @@ func TestComplianceChecklistHandler(t *testing.T) {
 			profile: &models.UserProfile{UserID: "user-1", Age: 35, EmploymentStatus: "flexible"},
 		}
 
-		handler := middleware.AuthMiddleware("")(ComplianceChecklistHandler(eval, policyRepo, profileRepo))
+		handler := middleware.AuthMiddleware(testJWTSecret)(ComplianceChecklistHandler(eval, policyRepo, profileRepo))
 
 		req := httptest.NewRequest("GET", "/v1/compliance/checklist?city_code=310000", nil)
-		req.Header.Set("x-user-id", "user-1")
+		setAuth(req, "user-1")
 		w := httptest.NewRecorder()
 		handler.ServeHTTP(w, req)
 
@@ -178,9 +178,9 @@ func TestComplianceChecklistHandler(t *testing.T) {
 
 	t.Run("returns 400 without city_code", func(t *testing.T) {
 		profileRepo := &mockProfileRepo{profile: &models.UserProfile{UserID: "user-1"}}
-		handler := middleware.AuthMiddleware("")(ComplianceChecklistHandler(eval, &mockPolicyQuerier{}, profileRepo))
+		handler := middleware.AuthMiddleware(testJWTSecret)(ComplianceChecklistHandler(eval, &mockPolicyQuerier{}, profileRepo))
 		req := httptest.NewRequest("GET", "/v1/compliance/checklist", nil)
-		req.Header.Set("x-user-id", "user-1")
+		setAuth(req, "user-1")
 		w := httptest.NewRecorder()
 		handler.ServeHTTP(w, req)
 		if w.Code != http.StatusBadRequest {
@@ -200,9 +200,9 @@ func TestComplianceChecklistHandler(t *testing.T) {
 
 	t.Run("returns 404 when profile not found", func(t *testing.T) {
 		profileRepo := &mockProfileRepo{err: errors.NewNotFound("profile", "user-999")}
-		handler := middleware.AuthMiddleware("")(ComplianceChecklistHandler(eval, &mockPolicyQuerier{}, profileRepo))
+		handler := middleware.AuthMiddleware(testJWTSecret)(ComplianceChecklistHandler(eval, &mockPolicyQuerier{}, profileRepo))
 		req := httptest.NewRequest("GET", "/v1/compliance/checklist?city_code=310000", nil)
-		req.Header.Set("x-user-id", "user-999")
+		setAuth(req, "user-999")
 		w := httptest.NewRecorder()
 		handler.ServeHTTP(w, req)
 		if w.Code != http.StatusNotFound {
@@ -227,9 +227,9 @@ func TestComplianceChecklistHandler(t *testing.T) {
 			profile: &models.UserProfile{UserID: "user-2", Age: 35, EmploymentStatus: "employed"},
 		}
 
-		handler := middleware.AuthMiddleware("")(ComplianceChecklistHandler(eval, policyRepo, profileRepo))
+		handler := middleware.AuthMiddleware(testJWTSecret)(ComplianceChecklistHandler(eval, policyRepo, profileRepo))
 		req := httptest.NewRequest("GET", "/v1/compliance/checklist?city_code=310000", nil)
-		req.Header.Set("x-user-id", "user-2")
+		setAuth(req, "user-2")
 		w := httptest.NewRecorder()
 		handler.ServeHTTP(w, req)
 

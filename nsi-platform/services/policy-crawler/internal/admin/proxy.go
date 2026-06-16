@@ -5,7 +5,10 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 )
+
+var proxyClient = &http.Client{Timeout: 180 * time.Second}
 
 func LLMGatewayProxy(w http.ResponseWriter, r *http.Request) {
 	llmGatewayURL := os.Getenv("LLM_GATEWAY_URL")
@@ -37,8 +40,7 @@ func LLMGatewayProxy(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	client := &http.Client{}
-	resp, err := client.Do(req)
+	resp, err := proxyClient.Do(req)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadGateway)
 		return

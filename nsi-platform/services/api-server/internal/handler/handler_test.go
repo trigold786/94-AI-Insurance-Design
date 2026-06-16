@@ -53,10 +53,10 @@ func TestGetProfileHandlerSuccess(t *testing.T) {
 		SocialSecurityYears: 8,
 	}
 	repo := &mockProfileRepo{profile: profile}
-	handler := middleware.AuthMiddleware("")(GetProfileHandler(repo))
+	handler := middleware.AuthMiddleware(testJWTSecret)(GetProfileHandler(repo))
 
 	req := httptest.NewRequest("GET", "/v1/profile", nil)
-	req.Header.Set("x-user-id", "user-123")
+	setAuth(req, "user-123")
 	w := httptest.NewRecorder()
 
 	handler.ServeHTTP(w, req)
@@ -71,10 +71,10 @@ func TestGetProfileHandlerSuccess(t *testing.T) {
 
 func TestGetProfileHandlerNotFound(t *testing.T) {
 	repo := &mockProfileRepo{err: errors.NewNotFound("user profile", "user-999")}
-	handler := middleware.AuthMiddleware("")(GetProfileHandler(repo))
+	handler := middleware.AuthMiddleware(testJWTSecret)(GetProfileHandler(repo))
 
 	req := httptest.NewRequest("GET", "/v1/profile", nil)
-	req.Header.Set("x-user-id", "user-999")
+	setAuth(req, "user-999")
 	w := httptest.NewRecorder()
 
 	handler.ServeHTTP(w, req)
@@ -86,7 +86,7 @@ func TestGetProfileHandlerNotFound(t *testing.T) {
 
 func TestGetProfileHandlerUnauthenticated(t *testing.T) {
 	repo := &mockProfileRepo{}
-	handler := middleware.AuthMiddleware("")(GetProfileHandler(repo))
+	handler := middleware.AuthMiddleware(testJWTSecret)(GetProfileHandler(repo))
 
 	req := httptest.NewRequest("GET", "/v1/profile", nil)
 	w := httptest.NewRecorder()
@@ -100,11 +100,11 @@ func TestGetProfileHandlerUnauthenticated(t *testing.T) {
 
 func TestUpdateProfileHandlerSuccess(t *testing.T) {
 	repo := &mockProfileRepo{}
-	handler := middleware.AuthMiddleware("")(UpdateProfileHandler(repo))
+	handler := middleware.AuthMiddleware(testJWTSecret)(UpdateProfileHandler(repo))
 
 	body := `{"age":30,"gender":"male","employment_status":"flexible"}`
 	req := httptest.NewRequest("PUT", "/v1/profile", strings.NewReader(body))
-	req.Header.Set("x-user-id", "user-123")
+	setAuth(req, "user-123")
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 
@@ -117,10 +117,10 @@ func TestUpdateProfileHandlerSuccess(t *testing.T) {
 
 func TestUpdateProfileHandlerInvalidJSON(t *testing.T) {
 	repo := &mockProfileRepo{}
-	handler := middleware.AuthMiddleware("")(UpdateProfileHandler(repo))
+	handler := middleware.AuthMiddleware(testJWTSecret)(UpdateProfileHandler(repo))
 
 	req := httptest.NewRequest("PUT", "/v1/profile", strings.NewReader(`invalid json`))
-	req.Header.Set("x-user-id", "user-123")
+	setAuth(req, "user-123")
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 

@@ -102,6 +102,7 @@ struct LoginView: View {
         guard agreed else { return }
         loading = true
         appState.userInfo = AppState.UserInfo(nickName: "default")
+        UserDefaults.standard.set("session_token", forKey: "auth_token")
         loading = false
         navigateToHome = true
     }

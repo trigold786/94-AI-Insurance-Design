@@ -140,58 +140,69 @@ const guideHTML = `<!DOCTYPE html>
 <title>办理指南 - AI社保智筹</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:"Microsoft YaHei","PingFang SC",sans-serif;color:#333;padding:20px;font-size:14px;line-height:1.6}
+body{font-family:"Microsoft YaHei","PingFang SC",sans-serif;color:#333;padding:20px;font-size:14px;line-height:1.6;background:#F9FAFB}
 h1{font-size:20px;color:#1A56DB;margin-bottom:16px}
 h2{font-size:16px;color:#1A56DB;border-bottom:2px solid #1A56DB;padding-bottom:6px;margin:20px 0 12px}
-.step{display:flex;gap:12px;margin:10px 0;padding:12px;background:#F9FAFB;border-radius:8px}
-.step-num{width:28px;height:28px;background:#1A56DB;color:#fff;border-radius:50%;text-align:center;line-height:28px;font-weight:700;font-size:13px;flex-shrink:0}
-.step-body{flex:1}
-.step-body .title{font-weight:600;font-size:14px;margin-bottom:2px}
-.step-body .desc{color:#6B7280;font-size:13px}
-table{width:100%;border-collapse:collapse;margin:8px 0}
+.flowchart{display:flex;flex-direction:column;align-items:center;gap:0;margin:16px 0}
+.flow-node{background:#fff;border:2px solid #1A56DB;border-radius:10px;padding:10px 20px;text-align:center;min-width:200px;max-width:320px;box-shadow:0 2px 6px rgba(0,0,0,0.08);position:relative}
+.flow-node.process{border-color:#1A56DB;background:#EFF6FF}
+.flow-node.decision{border-color:#D97706;background:#FEF3C7;border-radius:40px;transform:rotate(0deg)}
+.flow-node.success{border-color:#059669;background:#D1FAE5}
+.flow-node .node-title{font-weight:600;font-size:14px;margin-bottom:2px}
+.flow-node .node-desc{color:#6B7280;font-size:12px}
+.flow-node .node-duration{display:inline-block;margin-top:4px;padding:1px 8px;border-radius:8px;font-size:11px;background:#E5E7EB;color:#6B7280}
+.flow-arrow{width:2px;height:24px;background:#9CA3AF;margin:0 auto;position:relative}
+.flow-arrow::after{content:"";position:absolute;bottom:0;left:50%;transform:translateX(-50%);border-left:5px solid transparent;border-right:5px solid transparent;border-top:8px solid #9CA3AF}
+.flow-arrow.branch{height:32px}
+.flow-branch-label{position:absolute;left:calc(50% + 12px);top:50%;transform:translateY(-50%);font-size:11px;color:#6B7280;background:#fff;padding:0 4px}
+table{width:100%;border-collapse:collapse;margin:8px 0;background:#fff;border-radius:8px;overflow:hidden}
 th{background:#F3F4F6;text-align:left;padding:8px 10px;border-bottom:2px solid #E5E7EB;color:#6B7280;font-size:12px}
 td{padding:7px 10px;border-bottom:1px solid #F3F4F6;font-size:13px}
 .badge{display:inline-block;padding:1px 6px;border-radius:4px;font-size:11px;font-weight:500}
 .bg-green{background:#D1FAE5;color:#059669}
 .bg-yellow{background:#FEF3C7;color:#D97706}
-.card{background:#F9FAFB;border-radius:8px;padding:12px;margin:8px 0}
+.card{background:#fff;border-radius:8px;padding:12px;margin:8px 0;box-shadow:0 1px 4px rgba(0,0,0,0.06)}
+@media(max-width:600px){.flow-node{min-width:160px;max-width:260px}}
 </style>
 </head>
 <body>
 
-<h1>办理指南 - {{.CityName}} ({{.CityCode}})</h1>
+<h1>📋 办理指南 - {{.CityName}} ({{.CityCode}})</h1>
 
-<h2>通用办理流程</h2>
+<h2>🔄 办理流程图</h2>
+<div class="flowchart">
 {{range .Steps}}
-<div class="step">
-<div class="step-num">{{.Order}}</div>
-<div class="step-body">
-<div class="title">{{.Name}}</div>
-<div class="desc">{{.Description}}</div>
+<div class="flow-node {{if eq .Order 1}}process{{else if eq .Order 2}}process{{else if eq .Name "审核公示"}}decision{{else if eq .Name "补贴发放"}}success{{else if eq .Name "待遇申领"}}success{{else}}process{{end}}">
+<div class="node-title">{{.Order}}. {{.Name}}</div>
+<div class="node-desc">{{.Description}}</div>
+<div class="node-duration">⏱ {{if eq .Order 1}}约1-2天{{else if eq .Order 2}}即时提交{{else if eq .Order 3}}约5-15个工作日{{else if eq .Order 4}}约10个工作日{{else}}约1-7天{{end}}</div>
 </div>
-</div>
+{{if not (eq .Order (len $.Steps))}}
+<div class="flow-arrow"></div>
 {{end}}
+{{else}}
+<div class="flow-node process"><div class="node-title">暂无流程数据</div></div>
+{{end}}
+</div>
 
-<h2>材料清单</h2>
+<h2>📝 材料清单</h2>
 <table>
 <tr><th>材料名称</th><th>来源</th><th>说明</th></tr>
 {{range .Docs}}
-<tr><td>{{.Name}}</td><td>{{if eq .Source "user"}}个人准备{{else if eq .Source "gov"}}政府部门出具{{else}}单位提供{{end}}</td><td>{{.Description}}</td></tr>
+<tr><td>{{.Name}}</td><td>{{if eq .Source "user"}}🧑 个人准备{{else if eq .Source "gov"}}🏛 政府出具{{else}}🏢 单位提供{{end}}</td><td>{{.Description}}</td></tr>
 {{else}}
 <tr><td colspan="3" style="text-align:center;color:#9CA3AF">暂无材料要求</td></tr>
 {{end}}
 </table>
 
-<h2>匹配政策详情</h2>
+<h2>📌 匹配政策详情</h2>
 {{range .Policies}}
 <div class="card">
 <div><strong>{{.PolicyType}}</strong> - {{.ClaimID}}</div>
-{{if .IsEligible}}<div><span class="badge bg-green">符合条件</span></div>{{end}}
+{{if .IsEligible}}<div style="margin-top:4px"><span class="badge bg-green">✅ 符合条件</span></div>{{else}}<div style="margin-top:4px"><span class="badge bg-yellow">⚠️ 部分条件未满足</span></div>{{end}}
 <div style="font-size:13px;color:#6B7280;margin-top:4px">计算方式: {{.SubsidyCalcMethod}}</div>
 {{if .ProcessingSteps}}
-<div style="font-size:13px;color:#6B7280;margin-top:6px">
-{{range .ProcessingSteps}}{{.Name}} → {{end}}
-</div>
+<div style="font-size:12px;color:#9CA3AF;margin-top:6px">流程: {{range .ProcessingSteps}}{{.Name}} → {{end}}</div>
 {{end}}
 </div>
 {{else}}

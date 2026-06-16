@@ -2,13 +2,47 @@ package crawler
 
 import (
 	"fmt"
+	"io"
 	"log"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 )
+
+var ytDlpCookiesFile = os.Getenv("YT_DLP_COOKIES_FILE")
+
+// ytDlpCookiePath is the path to a dynamically generated cookie file (refreshed periodically)
+var ytDlpCookiePath string
+var ytDlpCookieMu sync.Mutex
+
+func SetYtDlpCookiePath(path string) {
+	ytDlpCookieMu.Lock()
+	defer ytDlpCookieMu.Unlock()
+	ytDlpCookiePath = path
+}
+
+func ytDlpCmd(args ...string) *exec.Cmd {
+	// Check for dynamically set cookie file (takes precedence over env var)
+	ytDlpCookieMu.Lock()
+	cookiePath := ytDlpCookiePath
+	ytDlpCookieMu.Unlock()
+
+	if cookiePath != "" {
+		if _, err := os.Stat(cookiePath); err == nil {
+			args = append(args, "--cookies", cookiePath)
+		}
+	} else if ytDlpCookiesFile != "" {
+		if _, err := os.Stat(ytDlpCookiesFile); err == nil {
+			args = append(args, "--cookies", ytDlpCookiesFile)
+		}
+	}
+	cmd := exec.Command("yt-dlp", args...)
+	return cmd
+}
 
 type VideoExtractTask struct {
 	RawTextID  int64
@@ -19,13 +53,15 @@ type VideoExtractTask struct {
 }
 
 type VideoExtractWorker struct {
-	store   *DBStore
-	filter  *RelevanceFilter
-	asr     ASRProvider
-	queue   chan VideoExtractTask
-	workers int
-	stopCh  <-chan struct{}
-	tmpDir  string
+	store           *DBStore
+	filter          *RelevanceFilter
+	asr             ASRProvider
+	queue           chan VideoExtractTask
+	workers         int
+	stopCh          <-chan struct{}
+	tmpDir          string
+	cdpExtractor     *CDPVideoExtractor
+	cdpExtractorOnce sync.Once
 }
 
 func NewVideoExtractWorker(store *DBStore, filter *RelevanceFilter, asr ASRProvider, workers int) *VideoExtractWorker {
@@ -77,7 +113,8 @@ func (w *VideoExtractWorker) process(task VideoExtractTask) {
 
 	enriched := fmt.Sprintf("【标题】%s\n【视频转录】%s", task.Title, transcript)
 
-	if w.filter != nil {
+	isManual := strings.HasPrefix(task.SourceID, "DOUYIN-")
+	if !isManual && w.filter != nil {
 		score, matched := w.filter.Score(enriched, task.SourceID, "level2")
 		threshold := w.filter.MinScore(task.SourceID, "level2")
 		if score < threshold {
@@ -109,7 +146,7 @@ func (w *VideoExtractWorker) extractTranscript(videoURL string) (string, error) 
 }
 
 func (w *VideoExtractWorker) extractSubtitle(videoURL, tmpBase string) (string, error) {
-	cmd := exec.Command("yt-dlp", "--write-sub", "--sub-lang", "zh,zh-Hans,zh-CN", "--skip-download",
+	cmd := ytDlpCmd("--write-sub", "--sub-lang", "zh,zh-Hans,zh-CN", "--skip-download",
 		"--convert-subs", "srt", "--output", tmpBase, videoURL)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -131,16 +168,70 @@ func (w *VideoExtractWorker) extractSubtitle(videoURL, tmpBase string) (string, 
 	return text, nil
 }
 
+func (w *VideoExtractWorker) getCDPExtractor() *CDPVideoExtractor {
+	w.cdpExtractorOnce.Do(func() {
+		chromeBin := findChromeBinary()
+		if chromeBin != "" {
+			w.cdpExtractor = NewCDPVideoExtractor()
+		}
+	})
+	return w.cdpExtractor
+}
+
 func (w *VideoExtractWorker) extractViaASR(videoURL, tmpBase string) (string, error) {
 	if w.asr == nil {
 		return "", fmt.Errorf("ASR provider not configured")
 	}
 
+	if cdp := w.getCDPExtractor(); cdp != nil {
+		cdpURL, cdpErr := cdp.ExtractVideoURL(videoURL)
+		if cdpErr == nil && cdpURL != "" {
+			log.Printf("[video-extract] CDP extracted video URL for %s -> %s", videoURL, truncateForLog(cdpURL, 120))
+			audioPath := tmpBase + "_cdp.mp3"
+			dlReq, dlErr := http.NewRequest("GET", cdpURL, nil)
+			if dlErr == nil {
+				dlReq.Header.Set("Referer", "https://www.douyin.com/")
+				dlReq.Header.Set("User-Agent", "Mozilla/5.0")
+				dlResp, dlRespErr := http.DefaultClient.Do(dlReq)
+				if dlRespErr == nil && dlResp.StatusCode == 200 {
+					f, fErr := os.Create(audioPath)
+					if fErr == nil {
+						_, copyErr := io.Copy(f, dlResp.Body)
+						f.Close()
+						dlResp.Body.Close()
+						if copyErr == nil {
+							return w.asr.Transcribe(audioPath, "")
+						}
+					} else {
+						dlResp.Body.Close()
+					}
+				} else if dlRespErr == nil {
+					dlResp.Body.Close()
+				}
+			}
+			log.Printf("[video-extract] CDP URL download failed, trying ffmpeg")
+			ffCmd := exec.Command("ffmpeg",
+				"-user_agent", "Mozilla/5.0",
+				"-headers", "Referer: https://www.douyin.com/",
+				"-i", cdpURL,
+				"-vn", "-acodec", "libmp3lame",
+				"-ab", "64k", "-ar", "16000", "-ac", "1",
+				"-timeout", "30000000",
+				"-y", audioPath)
+			if ffOut, ffErr := ffCmd.CombinedOutput(); ffErr != nil {
+				log.Printf("[video-extract] ffmpeg stderr for %s:\n%s", videoURL, truncateBytes(ffOut, 500))
+			} else if _, statErr := os.Stat(audioPath); statErr == nil {
+				return w.asr.Transcribe(audioPath, "")
+			}
+		}
+		log.Printf("[video-extract] CDP extraction failed for %s: %v, falling back to yt-dlp", videoURL, cdpErr)
+	}
+
 	directAudioURL, err := GetDirectAudioURLFromVideo(videoURL)
 	if err != nil {
 		log.Printf("[video-extract] failed to get direct audio URL for %s: %v, downloading locally", videoURL, err)
-		cmd := exec.Command("yt-dlp", "-x", "--audio-format", "mp3", "--audio-quality", "5",
-			"--output", tmpBase, "--ratelimit", "1M", videoURL)
+		cmd := ytDlpCmd("-x", "--audio-format", "mp3", "--audio-quality", "5",
+			"--output", tmpBase, "--limit-rate", "1M", videoURL)
 		out, dlErr := cmd.CombinedOutput()
 		if dlErr != nil {
 			return "", fmt.Errorf("yt-dlp download: %w: %s", dlErr, string(out))
@@ -152,8 +243,41 @@ func (w *VideoExtractWorker) extractViaASR(videoURL, tmpBase string) (string, er
 		return w.asr.Transcribe(audioPath, "")
 	}
 
-	log.Printf("[video-extract] using direct audio URL for ASR: %s", truncateForLog(directAudioURL, 80))
-	return w.asr.Transcribe("", directAudioURL)
+	log.Printf("[video-extract] got direct audio URL, downloading locally for base64 ASR")
+	rawAudioPath := tmpBase + "_raw.mp4"
+	dlReq, dlReqErr := http.NewRequest("GET", directAudioURL, nil)
+	if dlReqErr != nil {
+		return "", fmt.Errorf("create download request: %w", dlReqErr)
+	}
+	dlReq.Header.Set("Referer", "https://www.bilibili.com/")
+	dlReq.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+	dlResp, dlRespErr := http.DefaultClient.Do(dlReq)
+	if dlRespErr != nil {
+		return "", fmt.Errorf("download audio: %w", dlRespErr)
+	}
+	defer dlResp.Body.Close()
+	if dlResp.StatusCode != 200 {
+		return "", fmt.Errorf("download audio: HTTP %d", dlResp.StatusCode)
+	}
+	f, fErr := os.Create(rawAudioPath)
+	if fErr != nil {
+		return "", fmt.Errorf("create audio file: %w", fErr)
+	}
+	if _, copyErr := io.Copy(f, dlResp.Body); copyErr != nil {
+		f.Close()
+		return "", fmt.Errorf("save audio: %w", copyErr)
+	}
+	f.Close()
+
+	audioPath := tmpBase + "_direct.mp4"
+	ffCmd := exec.Command("ffmpeg", "-i", rawAudioPath,
+		"-vn", "-acodec", "aac",
+		"-ar", "16000", "-ac", "1",
+		"-y", audioPath)
+	if ffOut, ffErr := ffCmd.CombinedOutput(); ffErr != nil {
+		return "", fmt.Errorf("ffmpeg convert: %w: %s", ffErr, string(ffOut))
+	}
+	return w.asr.Transcribe(audioPath, "")
 }
 
 func (w *VideoExtractWorker) handleFailure(task VideoExtractTask, err error) {

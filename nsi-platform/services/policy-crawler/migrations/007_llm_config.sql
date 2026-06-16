@@ -8,14 +8,14 @@ CREATE TABLE IF NOT EXISTS llm_configs (
     provider   TEXT NOT NULL DEFAULT 'deepseek',
     api_key    TEXT NOT NULL DEFAULT '',
     endpoint   TEXT NOT NULL DEFAULT 'https://api.deepseek.com/v1/chat/completions',
-    model_name TEXT NOT NULL DEFAULT 'deepseek-chat',
+    model_name TEXT NOT NULL DEFAULT 'deepseek-v4-flash',
     max_tokens INT NOT NULL DEFAULT 4096,
     enabled    BOOLEAN NOT NULL DEFAULT FALSE,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 INSERT INTO llm_configs (provider, api_key, endpoint, model_name, enabled)
-SELECT 'deepseek', '', 'https://api.deepseek.com/v1/chat/completions', 'deepseek-chat', false
+SELECT 'deepseek', '', 'https://api.deepseek.com/v1/chat/completions', 'deepseek-v4-flash', false
 WHERE NOT EXISTS (SELECT 1 FROM llm_configs);
 
 ALTER TABLE policy_raw_texts ADD COLUMN IF NOT EXISTS extracted BOOLEAN NOT NULL DEFAULT FALSE;

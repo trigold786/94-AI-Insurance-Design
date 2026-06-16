@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -35,6 +36,19 @@ type bailianResponse struct {
 }
 
 func (p *BailianProvider) Chat(systemPrompt, userContent string) (string, error) {
+	// 2026-05: 阿里云百炼已全面支持 OpenAI 兼容模式
+	// 若 endpoint 包含 compatible-mode，使用标准 OpenAI 格式；否则回退到旧版 Bailian 格式
+	if strings.Contains(p.Endpoint, "compatible-mode") {
+		compat := &OpenAICompatProvider{
+			Endpoint:  p.Endpoint,
+			APIKey:    p.APIKey,
+			ModelName: p.ModelName,
+			MaxTokens: p.MaxTokens,
+			HTTPClient: p.HTTPClient,
+		}
+		return compat.Chat(systemPrompt, userContent)
+	}
+
 	client := p.HTTPClient
 	if client == nil {
 		client = &http.Client{Timeout: 120 * time.Second}

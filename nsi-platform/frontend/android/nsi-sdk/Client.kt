@@ -1,5 +1,6 @@
 package com.nsi.sdk
 
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import java.net.URI
@@ -17,6 +18,8 @@ class NSIClient(private val baseURL: String, private val userID: String) {
     @Serializable data class PlanSnapshot(val planId: String? = null, val recommendedSchemes: List<Scheme>? = null, val totalCost: Double? = null, val totalSubsidy: Double? = null)
     @Serializable data class Alert(val alertId: String? = null, val alertType: String? = null, val severity: String? = null, val title: String? = null, val message: String? = null, val isRead: Boolean? = null)
     @Serializable data class ComplianceResult(val matchedPolicies: List<PolicyClaim>? = null)
+    @Serializable data class Order(@SerialName("order_id") val orderId: String? = null, val amount: Double? = null, val status: String? = null)
+    @Serializable data class UnlockResult(val unlocked: Boolean = false)
 
     suspend fun getProfile(): UserProfile { return call("/v1/profile") }
     suspend fun updateProfile(body: String): UserProfile { return call("/v1/profile", "PUT", body) }
@@ -30,6 +33,9 @@ class NSIClient(private val baseURL: String, private val userID: String) {
     suspend fun getPaymentStatus(): String { return send("GET", "/v1/rights/payment-status", null) }
     suspend fun getAlerts(): List<Alert> { return call("/v1/rights/alerts") }
     suspend fun markAlertRead(alertID: String) { call<Unit>("/v1/rights/alerts/read", "POST", """{"alert_id":"$alertID"}""") }
+    suspend fun createOrder(planID: String): Order { return call("/v1/orders", "POST", """{"plan_id":"$planID"}""") }
+    suspend fun payOrder(orderID: String, paymentMethod: String = "wechat"): Order { return call("/v1/orders/$orderID/pay", "POST", """{"payment_method":"$paymentMethod"}""") }
+    suspend fun checkUnlock(planID: String): UnlockResult { return call("/v1/orders/check-unlock?plan_id=$planID") }
 
     private inline suspend fun <reified T> call(path: String, method: String = "GET", body: String? = null): T {
         val resp = send(method, path, body)

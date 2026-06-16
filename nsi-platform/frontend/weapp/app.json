@@ -9,7 +9,11 @@
     "pages/plan/plan",
     "pages/compliance/compliance",
     "pages/rights/rights",
-    "pages/feedback/feedback"
+    "pages/feedback/feedback",
+    "pages/webview/webview",
+    "pages/settings/settings",
+    "pages/sandbox/sandbox",
+    "pages/advisor/advisor"
   ],
   "window": {
     "navigationBarTitleText": "AI社保智筹",
@@ -22,5 +26,6 @@
       "desc": "用于自动定位您所在的城市"
     }
   },
+  "requiredPrivateInfos": ["getLocation"],
   "sitemapLocation": "sitemap.json"
 }

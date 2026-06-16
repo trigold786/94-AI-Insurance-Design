@@ -1,5 +1,10 @@
 package com.nsi.app.ui.home
 
+import android.Manifest
+import android.content.Context
+import android.location.LocationManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
@@ -10,6 +15,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -34,6 +40,31 @@ fun HomeScreen(navController: NavController, viewModel: AppViewModel) {
     val uiState by viewModel.uiState.collectAsState()
     var policies by remember { mutableStateOf<List<PolicyClaim>>(emptyList()) }
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    var locationChecked by remember { mutableStateOf(false) }
+
+    val locationLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            try {
+                val lm = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+                val loc = lm.getLastKnownLocation(LocationManager.GPS_PROVIDER)
+                    ?: lm.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
+                if (loc != null) {
+                    val (city, code) = mapLocationToCity(loc.latitude, loc.longitude)
+                    viewModel.setCity(city, code)
+                }
+            } catch (_: Exception) {}
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        if (!locationChecked) {
+            locationChecked = true
+            locationLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+        }
+    }
 
     LaunchedEffect(uiState.currentCityCode) {
         scope.launch {
@@ -144,4 +175,21 @@ fun HomeScreen(navController: NavController, viewModel: AppViewModel) {
             }
         }
     }
+}
+
+private fun mapLocationToCity(lat: Double, lng: Double): Pair<String, String> {
+    val cities = listOf(
+        Triple(31.23, 121.47, "上海" to "310000"),
+        Triple(39.90, 116.40, "北京" to "110000"),
+        Triple(22.54, 114.06, "深圳" to "440300"),
+        Triple(23.13, 113.27, "广州" to "440100"),
+        Triple(30.27, 120.15, "杭州" to "330100"),
+    )
+    var best = cities[0]
+    var bestDist = Double.MAX_VALUE
+    for (c in cities) {
+        val d = (c.first - lat) * (c.first - lat) + (c.second - lng) * (c.second - lng)
+        if (d < bestDist) { bestDist = d; best = c }
+    }
+    return best.third
 }

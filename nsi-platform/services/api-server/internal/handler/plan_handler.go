@@ -5,6 +5,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
+	"math"
 	"net/http"
 	"strconv"
 	"strings"
@@ -152,17 +154,140 @@ func parseLLMResponse(raw string) (freeForm string, structured *models.LLMScheme
 	return freeForm, structured, nil
 }
 
-func GeneratePlanHandler(llmGatewayURL string, repo PlanRepository, profileRepo ProfileLookuper, policyRepo PolicyQuerier) http.Handler {
+type ActuaryClient struct {
+	URL    string
+	Secret string
+}
+
+type ActuaryRequest struct {
+	Age                  int     `json:"age"`
+	Gender               string  `json:"gender"`
+	Employment           string  `json:"employment"`
+	ContributionMonths   int     `json:"contribution_months"`
+	CurrentBalance       float64 `json:"current_balance"`
+	MonthlyBudget        float64 `json:"monthly_budget"`
+	Priority             string  `json:"priority"`
+	SubsidyCalcMethod    string  `json:"subsidy_calc_method"`
+}
+
+type ActuaryResponse struct {
+	Schemes           []ActuaryScheme `json:"schemes"`
+	CalculationTimeMs float64          `json:"calculation_time_ms"`
+}
+
+type ActuaryScheme struct {
+	Name                  string             `json:"name"`
+	BaseSalary            int                `json:"base_salary"`
+	MonthlyCost           float64            `json:"monthly_cost"`
+	AnnualSubsidy         float64            `json:"annual_subsidy"`
+	SubsidyPolicy         string             `json:"subsidy_policy"`
+	PaidMonths            int                `json:"paid_months"`
+	TargetMonths          int                `json:"target_months"`
+	RemainingMonths       int                `json:"remaining_months"`
+	TotalPersonalCost     float64            `json:"total_personal_cost"`
+	RemainingPersonalCost float64            `json:"remaining_personal_cost"`
+	ProjectedPension      float64            `json:"projected_pension"`
+	AfterTaxPension       float64            `json:"after_tax_pension"`
+	Cashflow              []models.CashFlowItem `json:"cashflow,omitempty"`
+}
+
+func (c *ActuaryClient) Calculate(ctx context.Context, req ActuaryRequest) (*ActuaryResponse, error) {
+	body, _ := json.Marshal(req)
+	url := strings.TrimRight(c.URL, "/") + "/v1/calculate"
+	httpReq, _ := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(body))
+	httpReq.Header.Set("Content-Type", "application/json")
+	if c.Secret != "" {
+		httpReq.Header.Set("X-Actuary-Secret", c.Secret)
+	}
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("actuary call failed: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("actuary HTTP %d", resp.StatusCode)
+	}
+	var result ActuaryResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("parse actuary response: %w", err)
+	}
+	return &result, nil
+}
+
+func crossVerifySchemes(llmSchemes []models.LLMScheme, actuarySchemes []ActuaryScheme) *models.VerificationResult {
+	if len(llmSchemes) == 0 || len(actuarySchemes) == 0 {
+		return &models.VerificationResult{Status: "skipped", Details: []models.DeviationDetail{}}
+	}
+	var details []models.DeviationDetail
+	for _, llm := range llmSchemes {
+		var bestMatch *ActuaryScheme
+		minDiff := -1.0
+		for i := range actuarySchemes {
+			diff := math.Abs(llm.MonthlyCost - actuarySchemes[i].MonthlyCost)
+			if minDiff < 0 || diff < minDiff {
+				minDiff = diff
+				bestMatch = &actuarySchemes[i]
+			}
+		}
+		if bestMatch == nil {
+			continue
+		}
+		details = append(details, models.DeviationDetail{
+			Metric:       llm.Name + ".monthly_cost",
+			LLMValue:     llm.MonthlyCost,
+			ActuaryValue: bestMatch.MonthlyCost,
+			DeviationPct: pctDeviation(llm.MonthlyCost, bestMatch.MonthlyCost),
+		})
+		details = append(details, models.DeviationDetail{
+			Metric:       llm.Name + ".projected_pension",
+			LLMValue:     llm.ProjectedPension,
+			ActuaryValue: bestMatch.ProjectedPension,
+			DeviationPct: pctDeviation(llm.ProjectedPension, bestMatch.ProjectedPension),
+		})
+		details = append(details, models.DeviationDetail{
+			Metric:       llm.Name + ".annual_subsidy",
+			LLMValue:     llm.AnnualSubsidy,
+			ActuaryValue: bestMatch.AnnualSubsidy,
+			DeviationPct: pctDeviation(llm.AnnualSubsidy, bestMatch.AnnualSubsidy),
+		})
+	}
+	status := "verified"
+	maxDev := 0.0
+	for _, d := range details {
+		if d.DeviationPct > maxDev {
+			maxDev = d.DeviationPct
+		}
+	}
+	if maxDev > 5.0 {
+		status = "diverged"
+	} else if maxDev > 1.0 {
+		status = "minor_deviation"
+	}
+	return &models.VerificationResult{Status: status, MaxDeviation: maxDev, Details: details}
+}
+
+func pctDeviation(llm, actuary float64) float64 {
+	if actuary == 0 {
+		return 0
+	}
+	return math.Abs(llm-actuary) / actuary * 100
+}
+
+func GeneratePlanHandler(llmGatewayURL, actuaryURL string, repo PlanRepository, profileRepo ProfileLookuper, policyRepo PolicyQuerier) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		userID, _ := r.Context().Value(middleware.ContextKeyUserID).(string)
 
 		r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 		var req struct {
-			Age           int     `json:"age"`
-			Gender        string  `json:"gender"`
-			Employment    string  `json:"employment"`
-			MonthlyBudget float64 `json:"monthly_budget"`
-			Priority      string  `json:"priority"`
+			Age                int     `json:"age"`
+			Gender             string  `json:"gender"`
+			Employment         string  `json:"employment"`
+			MonthlyBudget      float64 `json:"monthly_budget"`
+			Priority           string  `json:"priority"`
+			OriginalPensionAge int     `json:"original_pension_age"`
+			ContributionMonths int     `json:"contribution_months"`
+			CurrentBalance     float64 `json:"current_balance"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			respondJSON(w, 400, map[string]interface{}{"code": "VALIDATION_ERROR", "message": "invalid JSON"})
@@ -243,6 +368,56 @@ func GeneratePlanHandler(llmGatewayURL string, repo PlanRepository, profileRepo 
 			}
 			snapshot.TotalCost = totalCost
 			snapshot.TotalSubsidy = totalSubsidy
+		}
+
+		if actuaryURL != "" {
+			subsidyMethod := ""
+			if len(policies) > 0 {
+				subsidyMethod = policies[0].SubsidyCalcMethod
+			}
+			actClient := &ActuaryClient{URL: actuaryURL}
+			actReq := ActuaryRequest{
+				Age:                req.Age,
+				Gender:             req.Gender,
+				Employment:         req.Employment,
+				ContributionMonths: req.ContributionMonths,
+				CurrentBalance:     req.CurrentBalance,
+				MonthlyBudget:      req.MonthlyBudget,
+				Priority:           req.Priority,
+				SubsidyCalcMethod:  subsidyMethod,
+			}
+			if actResp, actErr := actClient.Calculate(r.Context(), actReq); actErr == nil && len(actResp.Schemes) > 0 {
+				topN := actResp.Schemes
+				if len(topN) > 5 {
+					topN = topN[:5]
+				}
+				var recSchemes []models.Scheme
+				for _, s := range topN {
+					recSchemes = append(recSchemes, models.Scheme{
+						Name:                  s.Name,
+						BaseSalary:            s.BaseSalary,
+						MonthlyCost:           s.MonthlyCost,
+						AnnualSubsidy:         s.AnnualSubsidy,
+						SubsidyPolicy:         s.SubsidyPolicy,
+						PaidMonths:            s.PaidMonths,
+						TargetMonths:          s.TargetMonths,
+						RemainingMonths:       s.RemainingMonths,
+						TotalPersonalCost:     s.TotalPersonalCost,
+						RemainingPersonalCost: s.RemainingPersonalCost,
+						ProjectedPension:      s.ProjectedPension,
+						AfterTaxPension:       s.AfterTaxPension,
+						Cashflow:              s.Cashflow,
+					})
+				}
+				snapshot.RecommendedSchemes = recSchemes
+				if structured != nil {
+					snapshot.VerificationResult = crossVerifySchemes(structured.Schemes, actResp.Schemes)
+				} else {
+					snapshot.VerificationResult = &models.VerificationResult{Status: "actuary_only", Details: []models.DeviationDetail{}}
+				}
+			} else if actErr != nil {
+				log.Printf("[plan] actuary engine skipped: %v", actErr)
+			}
 		}
 
 		if repo != nil {

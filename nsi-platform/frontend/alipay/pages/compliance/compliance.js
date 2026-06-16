@@ -1,4 +1,5 @@
 const app = getApp();
+const api = require('../../services/api');
 
 Page({
   data: {
@@ -35,5 +36,10 @@ Page({
         that.setData({ loading: false });
       },
     });
+  },
+  onGuideTap() {
+    const cityCode = app.globalData.currentCityCode || '310000';
+    const url = api.API_BASE_URL + '/v1/guide?city_code=' + cityCode;
+    my.navigateTo({ url: '/pages/webview/webview?url=' + encodeURIComponent(url) });
   },
 });

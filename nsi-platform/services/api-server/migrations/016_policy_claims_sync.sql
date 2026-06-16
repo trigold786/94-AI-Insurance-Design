@@ -1,0 +1,10 @@
+ALTER TABLE policy_claims ADD COLUMN IF NOT EXISTS source_id TEXT DEFAULT '';
+ALTER TABLE policy_claims ADD COLUMN IF NOT EXISTS source_name TEXT DEFAULT '';
+ALTER TABLE policy_claims ADD COLUMN IF NOT EXISTS source_url TEXT DEFAULT '';
+ALTER TABLE policy_claims ADD COLUMN IF NOT EXISTS policy_url TEXT DEFAULT '';
+ALTER TABLE policy_claims ADD COLUMN IF NOT EXISTS policy_title TEXT DEFAULT '';
+ALTER TABLE policy_claims ADD COLUMN IF NOT EXISTS issuing_authority TEXT DEFAULT '';
+ALTER TABLE policy_claims ADD COLUMN IF NOT EXISTS document_number TEXT DEFAULT '';
+ALTER TABLE policy_claims ADD COLUMN IF NOT EXISTS application_process JSONB DEFAULT '[]'::jsonb;
+ALTER TABLE policy_claims ADD COLUMN IF NOT EXISTS contact_info TEXT DEFAULT '';
+ALTER TABLE policy_claims ADD COLUMN IF NOT EXISTS source_type TEXT DEFAULT '';

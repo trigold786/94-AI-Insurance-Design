@@ -157,6 +157,7 @@ var navItems=[
   {id:'policies',label:'6.政策'},
   {id:'rights',label:'7.权益'},
   {id:'feedback',label:'8.反馈'},
+  {id:'sandbox',label:'9.社保沙盘'},
 ];
 function renderNav(){
   var h='';navItems.forEach(function(n){h+='<div class="nav-item" data-id="'+n.id+'">'+n.label+'</div>'});
@@ -179,6 +180,7 @@ function switchTab(id){
   else if(id==='policies')showPolicies();
   else if(id==='rights')showRights();
   else if(id==='feedback')showFeedback();
+  else if(id==='sandbox')showSandbox();
 }
 
 function api(method,path,data){
@@ -794,6 +796,207 @@ function onSubmitFeedback(){
   api('POST','/v1/feedback',data).then(function(){
     document.getElementById('fbResult').innerHTML='<div class="alert-success">反馈已提交，感谢您的意见！</div>';
   }).catch(function(e){document.getElementById('fbResult').innerHTML='<div class="alert-error">'+esc(e.message)+'</div>'});
+}
+
+// === 9. Social Insurance Sandbox ===
+var simTimer=null;
+var simCtx=null;
+var simCharts=[];
+
+function showSandbox(){
+  document.getElementById('app').innerHTML=
+    '<div style="display:flex;gap:16px;align-items:flex-start">'+
+    '<div style="width:320px;flex-shrink:0">'+
+    '<h2 style="margin-bottom:12px">社保沙盘模拟器</h2>'+
+    '<div class="sim-section">'+
+    '<div class="sim-slider-row"><label>城市</label><select id="sb-city" onchange="simDebounce()" style="flex:1">'+
+    '<option value="310000">上海</option><option value="110000">北京</option>'+
+    '<option value="440300">深圳</option><option value="440100">广州</option>'+
+    '<option value="330100">杭州</option></select></div>'+
+    '<div class="sim-slider-row"><label>性别</label><select id="sb-gender" onchange="simDebounce()" style="flex:1">'+
+    '<option value="male">男</option><option value="female">女</option></select></div>'+
+    '<div class="sim-slider-row"><label>当前年龄</label><input type="range" id="sb-age" min="16" max="70" value="35" oninput="simDebounce()"><span class="sim-val" id="sb-age-v">35岁</span></div>'+
+    '<div class="sim-slider-row"><label>缴费基数</label><input type="range" id="sb-base" min="60" max="300" step="10" value="100" oninput="simDebounce()"><span class="sim-val" id="sb-base-v">100%</span></div>'+
+    '<div class="sim-slider-row"><label>已缴年限</label><input type="range" id="sb-paid" min="0" max="35" value="8" oninput="simDebounce()"><span class="sim-val" id="sb-paid-v">8年</span></div>'+
+    '<div class="sim-slider-row"><label>计划继续</label><input type="range" id="sb-plan" min="0" max="35" value="17" oninput="simDebounce()"><span class="sim-val" id="sb-plan-v">17年</span></div>'+
+    '<div class="sim-slider-row"><label>就业状态</label><select id="sb-emp" onchange="simDebounce()" style="flex:1">'+
+    '<option value="flexible">灵活就业</option><option value="unemployed">失业登记</option><option value="employed">在职</option></select></div>'+
+    '<div class="sim-slider-row"><label>本地户籍</label><select id="sb-hukou" onchange="simDebounce()" style="flex:1">'+
+    '<option value="true">是</option><option value="false">否</option></select></div>'+
+    '</div>'+
+    '<div style="margin-top:12px;display:flex;gap:8px">'+
+    '<button class="btn btn-primary" onclick="saveScenario()">保存方案</button>'+
+    '<button class="btn" onclick="loadScenarios()">方案对比</button>'+
+    '</div>'+
+    '<div id="sb-scenarios" style="margin-top:8px"></div>'+
+    '</div>'+
+    '<div style="flex:1;min-width:0">'+
+    '<div id="sb-loading" style="text-align:center;padding:40px;color:#9CA3AF">拖动滑块查看模拟结果...</div>'+
+    '<div id="sb-content" style="display:none"></div>'+
+    '</div>'+
+    '</div>'+
+    '<div style="margin-top:16px">'+
+    '<h3>💬 问AI顾问</h3>'+
+    '<div style="display:flex;gap:8px"><input id="sb-question" placeholder="如：换成深圳会怎样？多交5年养老金能多多少？" style="flex:1;padding:8px 12px;border:1px solid #D1D5DB;border-radius:6px">'+
+    '<button class="btn btn-primary" onclick="askAdvisor()">发送</button></div>'+
+    '<div id="sb-answer" style="margin-top:8px;padding:12px;background:#F0F5FF;border-radius:8px;display:none"></div>'+
+    '</div>';
+  simCtx=null;
+  simDebounce();
+}
+
+function simDebounce(){
+  var age=document.getElementById('sb-age');
+  if(age){document.getElementById('sb-age-v').textContent=age.value+'岁';
+    document.getElementById('sb-base-v').textContent=document.getElementById('sb-base').value+'%';
+    document.getElementById('sb-paid-v').textContent=document.getElementById('sb-paid').value+'年';
+    document.getElementById('sb-plan-v').textContent=document.getElementById('sb-plan').value+'年';
+  }
+  if(simTimer)clearTimeout(simTimer);
+  simTimer=setTimeout(simCalculate,150);
+}
+
+function simGetParams(){
+  return {
+    city_code:document.getElementById('sb-city').value,
+    gender:document.getElementById('sb-gender').value,
+    age:parseInt(document.getElementById('sb-age').value),
+    base_percent:parseInt(document.getElementById('sb-base').value),
+    paid_years:parseInt(document.getElementById('sb-paid').value),
+    plan_years:parseInt(document.getElementById('sb-plan').value),
+    employment:document.getElementById('sb-emp').value,
+    is_local_hukou:document.getElementById('sb-hukou').value==='true'
+  };
+}
+
+function simCalculate(){
+  document.getElementById('sb-loading').style.display='block';
+  document.getElementById('sb-content').style.display='none';
+  var p=simGetParams();
+  api('POST','/v1/simulator/calculate',p).then(function(d){
+    document.getElementById('sb-loading').style.display='none';
+    renderSimResult(d);
+  }).catch(function(e){
+    document.getElementById('sb-loading').innerHTML='<div class="alert-error">'+esc(e.message)+'</div>';
+  });
+}
+
+function renderSimResult(d){
+  var h='<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px">';
+  h+=simCard('¥'+d.cost.monthly_total.toFixed(0),'月缴费','#1A56DB');
+  h+=simCard('¥'+d.pension.projected_monthly.toFixed(0),'月养老金','#059669');
+  h+=simCard('¥'+d.subsidy.annual_total.toFixed(0),'年补贴','#7C3AED');
+  h+=simCard('¥'+d.net_monthly.toFixed(0),'净支出','#DC2626');
+  h+='</div>';
+
+  if(d.policy_triggers&&d.policy_triggers.length>0){
+    h+='<div style="margin-bottom:12px">';
+    d.policy_triggers.forEach(function(t){
+      var bg=t.severity==='success'?'#D1FAE5':t.severity==='warning'?'#FEF3C7':'#DBEAFE';
+      var cl=t.severity==='success'?'#059669':t.severity==='warning'?'#D97706':'#1A56DB';
+      h+='<div style="background:'+bg+';color:'+cl+';padding:8px 12px;border-radius:8px;margin-bottom:6px;font-size:13px">'+esc(t.message)+'</div>';
+    });
+    h+='</div>';
+  }
+
+  h+='<div class="sim-section"><h4 style="margin-bottom:8px">📊 年度资金流</h4><canvas id="simChart1" height="120"></canvas></div>';
+  h+='<div class="sim-section"><h4 style="margin-bottom:8px">📈 养老金对比（不同基数）</h4><canvas id="simChart2" height="120"></canvas></div>';
+
+  h+='<div class="sim-section"><h4 style="margin-bottom:8px">✅ 资格状态</h4>';
+  if(d.qualifications){
+    d.qualifications.forEach(function(q){
+      var icon=q.qualified?'✅':'⏳';
+      h+='<div style="display:flex;align-items:center;gap:8px;margin:4px 0;font-size:13px"><span>'+icon+'</span><b>'+esc(q.name)+'</b><span style="color:#6B7280">'+esc(q.detail)+'</span></div>';
+    });
+  }
+  h+='</div>';
+
+  h+='<div class="sim-section"><h4>💰 盈亏平衡：'+(d.break_even_age||'--')+'岁回本</h4><p style="font-size:12px;color:#6B7280">累计领取养老金超过累计投入的年龄</p></div>';
+
+  h+='<div style="font-size:12px;color:#9CA3AF;margin-top:8px">数据基于当前政策估算，仅供参考。实际待遇以社保经办机构核算为准。</div>';
+
+  document.getElementById('sb-content').innerHTML=h;
+  document.getElementById('sb-content').style.display='block';
+  simCharts.forEach(function(c){try{c.destroy()}catch(e){}});
+  simCharts=[];
+
+  if(d.cashflow){
+    var cf=d.cashflow;
+    var clabels=cf.map(function(c){return c.year});
+    var cpay=cf.map(function(c){return c.payment});
+    var csub=cf.map(function(c){return c.subsidy});
+    setTimeout(function(){
+      var ctx1=document.getElementById('simChart1');
+      if(ctx1){simCharts.push(new Chart(ctx1,{type:'bar',data:{labels:clabels,datasets:[
+        {label:'缴费',data:cpay,backgroundColor:'#EF4444'},
+        {label:'补贴',data:csub,backgroundColor:'#10B981'}
+      ]},options:{responsive:true,scales:{x:{maxTicksLimit:8}},plugins:{legend:{position:'bottom'}}}}));}
+    },50);
+  }
+  if(d.comparison){
+    var cmp=d.comparison;
+    setTimeout(function(){
+      var ctx2=document.getElementById('simChart2');
+      if(ctx2){simCharts.push(new Chart(ctx2,{type:'bar',data:{labels:['60%基数','100%基数','300%基数'],datasets:[
+        {label:'月缴费',data:[cmp.at_60.monthly_cost,cmp.at_100.monthly_cost,cmp.at_300.monthly_cost],backgroundColor:'#EF4444'},
+        {label:'月养老金',data:[cmp.at_60.projected_pension,cmp.at_100.projected_pension,cmp.at_300.projected_pension],backgroundColor:'#1A56DB'}
+      ]},options:{responsive:true,plugins:{legend:{position:'bottom'}}}}));}
+    },50);
+  }
+}
+
+function simCard(val,label,color){
+  return '<div style="flex:1;min-width:110px;background:'+color+'0D;border:1px solid '+color+'33;border-radius:10px;padding:12px;text-align:center">'+
+    '<div style="font-size:22px;font-weight:700;color:'+color+'">'+val+'</div>'+
+    '<div style="font-size:11px;color:#6B7280;margin-top:2px">'+label+'</div></div>';
+}
+
+function saveScenario(){
+  var p=simGetParams();
+  api('POST','/v1/simulator/scenarios',{name:'方案'+Date.now().toString(36).slice(-3).toUpperCase(),params:p}).then(function(){
+    loadScenarios();
+  }).catch(function(){});
+}
+
+function loadScenarios(){
+  api('GET','/v1/simulator/scenarios').then(function(list){
+    if(!list||list.length===0){document.getElementById('sb-scenarios').innerHTML='<p style="color:#9CA3AF;font-size:12px">暂无保存的方案</p>';return}
+    var h='<p style="font-size:12px;color:#6B7280;margin-bottom:4px">已保存方案（最多3个）:</p>';
+    list.forEach(function(s){
+      h+='<div style="background:#F9FAFB;border-radius:6px;padding:6px 10px;margin-bottom:4px;font-size:12px;cursor:pointer" onclick="applyScenario(\''+s.params+'\')">'+
+        '<b>'+esc(s.name)+'</b> <span style="color:#9CA3AF">'+esc(s.created_at)+'</span></div>';
+    });
+    document.getElementById('sb-scenarios').innerHTML=h;
+  }).catch(function(){});
+}
+
+function applyScenario(paramsStr){
+  try{
+    var p=JSON.parse(paramsStr);
+    if(p.city_code)document.getElementById('sb-city').value=p.city_code;
+    if(p.gender)document.getElementById('sb-gender').value=p.gender;
+    if(p.age)document.getElementById('sb-age').value=p.age;
+    if(p.base_percent)document.getElementById('sb-base').value=p.base_percent;
+    if(p.paid_years)document.getElementById('sb-paid').value=p.paid_years;
+    if(p.plan_years)document.getElementById('sb-plan').value=p.plan_years;
+    if(p.employment)document.getElementById('sb-emp').value=p.employment;
+    if(p.is_local_hukou!==undefined)document.getElementById('sb-hukou').value=String(p.is_local_hukou);
+    simDebounce();
+  }catch(e){}
+}
+
+function askAdvisor(){
+  var q=document.getElementById('sb-question').value.trim();
+  if(!q)return;
+  var ansDiv=document.getElementById('sb-answer');
+  ansDiv.style.display='block';
+  ansDiv.innerHTML='<span style="color:#9CA3AF">AI思考中...</span>';
+  api('POST','/v1/advisor/ask',{question:q,context:simGetParams()}).then(function(d){
+    ansDiv.innerHTML='<div style="font-size:14px;line-height:1.6">'+esc(d.answer||d)+'</div>';
+  }).catch(function(e){
+    ansDiv.innerHTML='<div class="alert-error">'+esc(e.message)+'</div>';
+  });
+  document.getElementById('sb-question').value='';
 }
 </script>
 </body>

@@ -1237,7 +1237,7 @@ git commit -m "feat(llm-gateway): add admin API and management page"
 - 公共端点 `POST /v1/chat`：接收请求 → Gateway.Chat → 记录 usage → 返回响应
 - 管理端点：Basic Auth 保护
 - 请求格式：`{"system_prompt":"...","user_content":"...","max_tokens":4096,"caller":"api-server"}`
-- 响应格式：`{"content":"...","provider_used":"deepseek","model":"deepseek-chat","latency_ms":1200}`
+- 响应格式：`{"content":"...","provider_used":"deepseek","model":"deepseek-v4-flash","latency_ms":1200}`
 
 关键逻辑：
 ```go

@@ -25,6 +25,7 @@ type PolicyRepository interface {
 	GetByID(ctx context.Context, policyID string) (*models.PolicyClaim, error)
 	QueryByRegionAndStatus(ctx context.Context, regionCode, status string) ([]models.PolicyClaim, error)
 	QueryByRegionHierarchy(ctx context.Context, regionCode, status string) ([]models.PolicyClaim, error)
+	QueryThresholds(ctx context.Context, regionCode, policyType string) ([]models.ThresholdData, error)
 }
 
 type policyRepository struct {
@@ -232,4 +233,25 @@ func (r *policyRepository) GetByID(ctx context.Context, policyID string) (*model
 		return nil, errors.NewInternal("failed to get policy")
 	}
 	return &c, nil
+}
+
+func (r *policyRepository) QueryThresholds(ctx context.Context, regionCode, policyType string) ([]models.ThresholdData, error) {
+	codes := buildRegionHierarchy(regionCode)
+	query := `SELECT claim_id, conditions FROM policy_claims
+		WHERE region_code = ANY($1) AND policy_type = $2 AND status = 'verified'
+		AND conditions IS NOT NULL AND conditions != '[]'::jsonb`
+	rows, err := r.db.QueryContext(ctx, query, pq.Array(codes), policyType)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var result []models.ThresholdData
+	for rows.Next() {
+		var t models.ThresholdData
+		if err := rows.Scan(&t.ClaimID, &t.Conditions); err != nil {
+			return nil, err
+		}
+		result = append(result, t)
+	}
+	return result, rows.Err()
 }

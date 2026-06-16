@@ -54,6 +54,10 @@ type profileInput struct {
 	ContributionMonths       int      `json:"contribution_months"`
 	PensionTotalAmount       float64  `json:"pension_total_amount"`
 	PensionPersonalAmount    float64  `json:"pension_personal_amount"`
+	IsLocalHukou             bool     `json:"is_local_hukou"`
+	ChildAgeRange            string   `json:"child_age_range"`
+	HasElderlyDependents     bool     `json:"has_elderly_dependents"`
+	MonthlyIncome            float64  `json:"monthly_income"`
 }
 
 func GetProfileHandler(repo ProfileRepository) http.Handler {
@@ -126,6 +130,10 @@ func UpdateProfileHandler(repo ProfileRepository) http.Handler {
 			ContributionMonths:       input.ContributionMonths,
 			PensionTotalAmount:       input.PensionTotalAmount,
 			PensionPersonalAmount:    input.PensionPersonalAmount,
+			IsLocalHukou:             input.IsLocalHukou,
+			ChildAgeRange:            input.ChildAgeRange,
+			HasElderlyDependents:     input.HasElderlyDependents,
+			MonthlyIncome:            input.MonthlyIncome,
 		}
 
 		if err := repo.Upsert(r.Context(), profile); err != nil {

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -60,8 +61,13 @@ func (p *OpenAICompatProvider) Chat(systemPrompt, userContent string) (string, e
 		MaxTokens: p.MaxTokens,
 	}
 
+	endpoint := p.Endpoint
+	if !strings.HasSuffix(endpoint, "/chat/completions") {
+		endpoint = strings.TrimRight(endpoint, "/") + "/chat/completions"
+	}
+
 	body, _ := json.Marshal(req)
-	httpReq, err := http.NewRequest("POST", p.Endpoint, bytes.NewReader(body))
+	httpReq, err := http.NewRequest("POST", endpoint, bytes.NewReader(body))
 	if err != nil {
 		return "", fmt.Errorf("create request: %w", err)
 	}

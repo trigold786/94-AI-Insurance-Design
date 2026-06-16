@@ -11,6 +11,7 @@ import (
 
 	"github.com/trigold786/94-AI-Insurance-Design/policy-crawler/internal/embeddings"
 	"github.com/trigold786/94-AI-Insurance-Design/policy-crawler/internal/llm"
+	"github.com/trigold786/94-AI-Insurance-Design/policy-crawler/internal/verifier"
 	"github.com/trigold786/94-AI-Insurance-Design/shared/models"
 )
 
@@ -25,15 +26,18 @@ type RawTextStore interface {
 	SaveSnapshot(claim *models.PolicyClaim) error
 	MarkSuperseded(oldClaimID, newClaimID string) error
 	ListVersions(policyID string) ([]models.VersionSnapshot, error)
+	GetMaxVersionNumber(policyID string) (int, error)
+	GetLatestClaimByPolicyID(policyID string) (string, error)
 }
 
 type RawTextEntry struct {
-	ID         int64  `json:"id"`
-	SourceID   string `json:"source_id"`
-	Content    string `json:"content"`
-	SourceURL  string `json:"source_url"`
-	SourceName string `json:"source_name"`
-	Title      string `json:"title"`
+	ID          int64  `json:"id"`
+	SourceID    string `json:"source_id"`
+	Content     string `json:"content"`
+	SourceURL   string `json:"source_url"`
+	SourceName  string `json:"source_name"`
+	Title       string `json:"title"`
+	SourceLevel string `json:"source_level"`
 }
 
 // ReferenceChecker 交叉验证接口
@@ -59,6 +63,24 @@ func (e *Extractor) SetReferenceChecker(c ReferenceChecker) {
 
 func (e *Extractor) SetEmbeddingProvider(p embeddings.EmbeddingProvider) {
 	e.embProv = p
+}
+
+func (e *Extractor) computeConfidence(sourceLevel string) float64 {
+	if sourceLevel == "" {
+		sourceLevel = "MEDIUM"
+	}
+	mc := &models.PolicyClaim{
+		SourceLevel:   sourceLevel,
+		MatchRate:     0.5,
+		ConflictScore: 1.0,
+		FetchedAt:     time.Now().Format("2006-01-02"),
+	}
+	score := verifier.CalculateConfidence(mc, verifier.DefaultConfidenceConfig())
+	status := verifier.DecideStatusWithConfig(score, verifier.DefaultStatusThresholds())
+	if status == "verified" {
+		return score
+	}
+	return score * 0.9
 }
 
 func (e *Extractor) embedText(text string) []float64 {
@@ -131,6 +153,7 @@ func (e *Extractor) ProcessOne(entry RawTextEntry) error {
   "policy_title": "政策正式标题",
   "issuing_authority": "发文机关",
   "document_number": "文号(如沪人社规〔2024〕1号)",
+  "publish_date": "政策发布日期YYYY-MM-DD(可选)",
   "region_code": "地区行政代码(6位)",
   "policy_type": "政策类型(pension/medical/unemployment/injury/maternity/housing_fund/subsidy/training)",
   "target_groups": ["适用人群标签(flexible_employment/unemployed/employed/4050/has_children/female/male/low_income)"],
@@ -251,7 +274,8 @@ func (e *Extractor) ProcessOne(entry RawTextEntry) error {
 		SubsidyDuration:    parsed.SubsidyDuration,
 		EffectiveDate:      parsed.EffectiveDate,
 		ExpireDate:         parsed.ExpireDate,
-		ConfidenceScore:    0.85,
+		PublishDate:        parsed.PublishDate,
+		ConfidenceScore:    e.computeConfidence(entry.SourceLevel),
 		Status:             "verified",
 		VersionNumber:      1,
 		Conditions:         condJSON,
@@ -272,6 +296,7 @@ func (e *Extractor) ProcessOne(entry RawTextEntry) error {
 	}
 
 	// 5a. 交叉验证（如果配置了 checker）
+	var supersedeOldID string
 	if e.checker != nil {
 		embedText := buildEmbedText(parsed.PolicyType, parsed.SubsidyCalcMethod, parsed.PolicyID, parsed.RegionCode, parsed.Conditions)
 		emb := e.embedText(embedText)
@@ -282,15 +307,34 @@ func (e *Extractor) ProcessOne(entry RawTextEntry) error {
 				maxScore = similar[i].Score
 			}
 		}
-		if maxScore > 0.85 && parsed.RegionCode != "" {
+
+		if maxScore > 0.95 && parsed.RegionCode != "" {
 			e.store.SaveExtractLogDetailed(entry.ID, entry.SourceID, true,
-				fmt.Sprintf("duplicate of %s (score=%.2f), skipped insert", similar[0].ClaimID, maxScore),
+				fmt.Sprintf("exact duplicate of %s (score=%.2f), skipped", similar[0].ClaimID, maxScore),
 				similar[0].ClaimID, entry.Title, e.client.ModelName(), "")
 			if err := e.store.MarkExtracted(entry.ID, similar[0].ClaimID); err != nil {
 				return fmt.Errorf("mark extracted: %w", err)
 			}
-			log.Printf("[extractor] skipped claim (duplicate of %s, score=%.2f) from raw_text id=%d", similar[0].ClaimID, maxScore, entry.ID)
+			log.Printf("[extractor] skipped claim (exact duplicate of %s, score=%.2f) from raw_text id=%d", similar[0].ClaimID, maxScore, entry.ID)
 			return nil
+		} else if maxScore > 0.85 && parsed.RegionCode != "" {
+			if parsed.PolicyID != "" {
+				existingVer, verErr := e.store.GetMaxVersionNumber(parsed.PolicyID)
+				if verErr == nil && existingVer > 0 {
+					claim.VersionNumber = existingVer + 1
+					log.Printf("[extractor] policy %s version %d -> %d (score=%.2f, raw_text id=%d)",
+						parsed.PolicyID, existingVer, claim.VersionNumber, maxScore, entry.ID)
+					if oldClaimID, oldErr := e.store.GetLatestClaimByPolicyID(parsed.PolicyID); oldErr == nil && oldClaimID != "" {
+						supersedeOldID = oldClaimID
+					}
+				} else {
+					claim.Status = "pending_review"
+					claim.ConfidenceScore *= 0.9
+				}
+			} else {
+				claim.Status = "pending_review"
+				claim.ConfidenceScore *= 0.9
+			}
 		} else if maxScore > 0.7 && parsed.RegionCode != "" {
 			claim.Status = "pending_review"
 			claim.ConfidenceScore *= 0.9
@@ -300,6 +344,12 @@ func (e *Extractor) ProcessOne(entry RawTextEntry) error {
 	// 6. 入库
 	if err := e.store.InsertClaim(claim); err != nil {
 		return fmt.Errorf("insert claim: %w", err)
+	}
+
+	if supersedeOldID != "" {
+		if err := e.store.MarkSuperseded(supersedeOldID, claim.ClaimID); err != nil {
+			log.Printf("[extractor] failed to mark supersede %s -> %s: %v", supersedeOldID, claim.ClaimID, err)
+		}
 	}
 
 	// 6a. 保存版本快照
@@ -319,7 +369,11 @@ func (e *Extractor) ProcessOne(entry RawTextEntry) error {
 		return fmt.Errorf("mark extracted: %w", err)
 	}
 
-	e.store.SaveExtractLogDetailed(entry.ID, entry.SourceID, true, fmt.Sprintf("claim=%s", claim.ClaimID), claim.ClaimID, entry.Title, e.client.ModelName(), parsed.BriefSummary)
+	modelLabel := e.client.ModelName()
+	if e.client.UsedBackup() {
+		log.Printf("[extractor] used backup model %s for raw_text id=%d", modelLabel, entry.ID)
+	}
+	e.store.SaveExtractLogDetailed(entry.ID, entry.SourceID, true, fmt.Sprintf("claim=%s", claim.ClaimID), claim.ClaimID, entry.Title, modelLabel, parsed.BriefSummary)
 	log.Printf("[extractor] extracted claim %s from raw_text id=%d", claim.ClaimID, entry.ID)
 	return nil
 }
@@ -413,6 +467,7 @@ type ExtractionResult struct {
 	SubsidyDuration   *int                     `json:"subsidy_duration"`
 	EffectiveDate     string                   `json:"effective_date"`
 	ExpireDate        *string                  `json:"expire_date"`
+	PublishDate       string                   `json:"publish_date"`
 	Conditions        []map[string]interface{} `json:"conditions"`
 	RequiredDocuments []map[string]interface{} `json:"required_documents"`
 	PolicyURL         string                   `json:"policy_url"`

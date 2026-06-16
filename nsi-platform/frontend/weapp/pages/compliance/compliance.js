@@ -38,6 +38,8 @@ Page({
     });
   },
   onGuideTap() {
-    wx.navigateTo({ url: '/pages/plan/plan' });
+    const cityCode = app.globalData.currentCityCode || '310000';
+    const url = api.API_BASE_URL + '/v1/guide?city_code=' + cityCode;
+    wx.navigateTo({ url: '/pages/webview/webview?url=' + encodeURIComponent(url) });
   },
 });

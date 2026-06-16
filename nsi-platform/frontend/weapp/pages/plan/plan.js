@@ -13,6 +13,11 @@ Page({
       wx.showToast({ title: '参数错误', icon: 'none' });
       return;
     }
+    api.checkUnlock(app.globalData.userInfo ? app.globalData.userInfo.nickName : 'default', planId).then((res) => {
+      if (!res.unlocked) {
+        wx.showModal({ title: '提示', content: '请先解锁完整报告', showCancel: false });
+      }
+    }).catch(() => {});
     const cached = wx.getStorageSync('planResult');
     if (cached && cached.recommended_schemes) {
       this.setData({ schemes: cached.recommended_schemes });
@@ -38,6 +43,9 @@ Page({
   },
   onSchemeTap(e) {
     this.selectScheme(e.currentTarget.dataset.index);
+  },
+  onApplySubsidy() {
+    wx.navigateTo({ url: '/pages/compliance/compliance' });
   },
   onSavePDF() {
     wx.showToast({ title: 'PDF 报告导出（Phase 2）', icon: 'none' });

@@ -67,10 +67,10 @@ func TestE2EFullChainV2(t *testing.T) {
 
 	// Step 2: Update profile
 	t.Log("Step 2: Update profile")
-	profileHandler := middleware.AuthMiddleware("")(UpdateProfileHandler(profileRepo))
+	profileHandler := middleware.AuthMiddleware(testJWTSecret)(UpdateProfileHandler(profileRepo))
 	profileBody := `{"age":30,"gender":"male","household_region_code":"310000","current_residence_code":"310000","employment_status":"flexible","social_security_years":10,"has_children":false}`
 	preq := httptest.NewRequest("PUT", "/v1/profile", strings.NewReader(profileBody))
-	preq.Header.Set("x-user-id", userID)
+	setAuth(preq, userID)
 	pw := httptest.NewRecorder()
 	profileHandler.ServeHTTP(pw, preq)
 	if pw.Code != http.StatusOK {
@@ -79,10 +79,10 @@ func TestE2EFullChainV2(t *testing.T) {
 
 	// Step 3: Generate plan
 	t.Log("Step 3: Generate plan")
-	genHandler := middleware.AuthMiddleware("")(GeneratePlanHandler(llmSrv.URL, planRepo, nil, nil))
+	genHandler := middleware.AuthMiddleware(testJWTSecret)(GeneratePlanHandler(llmSrv.URL, "", planRepo, nil, nil))
 	genBody := `{"age":30,"gender":"male","employment":"flexible","monthly_budget":3000}`
 	greq := httptest.NewRequest("POST", "/v1/plans/generate", strings.NewReader(genBody))
-	greq.Header.Set("x-user-id", userID)
+	setAuth(greq, userID)
 	gw := httptest.NewRecorder()
 	genHandler.ServeHTTP(gw, greq)
 	if gw.Code != http.StatusOK {
@@ -107,9 +107,9 @@ func TestE2EFullChainV2(t *testing.T) {
 
 	// Step 4: Get plan detail
 	t.Log("Step 4: Get plan detail")
-	detailHandler := middleware.AuthMiddleware("")(PlanDetailHandler(planRepo))
+	detailHandler := middleware.AuthMiddleware(testJWTSecret)(PlanDetailHandler(planRepo))
 	dreq := httptest.NewRequest("GET", "/v1/plans/"+planID, nil)
-	dreq.Header.Set("x-user-id", userID)
+	setAuth(dreq, userID)
 	dw := httptest.NewRecorder()
 	detailHandler.ServeHTTP(dw, dreq)
 	if dw.Code != http.StatusOK {
@@ -135,9 +135,9 @@ func TestE2EFullChainV2(t *testing.T) {
 
 	// Step 5: Get plan report (HTML)
 	t.Log("Step 5: Get plan report")
-	reportHandler := middleware.AuthMiddleware("")(PlanReportHandler(planRepo, policyRepo))
+	reportHandler := middleware.AuthMiddleware(testJWTSecret)(PlanReportHandler(planRepo, policyRepo))
 	rreq := httptest.NewRequest("GET", "/v1/plans/report?plan_id="+planID, nil)
-	rreq.Header.Set("x-user-id", userID)
+	setAuth(rreq, userID)
 	rw := httptest.NewRecorder()
 	reportHandler.ServeHTTP(rw, rreq)
 	if rw.Code != http.StatusOK {
@@ -157,9 +157,9 @@ func TestE2EFullChainV2(t *testing.T) {
 
 	// Step 6: Query policies
 	t.Log("Step 6: Query policies")
-	policyHandler := middleware.AuthMiddleware("")(QueryPoliciesHandler(policyRepo))
+	policyHandler := middleware.AuthMiddleware(testJWTSecret)(QueryPoliciesHandler(policyRepo))
 	qreq := httptest.NewRequest("GET", "/v1/policies?region_code=310000", nil)
-	qreq.Header.Set("x-user-id", userID)
+	setAuth(qreq, userID)
 	qw := httptest.NewRecorder()
 	policyHandler.ServeHTTP(qw, qreq)
 	if qw.Code != http.StatusOK {
@@ -178,9 +178,9 @@ func TestE2EFullChainV2(t *testing.T) {
 
 	// Step 7: Get compliance checklist
 	t.Log("Step 7: Get compliance checklist")
-	complianceHandler := middleware.AuthMiddleware("")(ComplianceChecklistHandler(evaluator, policyRepo, profileRepo))
+	complianceHandler := middleware.AuthMiddleware(testJWTSecret)(ComplianceChecklistHandler(evaluator, policyRepo, profileRepo))
 	creq := httptest.NewRequest("GET", "/v1/compliance/checklist?city_code=310000", nil)
-	creq.Header.Set("x-user-id", userID)
+	setAuth(creq, userID)
 	cw := httptest.NewRecorder()
 	complianceHandler.ServeHTTP(cw, creq)
 	if cw.Code != http.StatusOK {
@@ -206,9 +206,9 @@ func TestE2EFullChainV2(t *testing.T) {
 
 	// Step 8: Get guide (HTML)
 	t.Log("Step 8: Get guide")
-	guideHandler := middleware.AuthMiddleware("")(GuideHandler(evaluator, policyRepo, profileRepo))
+	guideHandler := middleware.AuthMiddleware(testJWTSecret)(GuideHandler(evaluator, policyRepo, profileRepo))
 	greq2 := httptest.NewRequest("GET", "/v1/guide?city_code=310000", nil)
-	greq2.Header.Set("x-user-id", userID)
+	setAuth(greq2, userID)
 	gw2 := httptest.NewRecorder()
 	guideHandler.ServeHTTP(gw2, greq2)
 	if gw2.Code != http.StatusOK {
@@ -224,10 +224,10 @@ func TestE2EFullChainV2(t *testing.T) {
 
 	// Step 9: Submit feedback
 	t.Log("Step 9: Submit feedback")
-	feedbackHandler := middleware.AuthMiddleware("")(SubmitFeedbackHandler(&mockFeedbackRepo{}))
+	feedbackHandler := middleware.AuthMiddleware(testJWTSecret)(SubmitFeedbackHandler(&mockFeedbackRepo{}))
 	fbody := `{"category":"general","content":"E2E test feedback","contact":"test@example.com"}`
 	freq := httptest.NewRequest("POST", "/v1/feedback", strings.NewReader(fbody))
-	freq.Header.Set("x-user-id", userID)
+	setAuth(freq, userID)
 	fw := httptest.NewRecorder()
 	feedbackHandler.ServeHTTP(fw, freq)
 	if fw.Code != http.StatusOK {
@@ -250,9 +250,9 @@ func TestE2EFullChainV2(t *testing.T) {
 		{RecordID: "rec-1", UserID: userID, PolicyType: "pension", Month: "2026-05", Amount: 1000, Status: "paid", DueDate: "2026-05-15"},
 		{RecordID: "rec-2", UserID: userID, PolicyType: "medical", Month: "2026-05", Amount: 500, Status: "pending", DueDate: "2026-05-20"},
 	}}
-	paymentHandler := middleware.AuthMiddleware("")(PaymentStatusHandler(rightsRepo))
+	paymentHandler := middleware.AuthMiddleware(testJWTSecret)(PaymentStatusHandler(rightsRepo))
 	preq2 := httptest.NewRequest("GET", "/v1/rights/payment-status", nil)
-	preq2.Header.Set("x-user-id", userID)
+	setAuth(preq2, userID)
 	pw2 := httptest.NewRecorder()
 	paymentHandler.ServeHTTP(pw2, preq2)
 	if pw2.Code != http.StatusOK {
@@ -261,9 +261,9 @@ func TestE2EFullChainV2(t *testing.T) {
 
 	// Step 11: Get alerts
 	t.Log("Step 11: Get alerts")
-	alertHandler := middleware.AuthMiddleware("")(AlertListHandler(rightsRepo))
+	alertHandler := middleware.AuthMiddleware(testJWTSecret)(AlertListHandler(rightsRepo))
 	areq := httptest.NewRequest("GET", "/v1/rights/alerts", nil)
-	areq.Header.Set("x-user-id", userID)
+	setAuth(areq, userID)
 	aw := httptest.NewRecorder()
 	alertHandler.ServeHTTP(aw, areq)
 	if aw.Code != http.StatusOK {
@@ -301,4 +301,8 @@ func (m *e2ePolicyRepo) QueryByRegionAndStatus(_ context.Context, _, _ string) (
 
 func (m *e2ePolicyRepo) QueryByRegionHierarchy(_ context.Context, _, _ string) ([]models.PolicyClaim, error) {
 	return m.claims, nil
+}
+
+func (m *e2ePolicyRepo) QueryThresholds(_ context.Context, _, _ string) ([]models.ThresholdData, error) {
+	return nil, nil
 }

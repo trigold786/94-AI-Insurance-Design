@@ -72,10 +72,10 @@ func TestLLMGatewayGeneratePlanFullFlow(t *testing.T) {
 	defer srv.Close()
 
 	repo := &mockPlanRepo{}
-	handler := middleware.AuthMiddleware("")(GeneratePlanHandler(srv.URL, repo, nil, nil))
+	handler := middleware.AuthMiddleware(testJWTSecret)(GeneratePlanHandler(srv.URL, "", repo, nil, nil))
 
 	req := httptest.NewRequest("POST", "/v1/plans/generate", strings.NewReader(`{"age":30,"gender":"male","employment":"flexible","monthly_budget":3000}`))
-	req.Header.Set("x-user-id", "user-int-1")
+	setAuth(req, "user-int-1")
 	w := httptest.NewRecorder()
 
 	handler.ServeHTTP(w, req)
@@ -104,20 +104,20 @@ func TestE2EFullChain(t *testing.T) {
 	repo := &mockPlanRepo{}
 	userID := "e2e-user-1"
 
-	profileHandler := middleware.AuthMiddleware("")(UpdateProfileHandler(&mockProfileRepo{}))
+	profileHandler := middleware.AuthMiddleware(testJWTSecret)(UpdateProfileHandler(&mockProfileRepo{}))
 	profileBody := `{"age":30,"gender":"male","household_region_code":"310000","current_residence_code":"310000","employment_status":"flexible","social_security_years":10,"has_children":false}`
 	preq := httptest.NewRequest("PUT", "/v1/profile", strings.NewReader(profileBody))
-	preq.Header.Set("x-user-id", userID)
+	setAuth(preq, userID)
 	pw := httptest.NewRecorder()
 	profileHandler.ServeHTTP(pw, preq)
 	if pw.Code != http.StatusOK {
 		t.Fatalf("UpdateProfile expected 200, got %d: %s", pw.Code, pw.Body.String())
 	}
 
-	genHandler := middleware.AuthMiddleware("")(GeneratePlanHandler(llmSrv.URL, repo, nil, nil))
+	genHandler := middleware.AuthMiddleware(testJWTSecret)(GeneratePlanHandler(llmSrv.URL, "", repo, nil, nil))
 	genBody := `{"age":30,"gender":"male","employment":"flexible","monthly_budget":3000}`
 	greq := httptest.NewRequest("POST", "/v1/plans/generate", strings.NewReader(genBody))
-	greq.Header.Set("x-user-id", userID)
+	setAuth(greq, userID)
 	gw := httptest.NewRecorder()
 	genHandler.ServeHTTP(gw, greq)
 	if gw.Code != http.StatusOK {
@@ -141,9 +141,9 @@ func TestE2EFullChain(t *testing.T) {
 	planID := wrapper.Data.PlanID
 	repo.savedPlan.PlanID = planID
 
-	detailHandler := middleware.AuthMiddleware("")(PlanDetailHandler(repo))
+	detailHandler := middleware.AuthMiddleware(testJWTSecret)(PlanDetailHandler(repo))
 	dreq := httptest.NewRequest("GET", "/v1/plans/"+planID, nil)
-	dreq.Header.Set("x-user-id", userID)
+	setAuth(dreq, userID)
 	dw := httptest.NewRecorder()
 	detailHandler.ServeHTTP(dw, dreq)
 	if dw.Code != http.StatusOK {
@@ -168,7 +168,7 @@ func TestE2EFullChain(t *testing.T) {
 	}
 
 	dreq2 := httptest.NewRequest("GET", "/v1/plans/"+planID, nil)
-	dreq2.Header.Set("x-user-id", "wrong-user")
+	setAuth(dreq2, "wrong-user")
 	dw2 := httptest.NewRecorder()
 	detailHandler.ServeHTTP(dw2, dreq2)
 	if dw2.Code != http.StatusNotFound {

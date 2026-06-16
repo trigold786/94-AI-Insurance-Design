@@ -7,6 +7,8 @@ struct PlanDetailView: View {
 
     @State private var schemes: [AppState.Scheme] = []
     @State private var currentSchemeIndex = 0
+    @State private var navigateToCompliance = false
+    @State private var showLockedAlert = false
 
     var body: some View {
         ScrollView {
@@ -36,7 +38,20 @@ struct PlanDetailView: View {
                     .cornerRadius(16)
                 }
 
+                Text("详细行动清单和风险提示请在Web端查看")
+                    .font(.system(size: 13))
+                    .foregroundColor(.gray)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(12)
+                    .background(Color(red: 0.93, green: 0.95, blue: 1))
+                    .cornerRadius(12)
+
                 VStack(spacing: 12) {
+                    Button("立即申请补贴") {
+                        navigateToCompliance = true
+                    }
+                    .buttonStyle(PrimaryButtonStyle())
+
                     Button("查看完整报告") {
                         if let url = URL(string: "\(AppConstants.apiBaseURL)/v1/plans/report?plan_id=\(planId)") {
                             var req = URLRequest(url: url)
@@ -56,8 +71,16 @@ struct PlanDetailView: View {
         .background(Color(red: 0.96, green: 0.97, blue: 0.98))
         .navigationTitle("方案详情")
         .navigationBarTitleDisplayMode(.inline)
+        .navigationDestination(isPresented: $navigateToCompliance) {
+            ComplianceView()
+        }
         .task {
             loadSchemes()
+        }
+        .alert("未解锁", isPresented: $showLockedAlert) {
+            Button("返回") {}
+        } message: {
+            Text("请先解锁完整报告")
         }
     }
 
@@ -99,12 +122,17 @@ struct PlanDetailView: View {
     }
 
     private func loadSchemes() {
+        let userID = appState.userInfo?.nickName ?? "default"
+        guard let client = try? NSIClient(baseURL: AppConstants.apiBaseURL, userID: userID) else { return }
+        Task {
+            if let status = try? await client.checkUnlock(planID: planId) {
+                if !status.unlocked { showLockedAlert = true }
+            }
+        }
         if let result = appState.planResult {
             schemes = result.recommendedSchemes
             return
         }
-        let userID = appState.userInfo?.nickName ?? "default"
-        guard let client = try? NSIClient(baseURL: AppConstants.apiBaseURL, userID: userID) else { return }
         Task {
             let plan = try? await client.getPlanDetail(planID: planId)
             if let s = plan?.recommendedSchemes {

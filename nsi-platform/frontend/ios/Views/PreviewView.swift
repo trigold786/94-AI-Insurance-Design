@@ -1,8 +1,12 @@
 import SwiftUI
+import NSIAPI
 
 struct PreviewView: View {
     @EnvironmentObject var appState: AppState
     @State private var navigateToPlan = false
+    @State private var loading = false
+    @State private var pendingOrderID: String?
+    @State private var showPayAlert = false
 
     var body: some View {
         VStack(spacing: 24) {
@@ -20,8 +24,8 @@ struct PreviewView: View {
             }
             .padding()
 
-            Button(action: { navigateToPlan = true }) {
-                Text("解锁完整报告")
+            Button(action: { createOrder() }) {
+                Text(loading ? "处理中..." : "解锁完整报告")
                     .font(.system(size: 18, weight: .semibold))
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
@@ -47,6 +51,42 @@ struct PreviewView: View {
             if let planId = appState.planResult?.planId {
                 PlanDetailView(planId: planId)
             }
+        }
+        .alert("确认支付", isPresented: $showPayAlert) {
+            Button("确认支付 ¥19.90") { payAndNavigate() }
+            Button("取消", role: .cancel) { pendingOrderID = nil }
+        } message: {
+            Text("解锁后可查看完整报告")
+        }
+    }
+
+    private func createOrder() {
+        guard let planId = appState.planResult?.planId else { return }
+        loading = true
+        let userID = appState.userInfo?.nickName ?? "default"
+        guard let client = try? NSIClient(baseURL: AppConstants.apiBaseURL, userID: userID) else { return }
+        Task {
+            do {
+                let order = try await client.createOrder(planID: planId)
+                pendingOrderID = order.orderID
+                showPayAlert = true
+            } catch {}
+            loading = false
+        }
+    }
+
+    private func payAndNavigate() {
+        guard let oid = pendingOrderID else { return }
+        loading = true
+        let userID = appState.userInfo?.nickName ?? "default"
+        guard let client = try? NSIClient(baseURL: AppConstants.apiBaseURL, userID: userID) else { return }
+        Task {
+            do {
+                _ = try await client.payOrder(orderID: oid)
+                pendingOrderID = nil
+                navigateToPlan = true
+            } catch {}
+            loading = false
         }
     }
 

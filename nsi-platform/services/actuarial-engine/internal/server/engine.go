@@ -96,15 +96,22 @@ func CalculatePlan(req PlanRequest, cache Cache) PlanResponse {
 
 	var optSchemes []optimizer.Scheme
 	for _, s := range schemes {
+		equity := 0.0
+		if s.BaseSalary > 0 {
+			equity = s.ProjectedPension / float64(s.BaseSalary)
+		}
 		optSchemes = append(optSchemes, optimizer.Scheme{
 			Name:             s.Name,
 			MonthlyCost:      s.MonthlyCost,
 			ProjectedPension: s.ProjectedPension,
+			EquityScore:      equity,
 		})
 	}
 
-	optSchemes = optimizer.RankByEfficiency(optSchemes)
-	optSchemes = optimizer.FilterParetoOptimal(optSchemes, 0)
+	optSchemes = optimizer.NSGAII(optSchemes, 50, 20)
+	if len(optSchemes) == 0 {
+		optSchemes = optimizer.FilterParetoOptimal(optSchemes, 0)
+	}
 
 	yearsToRetirement := pensionAge - req.Age
 	if yearsToRetirement < 0 {

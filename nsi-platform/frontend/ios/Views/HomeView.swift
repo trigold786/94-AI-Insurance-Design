@@ -1,5 +1,6 @@
 import SwiftUI
 import NSIAPI
+import CoreLocation
 
 struct HomeView: View {
     @EnvironmentObject var appState: AppState
@@ -8,6 +9,8 @@ struct HomeView: View {
     @State private var navigateToProfile = false
     @State private var navigateToCompliance = false
     @State private var navigateToRights = false
+    @State private var locationDetector = LocationDetector()
+    @State private var locationRequested = false
 
     var body: some View {
         ScrollView {
@@ -119,8 +122,22 @@ struct HomeView: View {
             RightsView()
         }
         .task {
+            if !locationRequested {
+                locationRequested = true
+                requestLocation()
+            }
             loadPolicies()
         }
+    }
+
+    private func requestLocation() {
+        let state = appState
+        locationDetector.onLocation = { coord in
+            let city = mapLocationToCity(lat: coord.latitude, lng: coord.longitude)
+            state.currentCity = city.name
+            state.currentCityCode = city.code
+        }
+        locationDetector.request()
     }
 
     private func loadPolicies() {
@@ -137,4 +154,45 @@ struct PolicyClaim: Codable {
     let claimID: String?
     let policyType: String?
     let subsidyCalcMethod: String?
+}
+
+class LocationDetector: NSObject, CLLocationManagerDelegate {
+    private let manager = CLLocationManager()
+    var onLocation: ((CLLocationCoordinate2D) -> Void)?
+
+    override init() {
+        super.init()
+        manager.delegate = self
+        manager.desiredAccuracy = kCLLocationAccuracyKilometer
+    }
+
+    func request() {
+        manager.requestWhenInUseAuthorization()
+        manager.requestLocation()
+    }
+
+    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+        if let coord = locations.last?.coordinate {
+            onLocation?(coord)
+        }
+    }
+
+    func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {}
+}
+
+private func mapLocationToCity(lat: Double, lng: Double) -> (code: String, name: String) {
+    let cities: [(lat: Double, lng: Double, code: String, name: String)] = [
+        (31.23, 121.47, "310000", "上海"),
+        (39.90, 116.40, "110000", "北京"),
+        (22.54, 114.06, "440300", "深圳"),
+        (23.13, 113.27, "440100", "广州"),
+        (30.27, 120.15, "330100", "杭州"),
+    ]
+    var best = cities[0]
+    var bestDist = Double.greatestFiniteMagnitude
+    for c in cities {
+        let d = (c.lat - lat) * (c.lat - lat) + (c.lng - lng) * (c.lng - lng)
+        if d < bestDist { bestDist = d; best = c }
+    }
+    return (best.code, best.name)
 }

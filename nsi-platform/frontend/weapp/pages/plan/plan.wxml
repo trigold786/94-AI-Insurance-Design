@@ -31,7 +31,12 @@
     </view>
   </view>
 
+  <view class="note-card">
+    <text class="note-text">详细行动清单和风险提示请在Web端查看</text>
+  </view>
+
   <view class="action-section">
+    <button class="btn-primary" bindtap="onApplySubsidy">立即申请补贴</button>
     <button class="btn-primary" bindtap="onSavePDF">保存为 PDF</button>
     <button class="btn-secondary" bindtap="onShare">分享方案</button>
   </view>

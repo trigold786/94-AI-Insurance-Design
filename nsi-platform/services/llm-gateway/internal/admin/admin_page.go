@@ -63,7 +63,7 @@ label{font-size:12px;color:#6B7280;display:block;margin-bottom:4px}
 </style>
 </head>
 <body>
-<div class="header"><h1>LLM Gateway - 管理后台</h1><span>v2.0.0</span></div>
+<div class="header"><h1>LLM Gateway - 管理后台</h1><span>v2.1.0</span></div>
 <div class="nav" id="navBar"></div>
 <div class="container" id="app"><div class="card" style="text-align:center;padding:40px"><div class="spinner"></div>加载中...</div></div>
 <div class="toast" id="toast"></div>
@@ -73,13 +73,16 @@ var MODEL_REGISTRY={
   'deepseek':{
     name:'DeepSeek',
     models:{
-      'deepseek-chat':{name:'DeepSeek Chat',api:'https://api.deepseek.com/v1/chat/completions',type:'llm',format:'openai',maxTokens:8192},
-      'deepseek-reasoner':{name:'DeepSeek R1 (推理)',api:'https://api.deepseek.com/v1/chat/completions',type:'llm',format:'openai',maxTokens:8192}
+      'deepseek-v4-pro':{name:'DeepSeek V4 Pro',api:'https://api.deepseek.com/v1/chat/completions',type:'llm',format:'openai',maxTokens:8192},
+      'deepseek-v4-flash':{name:'DeepSeek V4 Flash',api:'https://api.deepseek.com/v1/chat/completions',type:'llm',format:'openai',maxTokens:8192}
     }
   },
   'volc_ark':{
     name:'火山方舟 (豆包)',
     models:{
+      'doubao-seed-2.0-pro':{name:'Doubao Seed 2.0 Pro',api:'https://ark.cn-beijing.volces.com/api/coding/v3',type:'llm',format:'openai',maxTokens:8192},
+      'doubao-seed-2.0-lite':{name:'Doubao Seed 2.0 Lite',api:'https://ark.cn-beijing.volces.com/api/coding/v3',type:'llm',format:'openai',maxTokens:8192},
+      'doubao-seed-2.0-code':{name:'Doubao Seed 2.0 Code',api:'https://ark.cn-beijing.volces.com/api/coding/v3',type:'llm',format:'openai',maxTokens:8192},
       'doubao-pro-32k':{name:'豆包 Pro 32K',api:'https://ark.cn-beijing.volces.com/api/v3/chat/completions',type:'llm',format:'openai',maxTokens:4096},
       'doubao-pro-128k':{name:'豆包 Pro 128K',api:'https://ark.cn-beijing.volces.com/api/v3/chat/completions',type:'llm',format:'openai',maxTokens:4096},
       'doubao-lite-32k':{name:'豆包 Lite 32K',api:'https://ark.cn-beijing.volces.com/api/v3/chat/completions',type:'llm',format:'openai',maxTokens:4096},
@@ -89,10 +92,19 @@ var MODEL_REGISTRY={
   'ali_bailian':{
     name:'阿里云百炼 (通义千问)',
     models:{
-      'qwen-plus':{name:'通义千问 Plus',api:'https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation',type:'llm',format:'bailian',maxTokens:8192},
-      'qwen-turbo':{name:'通义千问 Turbo',api:'https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation',type:'llm',format:'bailian',maxTokens:8192},
-      'qwen-max':{name:'通义千问 Max',api:'https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation',type:'llm',format:'bailian',maxTokens:8192},
-      'text-embedding-v3':{name:'通义文本 Embedding V3',api:'https://dashscope.aliyuncs.com/api/v1/services/embeddings/text-embedding/text-embedding',type:'embedding',format:'openai',dims:[1024,1536]}
+      'qwen3.7-max':{name:'通义千问 3.7 Max',api:'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions',type:'llm',format:'openai',maxTokens:8192},
+      'qwen3.6-plus':{name:'通义千问 3.6 Plus',api:'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions',type:'llm',format:'openai',maxTokens:8192},
+      'qwen3.6-flash':{name:'通义千问 3.6 Flash',api:'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions',type:'llm',format:'openai',maxTokens:8192},
+      'text-embedding-v4':{name:'通义文本 Embedding V4',api:'https://dashscope.aliyuncs.com/compatible-mode/v1/embeddings',type:'embedding',format:'openai',dims:[1024,1536]},
+      'tongyi-embedding-vision-plus':{name:'通义图文 Embedding Plus',api:'https://dashscope.aliyuncs.com/compatible-mode/v1/embeddings',type:'embedding',format:'openai',dims:[1024,1536]}
+    }
+  },
+  'ollama':{
+    name:'Ollama (本地)',
+    editable_endpoint:true,
+    models:{
+      'gemma4:26b':{name:'Gemma 4 26B',api:'http://192.168.1.11:11434/v1',type:'llm',format:'openai',maxTokens:8192},
+      'gemma4:31b':{name:'Gemma 4 31B',api:'http://192.168.1.11:11434/v1',type:'llm',format:'openai',maxTokens:8192}
     }
   },
   'opencode_go':{
@@ -236,15 +248,18 @@ function renderLLMSection(fnKey,title){
   html+='<div class="form-grid">';
 
   html+='<div><label>Provider</label><select id="'+fnKey+'_provider" onchange="onProviderChangeLLM(\''+fnKey+'\')" data-type="llm">';
-  providers.forEach(function(p){html+='<option value="'+p.key+'"'+(cfg.provider_name===p.key?' selected':'')+'>'+esc(p.name)+'</option>'});
+  providers.forEach(function(p){html+='<option value="'+p.key+'"'+(cfg.provider===p.key?' selected':'')+'>'+esc(p.name)+'</option>'});
   html+='</select></div>';
 
-  var models=getModelsForProviderAndType(cfg.provider_name||providers[0].key,'llm');
+  var models=getModelsForProviderAndType(cfg.provider||providers[0].key,'llm');
   html+='<div><label>Model</label><select id="'+fnKey+'_model" onchange="onModelChangeLLM(\''+fnKey+'\')">';
-  models.forEach(function(m){html+='<option value="'+m.key+'"'+(cfg.model_name===m.key?' selected':'')+'>'+esc(m.info.name)+'</option>'});
+  models.forEach(function(m){html+='<option value="'+m.key+'"'+(cfg.model_id===m.key?' selected':'')+'>'+esc(m.info.name)+'</option>'});
   html+='</select></div>';
 
-  html+='<div class="form-full"><label>API Endpoint</label><input id="'+fnKey+'_endpoint" readonly value="'+esc(cfg.endpoint||models[0].info.api)+'"></div>';
+  var epReadOnly='';
+  var regP=MODEL_REGISTRY[cfg.provider||providers[0].key];
+  if(regP&&!regP.editable_endpoint){epReadOnly=' readonly'}
+  html+='<div class="form-full"><label>API Endpoint</label><input id="'+fnKey+'_endpoint"'+epReadOnly+' value="'+esc(cfg.api_endpoint||models[0].info.api)+'"></div>';
 
   html+='<div><label>API Key</label><div class="key-wrapper"><input id="'+fnKey+'_apikey" type="password" placeholder="输入 API Key" data-original="'+(cfg.api_key_masked?'masked':'')+'"><span class="key-toggle" onclick="toggleKeyEdit(\''+fnKey+'_apikey\')">编辑</span></div></div>';
 
@@ -260,19 +275,19 @@ function renderLLMSection(fnKey,title){
   html+='<div class="form-grid">';
   html+='<div><label>备用 Provider</label><select id="'+fnKey+'_backup_provider" onchange="onBackupProviderChange(\''+fnKey+'\')" data-type="llm">';
   html+='<option value="">-- 不使用备用 --</option>';
-  providers.forEach(function(p){html+='<option value="'+p.key+'"'+(cfg.backup_provider_name===p.key?' selected':'')+'>'+esc(p.name)+'</option>'});
+  providers.forEach(function(p){html+='<option value="'+p.key+'"'+(cfg.backup_provider===p.key?' selected':'')+'>'+esc(p.name)+'</option>'});
   html+='</select></div>';
 
   var bkModels=[];
-  if(cfg.backup_provider_name){
-    bkModels=getModelsForProviderAndType(cfg.backup_provider_name,'llm');
+  if(cfg.backup_provider){
+    bkModels=getModelsForProviderAndType(cfg.backup_provider,'llm');
   }
   html+='<div><label>备用 Model</label><select id="'+fnKey+'_backup_model" onchange="onBackupModelChange(\''+fnKey+'\')">';
   if(bkModels.length===0){html+='<option value="">-- 先选择 Provider --</option>'}
-  else{bkModels.forEach(function(m){html+='<option value="'+m.key+'"'+(cfg.backup_model_name===m.key?' selected':'')+'>'+esc(m.info.name)+'</option>'})}
+  else{bkModels.forEach(function(m){html+='<option value="'+m.key+'"'+(cfg.backup_model_id===m.key?' selected':'')+'>'+esc(m.info.name)+'</option>'})}
   html+='</select></div>';
 
-  html+='<div class="form-full"><label>备用 API Endpoint</label><input id="'+fnKey+'_backup_endpoint" readonly value="'+esc(cfg.backup_endpoint||(bkModels.length?bkModels[0].info.api:''))+'"></div>';
+  html+='<div class="form-full"><label>备用 API Endpoint</label><input id="'+fnKey+'_backup_endpoint" readonly value="'+esc(cfg.backup_api_endpoint||(bkModels.length?bkModels[0].info.api:''))+'"></div>';
   html+='<div><label>备用 API Key</label><div class="key-wrapper"><input id="'+fnKey+'_backup_apikey" type="password" placeholder="输入备用 API Key" data-original=""><span class="key-toggle" onclick="toggleKeyEdit(\''+fnKey+'_backup_apikey\')">编辑</span></div></div>';
   html+='</div></div>';
 
@@ -294,21 +309,24 @@ function renderEmbeddingSection(){
   html+='<div class="form-grid">';
 
   html+='<div><label>Provider</label><select id="'+fnKey+'_provider" onchange="onProviderChangeEmbedding()">';
-  providers.forEach(function(p){html+='<option value="'+p.key+'"'+(cfg.provider_name===p.key?' selected':'')+'>'+esc(p.name)+'</option>'});
+  providers.forEach(function(p){html+='<option value="'+p.key+'"'+(cfg.provider===p.key?' selected':'')+'>'+esc(p.name)+'</option>'});
   html+='</select></div>';
 
-  var models=getModelsForProviderAndType(cfg.provider_name||providers[0].key,'embedding');
+  var models=getModelsForProviderAndType(cfg.provider||providers[0].key,'embedding');
   html+='<div><label>Model</label><select id="'+fnKey+'_model" onchange="onModelChangeEmbedding()">';
-  models.forEach(function(m){html+='<option value="'+m.key+'"'+(cfg.model_name===m.key?' selected':'')+'>'+esc(m.info.name)+'</option>'});
+  models.forEach(function(m){html+='<option value="'+m.key+'"'+(cfg.model_id===m.key?' selected':'')+'>'+esc(m.info.name)+'</option>'});
   html+='</select></div>';
 
-  html+='<div class="form-full"><label>API Endpoint</label><input id="'+fnKey+'_endpoint" readonly value="'+esc(cfg.endpoint||(models.length?models[0].info.api:''))+'"></div>';
+  var epReadOnlyE='';
+  var regPE=MODEL_REGISTRY[cfg.provider||providers[0].key];
+  if(regPE&&!regPE.editable_endpoint){epReadOnlyE=' readonly'}
+  html+='<div class="form-full"><label>API Endpoint</label><input id="embedding_endpoint"'+epReadOnlyE+' value="'+esc(cfg.api_endpoint||(models.length?models[0].info.api:''))+'"></div>';
 
   html+='<div><label>API Key</label><div class="key-wrapper"><input id="'+fnKey+'_apikey" type="password" placeholder="输入 API Key" data-original="'+(cfg.api_key_masked?'masked':'')+'"><span class="key-toggle" onclick="toggleKeyEdit(\''+fnKey+'_apikey\')">编辑</span></div></div>';
 
   var defaultDims=1024;
   if(models.length&&models[0].info.dims){defaultDims=models[0].info.dims[0]}
-  if(cfg.dimensions){defaultDims=cfg.dimensions}
+  if(cfg.extra_params&&cfg.extra_params.dimensions){defaultDims=parseInt(cfg.extra_params.dimensions)}
 
   html+='<div><label>Dimensions</label><input id="'+fnKey+'_dimensions" type="number" value="'+defaultDims+'"></div>';
   html+='<div class="form-full"><label class="inline-toggle"><input type="checkbox" id="'+fnKey+'_enabled" '+(cfg.enabled?'checked':'')+'>启用</label></div>';
@@ -332,23 +350,27 @@ function renderASRSection(){
   html+='<div class="form-grid">';
 
   html+='<div><label>Provider</label><select id="'+fnKey+'_provider" onchange="onProviderChangeASR()">';
-  providers.forEach(function(p){html+='<option value="'+p.key+'"'+(cfg.provider_name===p.key?' selected':'')+'>'+esc(p.name)+'</option>'});
+  providers.forEach(function(p){html+='<option value="'+p.key+'"'+(cfg.provider===p.key?' selected':'')+'>'+esc(p.name)+'</option>'});
   html+='</select></div>';
 
-  var models=getModelsForProviderAndType(cfg.provider_name||providers[0].key,'asr');
+  var models=getModelsForProviderAndType(cfg.provider||providers[0].key,'asr');
   html+='<div><label>Model</label><select id="'+fnKey+'_model" onchange="onModelChangeASR()">';
-  models.forEach(function(m){html+='<option value="'+m.key+'"'+(cfg.model_name===m.key?' selected':'')+'>'+esc(m.info.name)+'</option>'});
+  models.forEach(function(m){html+='<option value="'+m.key+'"'+(cfg.model_id===m.key?' selected':'')+'>'+esc(m.info.name)+'</option>'});
   html+='</select></div>';
 
-  html+='<div class="form-full"><label>API Endpoint</label><input id="'+fnKey+'_endpoint" readonly value="'+esc(cfg.endpoint||(models.length?models[0].info.api:''))+'"></div>';
+  var epReadOnlyA='';
+  var regPA=MODEL_REGISTRY[cfg.provider||providers[0].key];
+  if(regPA&&!regPA.editable_endpoint){epReadOnlyA=' readonly'}
+  html+='<div class="form-full"><label>API Endpoint</label><input id="asr_endpoint"'+epReadOnlyA+' value="'+esc(cfg.api_endpoint||(models.length?models[0].info.api:''))+'"></div>';
 
-  html+='<div><label>APP ID</label><input id="'+fnKey+'_appid" value="'+esc(cfg.app_id||'')+'"></div>';
+  var asrEP=cfg.extra_params||{};
+  html+='<div><label>APP ID</label><input id="'+fnKey+'_appid" value="'+esc(asrEP.app_id||'')+'"></div>';
 
   html+='<div><label>Access Token (API Key)</label><div class="key-wrapper"><input id="'+fnKey+'_apikey" type="password" placeholder="输入 Access Token" data-original="'+(cfg.api_key_masked?'masked':'')+'"><span class="key-toggle" onclick="toggleKeyEdit(\''+fnKey+'_apikey\')">编辑</span></div></div>';
 
-  html+='<div><label>Language</label><input id="'+fnKey+'_language" value="'+esc(cfg.language||'zh')+'"></div>';
-  html+='<div><label>Max Wait (秒)</label><input id="'+fnKey+'_maxwait" type="number" value="'+(cfg.max_wait||300)+'"></div>';
-  html+='<div><label>Poll Interval (秒)</label><input id="'+fnKey+'_pollinterval" type="number" value="'+(cfg.poll_interval||5)+'"></div>';
+  html+='<div><label>Language</label><input id="'+fnKey+'_language" value="'+esc(asrEP.language||'zh')+'"></div>';
+  html+='<div><label>Max Wait (秒)</label><input id="'+fnKey+'_maxwait" type="number" value="'+(asrEP.max_wait_seconds||300)+'"></div>';
+  html+='<div><label>Poll Interval (秒)</label><input id="'+fnKey+'_pollinterval" type="number" value="'+(asrEP.poll_interval_seconds||5)+'"></div>';
   html+='<div class="form-full"><label class="inline-toggle"><input type="checkbox" id="'+fnKey+'_enabled" '+(cfg.enabled?'checked':'')+'>启用</label></div>';
   html+='</div>';
 
@@ -475,30 +497,30 @@ function triggerProviderChanges(){
   // Restore saved values after triggering
   ['llm_extract','llm_plan'].forEach(function(fnKey){
     var cfg=modelConfigs[fnKey]||{};
-    if(cfg.model_name){
+    if(cfg.model_id){
       var sel=document.getElementById(fnKey+'_model');
-      if(sel){var opts=sel.querySelectorAll('option');for(var i=0;i<opts.length;i++){if(opts[i].value===cfg.model_name){sel.selectedIndex=i;onModelChangeLLM(fnKey);break}}}
+      if(sel){var opts=sel.querySelectorAll('option');for(var i=0;i<opts.length;i++){if(opts[i].value===cfg.model_id){sel.selectedIndex=i;onModelChangeLLM(fnKey);break}}}
     }
     if(cfg.max_tokens){var mt=document.getElementById(fnKey+'_maxtokens');if(mt)mt.value=cfg.max_tokens}
   });
   var embCfg=modelConfigs.embedding||{};
-  if(embCfg.model_name){
+  if(embCfg.model_id){
     var esel=document.getElementById('embedding_model');
-    if(esel){var eopts=esel.querySelectorAll('option');for(var i=0;i<eopts.length;i++){if(eopts[i].value===embCfg.model_name){esel.selectedIndex=i;onModelChangeEmbedding();break}}}
+    if(esel){var eopts=esel.querySelectorAll('option');for(var i=0;i<eopts.length;i++){if(eopts[i].value===embCfg.model_id){esel.selectedIndex=i;onModelChangeEmbedding();break}}}
   }
   if(embCfg.dimensions){var ed=document.getElementById('embedding_dimensions');if(ed)ed.value=embCfg.dimensions}
   var asrCfg=modelConfigs.asr||{};
-  if(asrCfg.model_name){
+  if(asrCfg.model_id){
     var asel=document.getElementById('asr_model');
-    if(asel){var aopts=asel.querySelectorAll('option');for(var i=0;i<aopts.length;i++){if(aopts[i].value===asrCfg.model_name){asel.selectedIndex=i;onModelChangeASR();break}}}
+    if(asel){var aopts=asel.querySelectorAll('option');for(var i=0;i<aopts.length;i++){if(aopts[i].value===asrCfg.model_id){asel.selectedIndex=i;onModelChangeASR();break}}}
   }
 }
 
 function saveModelConfig(fnKey){
   var payload={function_key:fnKey};
-  payload.provider_name=document.getElementById(fnKey+'_provider').value;
-  payload.model_name=document.getElementById(fnKey+'_model').value;
-  payload.endpoint=document.getElementById(fnKey+'_endpoint').value;
+  payload.provider=document.getElementById(fnKey+'_provider').value;
+  payload.model_id=document.getElementById(fnKey+'_model').value;
+  payload.api_endpoint=document.getElementById(fnKey+'_endpoint').value;
   payload.enabled=document.getElementById(fnKey+'_enabled').checked;
 
   var apiKeyEl=document.getElementById(fnKey+'_apikey');
@@ -510,21 +532,25 @@ function saveModelConfig(fnKey){
     payload.max_tokens=parseInt(document.getElementById(fnKey+'_maxtokens').value)||4096;
     var bkProv=document.getElementById(fnKey+'_backup_provider').value;
     if(bkProv){
-      payload.backup_provider_name=bkProv;
-      payload.backup_model_name=document.getElementById(fnKey+'_backup_model').value;
-      payload.backup_endpoint=document.getElementById(fnKey+'_backup_endpoint').value;
+      payload.backup_provider=bkProv;
+      payload.backup_model_id=document.getElementById(fnKey+'_backup_model').value;
+      payload.backup_api_endpoint=document.getElementById(fnKey+'_backup_endpoint').value;
       var bkKeyEl=document.getElementById(fnKey+'_backup_apikey');
       if(bkKeyEl.dataset.edited==='true'||bkKeyEl.value){
         payload.backup_api_key=bkKeyEl.value;
       }
     }
   }else if(fnKey==='embedding'){
-    payload.dimensions=parseInt(document.getElementById('embedding_dimensions').value)||1024;
+    var ep={};
+    ep.dimensions=parseInt(document.getElementById('embedding_dimensions').value)||1024;
+    payload.extra_params=JSON.stringify(ep);
   }else if(fnKey==='asr'){
-    payload.app_id=document.getElementById('asr_appid').value;
-    payload.language=document.getElementById('asr_language').value||'zh';
-    payload.max_wait=parseInt(document.getElementById('asr_maxwait').value)||300;
-    payload.poll_interval=parseInt(document.getElementById('asr_pollinterval').value)||5;
+    var ep={};
+    ep.app_id=document.getElementById('asr_appid').value;
+    ep.language=document.getElementById('asr_language').value||'zh';
+    ep.max_wait_seconds=parseInt(document.getElementById('asr_maxwait').value)||300;
+    ep.poll_interval_seconds=parseInt(document.getElementById('asr_pollinterval').value)||5;
+    payload.extra_params=JSON.stringify(ep);
   }
 
   fetch('/admin/model-configs/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
@@ -730,9 +756,9 @@ function testModelConfigConnectivity(fnKey){
 // ==================== Legacy Provider Tab ====================
 
 var providerDefaults={
-  deepseek:{endpoint:'https://api.deepseek.com/v1/chat/completions',model:'deepseek-chat'},
-  ali_bailian:{endpoint:'https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation',model:'qwen-plus'},
-  volc_ark:{endpoint:'https://ark.cn-beijing.volces.com/api/v3/chat/completions',model:'doubao-pro-32k'},
+  deepseek:{endpoint:'https://api.deepseek.com/v1/chat/completions',model:'deepseek-v4-flash'},
+  ali_bailian:{endpoint:'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions',model:'qwen3.6-plus'},
+  volc_ark:{endpoint:'https://ark.cn-beijing.volces.com/api/coding/v3',model:'doubao-seed-2.0-pro'},
   opencode_go:{endpoint:'http://localhost:11434/v1/chat/completions',model:'opencode-go'}
 };
 

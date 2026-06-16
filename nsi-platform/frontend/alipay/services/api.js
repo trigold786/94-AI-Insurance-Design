@@ -54,6 +54,15 @@ function getPaymentStatus(u)     { return request('GET', '/v1/rights/payment-sta
 function getAlerts(u)            { return request('GET', '/v1/rights/alerts', null, u); }
 function markAlertRead(u, id)    { return request('POST', '/v1/rights/alerts/read', { alert_id: id }, u); }
 function submitFeedback(u, d)    { return request('POST', '/v1/feedback', d, u); }
+function createOrder(u, planId) { return request('POST', '/v1/orders', { plan_id: planId }, u); }
+function payOrder(u, oid)       { return request('POST', '/v1/orders/' + oid + '/pay', { payment_method: 'wechat' }, u); }
+function checkUnlock(u, planId) { return request('GET', '/v1/orders/check-unlock?plan_id=' + planId, null, u); }
+function getSettings(u, data)              { return request('GET', '/v1/settings', null, u); }
+function saveSettings(u, data)             { return request('POST', '/v1/settings', data, u); }
+function calculateSimulator(u, data)       { return request('POST', '/v1/simulator/calculate', data, u); }
+function askAdvisor(u, data)               { return request('POST', '/v1/advisor/ask', data, u); }
 
-module.exports = { getProfile, updateProfile, queryPolicies, generatePlan, getPlanDetail,
-  getCompliance, getGuide, getPaymentStatus, getAlerts, markAlertRead, submitFeedback };
+module.exports = { API_BASE_URL, getProfile, updateProfile, queryPolicies, generatePlan, getPlanDetail,
+  getCompliance, getGuide, getPaymentStatus, getAlerts, markAlertRead, submitFeedback,
+  createOrder, payOrder, checkUnlock,
+  getSettings, saveSettings, calculateSimulator, askAdvisor };

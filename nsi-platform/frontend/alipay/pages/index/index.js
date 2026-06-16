@@ -14,11 +14,38 @@ Page({
       this.setData({ currentCity: city, currentCityCode: code });
       this.loadPolicies(code);
     } else {
-      app.globalData.currentCity = '上海';
-      app.globalData.currentCityCode = '310000';
-      this.setData({ currentCity: '上海', currentCityCode: '310000' });
-      this.loadPolicies('310000');
+      this.detectLocation();
     }
+  },
+  detectLocation() {
+    my.getLocation({
+      success: (res) => {
+        const c = this.mapLocationToCity(res.latitude, res.longitude);
+        this.applyCity(c.name, c.code);
+      },
+      fail: () => { this.applyCity('上海', '310000'); },
+    });
+  },
+  applyCity(name, code) {
+    app.globalData.currentCity = name;
+    app.globalData.currentCityCode = code;
+    this.setData({ currentCity: name, currentCityCode: code });
+    this.loadPolicies(code);
+  },
+  mapLocationToCity(lat, lng) {
+    const cities = [
+      { lat: 31.23, lng: 121.47, code: '310000', name: '上海' },
+      { lat: 39.90, lng: 116.40, code: '110000', name: '北京' },
+      { lat: 22.54, lng: 114.06, code: '440300', name: '深圳' },
+      { lat: 23.13, lng: 113.27, code: '440100', name: '广州' },
+      { lat: 30.27, lng: 120.15, code: '330100', name: '杭州' },
+    ];
+    let best = cities[0], bestDist = Infinity;
+    for (const c of cities) {
+      const d = (c.lat - lat) ** 2 + (c.lng - lng) ** 2;
+      if (d < bestDist) { bestDist = d; best = c; }
+    }
+    return best;
   },
   loadPolicies(code) {
     const userID = app.globalData.userInfo ? app.globalData.userInfo.nickName : 'default';

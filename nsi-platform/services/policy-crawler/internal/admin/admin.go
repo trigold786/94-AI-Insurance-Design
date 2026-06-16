@@ -51,6 +51,9 @@ type ClaimStore interface {
 	ListByStatus(status string, regionCode string, sourceID string, policyType string, sourceLevel string) ([]models.PolicyClaim, error)
 	UpdateStatus(claimID, status string, confidence float64) error
 	Ingest(claim *models.PolicyClaim) error
+	GetClaimByID(claimID string) (*models.PolicyClaim, error)
+	SearchSimilarClaims(claimID string, limit int) ([]models.PolicyClaim, error)
+	UpdateClaimFields(claimID string, fields map[string]interface{}) error
 }
 
 func SourceImportHandler(store SourceImportStore) http.Handler {
@@ -275,7 +278,13 @@ func BatchUpdateHandler(store ClaimStore) http.Handler {
 
 func UpdateClaimHandler(store ClaimStore) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		parts := strings.Split(strings.TrimRight(r.URL.Path, "/"), "/")
+		path := strings.TrimRight(r.URL.Path, "/")
+		if strings.HasSuffix(path, "/compare") {
+			ClaimCompareHandler(store).ServeHTTP(w, r)
+			return
+		}
+
+		parts := strings.Split(path, "/")
 		claimID := parts[len(parts)-1]
 		if claimID == "" || claimID == "claims" {
 			respondError(w, http.StatusBadRequest, "claim ID is required")
@@ -307,4 +316,107 @@ func UpdateClaimHandler(store ClaimStore) http.Handler {
 			"message": "claim updated",
 		})
 	})
+}
+
+type FieldDiff struct {
+	Field      string  `json:"field"`
+	CurrentVal string  `json:"current_val"`
+	OtherVal   string  `json:"other_val"`
+	DiffScore  float64 `json:"diff_score"`
+	ClaimID    string  `json:"claim_id"`
+}
+
+func ClaimCompareHandler(store ClaimStore) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		parts := strings.Split(strings.TrimRight(r.URL.Path, "/"), "/")
+		claimID := parts[len(parts)-1]
+		if claimID == "" {
+			respondError(w, http.StatusBadRequest, "claim ID is required")
+			return
+		}
+
+		claim, err := store.GetClaimByID(claimID)
+		if err != nil || claim == nil {
+			respondError(w, http.StatusNotFound, "claim not found")
+			return
+		}
+
+		similar, err := store.SearchSimilarClaims(claimID, 10)
+		if err != nil {
+			respondError(w, http.StatusInternalServerError, "failed to search similar")
+			return
+		}
+
+		var diffs []FieldDiff
+		compareFields := []string{
+			"subsidy_calc_method", "effective_date", "policy_type",
+			"region_code", "policy_id",
+		}
+		if claim.SubsidyAmountMin != nil {
+			compareFields = append(compareFields, "subsidy_amount_min")
+		}
+		if claim.SubsidyAmountMax != nil {
+			compareFields = append(compareFields, "subsidy_amount_max")
+		}
+
+		for _, other := range similar {
+			if other.ClaimID == claimID {
+				continue
+			}
+			for _, field := range compareFields {
+				curVal, otherVal := getClaimField(claim, field), getClaimField(&other, field)
+				score := fieldDiffScore(curVal, otherVal)
+				if score > 0 {
+					diffs = append(diffs, FieldDiff{
+						Field:      field,
+						CurrentVal: curVal,
+						OtherVal:   otherVal,
+						DiffScore:  score,
+						ClaimID:    other.ClaimID,
+					})
+				}
+			}
+		}
+
+		respondJSON(w, http.StatusOK, map[string]interface{}{
+			"code":      0,
+			"claim":     claim,
+			"similar":   similar,
+			"diffs":     diffs,
+		})
+	})
+}
+
+func getClaimField(c *models.PolicyClaim, field string) string {
+	switch field {
+	case "subsidy_calc_method":
+		return c.SubsidyCalcMethod
+	case "effective_date":
+		return c.EffectiveDate
+	case "policy_type":
+		return c.PolicyType
+	case "region_code":
+		return c.RegionCode
+	case "policy_id":
+		return c.PolicyID
+	case "subsidy_amount_min":
+		if c.SubsidyAmountMin != nil {
+			return fmt.Sprintf("%.2f", *c.SubsidyAmountMin)
+		}
+	case "subsidy_amount_max":
+		if c.SubsidyAmountMax != nil {
+			return fmt.Sprintf("%.2f", *c.SubsidyAmountMax)
+		}
+	}
+	return ""
+}
+
+func fieldDiffScore(a, b string) float64 {
+	if a == b {
+		return 0
+	}
+	if a == "" || b == "" {
+		return 1.0
+	}
+	return 1.0
 }

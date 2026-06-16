@@ -1,5 +1,6 @@
 package com.nsi.app.ui.login
 
+import android.content.Context
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -9,6 +10,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -87,6 +89,9 @@ fun LoginScreen(navController: NavController, viewModel: AppViewModel) {
             onClick = {
                 loading = true
                 viewModel.setUserInfo(UserInfo())
+                val ctx = LocalContext.current
+                ctx.getSharedPreferences("nsi_auth", Context.MODE_PRIVATE)
+                    .edit().putString("auth_token", "session_token").apply()
                 loading = false
                 navController.navigate(Routes.HOME) {
                     popUpTo(Routes.LOGIN) { inclusive = true }
