@@ -55,7 +55,8 @@ struct PlanDetailView: View {
                     Button("查看完整报告") {
                         if let url = URL(string: "\(AppConstants.apiBaseURL)/v1/plans/report?plan_id=\(planId)") {
                             var req = URLRequest(url: url)
-                            req.setValue(appState.userInfo?.nickName ?? "default", forHTTPHeaderField: "x-user-id")
+                            let token = UserDefaults.standard.string(forKey: "auth_token") ?? ""
+                            req.setValue("Bearer " + token, forHTTPHeaderField: "Authorization")
                             UIApplication.shared.open(url)
                         }
                     }

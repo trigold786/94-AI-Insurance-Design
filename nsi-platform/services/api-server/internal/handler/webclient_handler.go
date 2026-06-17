@@ -158,6 +158,7 @@ var navItems=[
   {id:'rights',label:'7.权益'},
   {id:'feedback',label:'8.反馈'},
   {id:'sandbox',label:'9.社保沙盘'},
+  {id:'settings',label:'10.设置'},
 ];
 function renderNav(){
   var h='';navItems.forEach(function(n){h+='<div class="nav-item" data-id="'+n.id+'">'+n.label+'</div>'});
@@ -181,6 +182,7 @@ function switchTab(id){
   else if(id==='rights')showRights();
   else if(id==='feedback')showFeedback();
   else if(id==='sandbox')showSandbox();
+  else if(id==='settings')showSettings();
 }
 
 function api(method,path,data){
@@ -675,7 +677,36 @@ function showReport(){
 function onLoadReport(){
   var pid=document.getElementById('rpt-id').value;
   if(!pid)return;
+  api('GET','/v1/orders/check-unlock?plan_id='+encodeURIComponent(pid)).then(function(d){
+    if(d&&d.unlocked){
+      showReportContent(pid);
+    } else {
+      showPaymentPrompt(pid);
+    }
+  }).catch(function(){ showReportContent(pid); });
+}
+function showPaymentPrompt(pid){
   document.getElementById('reportFrame').style.display='block';
+  document.getElementById('reportFrame').innerHTML='<div style="text-align:center;padding:40px;background:#F0F5FF;border-radius:10px">'+
+    '<p style="font-size:18px;font-weight:600;color:#1A56DB;margin-bottom:8px">完整报告需要解锁</p>'+
+    '<p style="color:#6B7280;margin-bottom:16px">支付 ¥19.90 即可查看完整方案详情</p>'+
+    '<button class="btn btn-primary" onclick="payAndShow(\''+pid+'\')">立即支付 ¥19.90</button></div>';
+}
+function payAndShow(pid){
+  api('POST','/v1/orders',{plan_id:pid}).then(function(order){
+    if(order&&order.order_id){
+      return api('POST','/v1/orders/'+order.order_id+'/pay',{payment_method:'wechat'});
+    }
+    return Promise.reject(new Error('创建订单失败'));
+  }).then(function(){
+    showReportContent(pid);
+  }).catch(function(e){
+    document.getElementById('reportFrame').innerHTML='<div class="alert-error">'+esc(e.message)+'</div>';
+  });
+}
+function showReportContent(pid){
+  document.getElementById('reportFrame').style.display='block';
+  document.getElementById('reportFrame').innerHTML='<iframe id="rptIframe" style="width:100%;height:600px;border:1px solid #E5E7EB;border-radius:8px"></iframe>';
   fetch(API+'/v1/plans/report?plan_id='+encodeURIComponent(pid),{headers:{'Authorization':'Bearer '+_token}})
     .then(function(r){return r.text()})
     .then(function(html){
@@ -997,6 +1028,69 @@ function askAdvisor(){
     ansDiv.innerHTML='<div class="alert-error">'+esc(e.message)+'</div>';
   });
   document.getElementById('sb-question').value='';
+}
+
+// === 10. Settings ===
+function showSettings(){
+  document.getElementById('app').innerHTML=
+    '<h2>设置</h2>'+
+    '<div class="sim-section">'+
+    '<div class="sim-slider-row"><label>字体大小</label><select id="set-font" style="flex:1"><option value="small">小</option><option value="medium">中</option><option value="large">大</option></select></div>'+
+    '<div class="sim-slider-row"><label>默认落地页</label><select id="set-tab" style="flex:1"><option value="profile">用户画像</option><option value="plan">方案生成</option><option value="sandbox">社保沙盘</option><option value="compliance">合规</option><option value="rights">权益</option></select></div>'+
+    '<div class="sim-slider-row"><label>通知开关</label><input type="checkbox" id="set-notif" style="width:20px;height:20px"></div>'+
+    '</div>'+
+    '<div style="margin-top:12px;display:flex;gap:8px">'+
+    '<button class="btn btn-primary" onclick="saveUserSettings()">保存设置</button>'+
+    '<button class="btn" onclick="loadUserSettings()">重新加载</button>'+
+    '</div>'+
+    '<div id="setResult" style="margin-top:8px"></div>'+
+    '<hr style="margin:20px 0;border:none;border-top:1px solid #E5E7EB">'+
+    '<button class="btn" style="background:#F3F4F6;color:#6B7280" onclick="showGuidePDF()">下载方案报告(PDF)</button>'+
+    '<hr style="margin:20px 0;border:none;border-top:1px solid #E5E7EB">'+
+    '<div style="background:#FEE2E2;border:1px solid #EF4444;border-radius:8px;padding:12px;margin-top:8px">'+
+    '<p style="color:#991B1B;font-weight:600;margin-bottom:8px">危险操作</p>'+
+    '<button class="btn" style="background:#EF4444;color:#fff" onclick="deleteAccount()">注销账号(清除所有数据)</button>'+
+    '</div>'+
+    '<div id="delResult" style="margin-top:8px"></div>';
+  loadUserSettings();
+}
+function loadUserSettings(){
+  api('GET','/v1/settings').then(function(d){
+    if(d){
+      if(d.font_scale)document.getElementById('set-font').value=d.font_scale;
+      if(d.default_tab)document.getElementById('set-tab').value=d.default_tab;
+      if(d.notifications_on!==undefined)document.getElementById('set-notif').checked=d.notifications_on;
+    }
+  }).catch(function(){});
+}
+function saveUserSettings(){
+  var data={font_scale:document.getElementById('set-font').value,default_tab:document.getElementById('set-tab').value,notifications_on:document.getElementById('set-notif').checked};
+  api('POST','/v1/settings',data).then(function(d){
+    document.getElementById('setResult').innerHTML='<div class="alert-success">设置已保存</div>';
+    applyFontScale(data.font_scale);
+  }).catch(function(e){
+    document.getElementById('setResult').innerHTML='<div class="alert-error">'+esc(e.message)+'</div>';
+  });
+}
+function applyFontScale(scale){
+  var size=scale==='small'?'13px':scale==='large'?'17px':'15px';
+  document.body.style.fontSize=size;
+}
+function deleteAccount(){
+  if(!confirm('确认注销账号？所有数据将被永久删除，此操作不可撤销。'))return;
+  api('POST','/v1/auth/delete-account-v2',{confirm:'DELETE'}).then(function(){
+    _token='';
+    document.getElementById('app').innerHTML='<div style="text-align:center;padding:40px"><h2>账号已注销</h2><p style="color:#6B7280;margin-top:8px">所有数据已删除</p></div>';
+  }).catch(function(e){
+    document.getElementById('delResult').innerHTML='<div class="alert-error">'+esc(e.message)+'</div>';
+  });
+}
+function showGuidePDF(){
+  var pid=prompt('输入方案ID:');
+  if(!pid)return;
+  ensureToken().then(function(tk){
+    window.open(API+'/v1/plans/report?plan_id='+encodeURIComponent(pid)+'&_tk='+tk,'_blank');
+  });
 }
 </script>
 </body>

@@ -56,6 +56,23 @@ class NSIClient(private val baseURL: String, private val userID: String) {
         if (resp.statusCode() == 401) throw RuntimeException("请先登录")
         if (resp.statusCode() >= 400) throw RuntimeException("请求失败(${resp.statusCode()})")
         return resp.body()
+    suspend fun getPlanReport(planID: String): String {
+        return send("GET", "/v1/plans/report?plan_id=$planID", null)
+    }
+    suspend fun getGuide(cityCode: String): String {
+        return send("GET", "/v1/guide?city_code=$cityCode", null)
+    }
+    suspend fun saveScenario(name: String, paramsJson: String) {
+        send("POST", "/v1/simulator/scenarios", """{"name":"$name","params":$paramsJson}""")
+    }
+    suspend fun listScenarios(): String {
+        return send("GET", "/v1/simulator/scenarios", null)
+    }
+    suspend fun deleteAccount() {
+        send("POST", "/v1/auth/delete-account-v2", """{"confirm":"DELETE"}""")
+    }
+    suspend fun submitPaymentRecord(policyType: String, month: String, amount: Double, status: String, dueDate: String) {
+        send("POST", "/v1/rights/payment-records", """{"policy_type":"$policyType","month":"$month","amount":$amount,"status":"$status","due_date":"$dueDate"}""")
     }
 }
 

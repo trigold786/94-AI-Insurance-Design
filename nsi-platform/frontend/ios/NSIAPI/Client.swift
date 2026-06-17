@@ -78,12 +78,19 @@ public class NSIClient {
         public let unlocked: Bool
     }
 
-    private func request<T: Codable>(_ path: String, method: String = "GET", body: Data? = nil) async throws -> T {
+    public struct Scenario: Codable {
+        public let id: Int?
+        public let name: String?
+        public let createdAt: String?
+    }
+
+    private func execute(_ path: String, method: String = "GET", body: Data? = nil) async throws -> Data {
         guard let url = URL(string: path, relativeTo: baseURL) else {
             throw NSError(domain: "NSIAPI", code: 2, userInfo: [NSLocalizedDescriptionKey: "Invalid path"])
         }
         var req = URLRequest(url: url)
-        req.setValue(userID, forHTTPHeaderField: "x-user-id")
+        let token = UserDefaults.standard.string(forKey: "auth_token") ?? ""
+        req.setValue("Bearer " + token, forHTTPHeaderField: "Authorization")
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         req.httpMethod = method
         req.httpBody = body
@@ -99,12 +106,24 @@ public class NSIClient {
             let msg = String(data: data, encoding: .utf8) ?? "请求失败"
             throw NSError(domain: "NSIAPI", code: http.statusCode, userInfo: [NSLocalizedDescriptionKey: msg])
         }
+        return data
+    }
 
+    private func request<T: Codable>(_ path: String, method: String = "GET", body: Data? = nil) async throws -> T {
+        let data = try await execute(path, method: method, body: body)
         let wrapper = try decoder.decode(ResponseWrapper<T>.self, from: data)
         if wrapper.code != 0 {
             throw NSError(domain: "NSIAPI", code: wrapper.code, userInfo: [NSLocalizedDescriptionKey: wrapper.msg ?? "服务异常"])
         }
         return wrapper.data
+    }
+
+    private func requestVoid(_ path: String, method: String = "GET", body: Data? = nil) async throws {
+        let data = try await execute(path, method: method, body: body)
+        let wrapper = try decoder.decode(StatusResponse.self, from: data)
+        if wrapper.code != 0 {
+            throw NSError(domain: "NSIAPI", code: wrapper.code, userInfo: [NSLocalizedDescriptionKey: wrapper.msg ?? wrapper.message ?? "服务异常"])
+        }
     }
 
     public func getProfile() async throws -> UserProfile { try await request("/v1/profile") }
@@ -126,7 +145,8 @@ public class NSIClient {
         let path = "/v1/plans/report?plan_id=\(planID)"
         guard let url = URL(string: path, relativeTo: baseURL) else { return "" }
         var req = URLRequest(url: url)
-        req.setValue(userID, forHTTPHeaderField: "x-user-id")
+        let token = UserDefaults.standard.string(forKey: "auth_token") ?? ""
+        req.setValue("Bearer " + token, forHTTPHeaderField: "Authorization")
         let (data, _) = try await session.data(for: req)
         return String(data: data, encoding: .utf8) ?? ""
     }
@@ -152,9 +172,64 @@ public class NSIClient {
         try await request("/v1/orders/check-unlock?plan_id=\(planID)")
     }
 
+    // MARK: - Auth
+    public func getToken(userID: String) async throws -> String {
+        let body = try JSONSerialization.data(withJSONObject: ["user_id": userID])
+        let resp: TokenResponse = try await request("/v1/auth/token", method: "POST", body: body)
+        return resp.token
+    }
+
+    public func sendSMS(phone: String) async throws {
+        let body = try JSONSerialization.data(withJSONObject: ["phone": phone])
+        try await requestVoid("/v1/auth/sms/send", method: "POST", body: body)
+    }
+
+    public func verifySMS(phone: String, code: String) async throws -> String {
+        let body = try JSONSerialization.data(withJSONObject: ["phone": phone, "code": code])
+        let resp: TokenResponse = try await request("/v1/auth/sms/verify", method: "POST", body: body)
+        return resp.token
+    }
+
+    public func deleteAccount() async throws {
+        let body = try JSONSerialization.data(withJSONObject: ["confirm": "DELETE"])
+        try await requestVoid("/v1/auth/delete-account-v2", method: "POST", body: body)
+    }
+
+    // MARK: - Simulator scenarios
+    public func saveScenario(name: String, params: [String: Any]) async throws {
+        let body = try JSONSerialization.data(withJSONObject: ["name": name, "params": params])
+        try await requestVoid("/v1/simulator/scenarios", method: "POST", body: body)
+    }
+
+    public func listScenarios() async throws -> [Scenario] {
+        try await request("/v1/simulator/scenarios")
+    }
+
+    // MARK: - Payment records
+    public func submitPaymentRecord(policyType: String, month: String, amount: Double, status: String, dueDate: String) async throws {
+        let body = try JSONSerialization.data(withJSONObject: [
+            "policy_type": policyType,
+            "month": month,
+            "amount": amount,
+            "status": status,
+            "due_date": dueDate,
+        ])
+        try await requestVoid("/v1/rights/payment-records", method: "POST", body: body)
+    }
+
     private struct ResponseWrapper<T: Codable>: Codable {
         let code: Int
         let data: T
         let msg: String?
+    }
+
+    private struct StatusResponse: Codable {
+        let code: Int
+        let msg: String?
+        let message: String?
+    }
+
+    private struct TokenResponse: Codable {
+        let token: String
     }
 }

@@ -159,7 +159,8 @@ struct RightsView: View {
 
     private func loadJSON<T: Codable>(url: URL, userID: String) async -> T? {
         var req = URLRequest(url: url)
-        req.setValue(userID, forHTTPHeaderField: "x-user-id")
+        let token = UserDefaults.standard.string(forKey: "auth_token") ?? ""
+        req.setValue("Bearer " + token, forHTTPHeaderField: "Authorization")
         guard let (data, _) = try? await URLSession.shared.data(for: req) else { return nil }
         guard let wrapper = try? JSONDecoder().decode(ResponseBox<T>.self, from: data) else { return nil }
         return wrapper.data
@@ -167,7 +168,8 @@ struct RightsView: View {
 
     private func loadJSONArray<T: Codable>(url: URL, userID: String) async -> [T]? {
         var req = URLRequest(url: url)
-        req.setValue(userID, forHTTPHeaderField: "x-user-id")
+        let token = UserDefaults.standard.string(forKey: "auth_token") ?? ""
+        req.setValue("Bearer " + token, forHTTPHeaderField: "Authorization")
         guard let (data, _) = try? await URLSession.shared.data(for: req) else { return nil }
         guard let wrapper = try? JSONDecoder().decode(ResponseBox<[T]>.self, from: data) else { return nil }
         return wrapper.data

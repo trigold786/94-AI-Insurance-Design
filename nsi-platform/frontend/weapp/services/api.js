@@ -11,7 +11,7 @@ function request(method, path, data, userID) {
       method,
       data,
       header: {
-        'x-user-id': userID || 'default',
+        'Authorization': 'Bearer ' + (wx.getStorageSync('token') || ''),
         'Content-Type': 'application/json',
       },
       success: (res) => {
@@ -80,10 +80,67 @@ function saveSettings(userID, data)       { return request('POST', '/v1/settings
 function calculateSimulator(userID, data) { return request('POST', '/v1/simulator/calculate', data, userID); }
 function askAdvisor(userID, data)         { return request('POST', '/v1/advisor/ask', data, userID); }
 
+function getToken(userID) {
+  return new Promise((resolve, reject) => {
+    wx.request({
+      url: API_BASE_URL + '/v1/auth/token',
+      method: 'POST',
+      header: { 'Content-Type': 'application/json' },
+      data: { user_id: userID },
+      success: res => {
+        if (res.data && res.data.data && res.data.data.token) {
+          wx.setStorageSync('token', res.data.data.token);
+          resolve(res.data.data.token);
+        } else { reject(new Error('No token')); }
+      },
+      fail: reject
+    });
+  });
+}
+
+function sendSMS(phone) {
+  return request('POST', '/v1/auth/sms/send', { phone: phone }, null);
+}
+
+function verifySMS(phone, code) {
+  return new Promise((resolve, reject) => {
+    wx.request({
+      url: API_BASE_URL + '/v1/auth/sms/verify',
+      method: 'POST',
+      header: { 'Content-Type': 'application/json' },
+      data: { phone: phone, code: code },
+      success: res => {
+        if (res.data && res.data.data && res.data.data.token) {
+          wx.setStorageSync('token', res.data.data.token);
+          resolve(res.data.data);
+        } else { reject(res.data); }
+      },
+      fail: reject
+    });
+  });
+}
+
+function deleteAccount() {
+  return request('POST', '/v1/auth/delete-account-v2', { confirm: 'DELETE' }, null);
+}
+
+function submitPaymentRecord(data) {
+  return request('POST', '/v1/rights/payment-records', data, null);
+}
+
+function saveScenario(name, params) {
+  return request('POST', '/v1/simulator/scenarios', { name: name, params: params }, null);
+}
+
+function listScenarios() {
+  return request('GET', '/v1/simulator/scenarios', null, null);
+}
+
 module.exports = {
   API_BASE_URL,
   getProfile, updateProfile, queryPolicies, generatePlan, getPlanDetail, getPlanReport,
   getCompliance, getGuide, getPaymentStatus, getAlerts, markAlertRead, submitFeedback,
   createOrder, payOrder, checkUnlock,
   getSettings, saveSettings, calculateSimulator, askAdvisor,
+  getToken, sendSMS, verifySMS, deleteAccount, submitPaymentRecord, saveScenario, listScenarios,
 };

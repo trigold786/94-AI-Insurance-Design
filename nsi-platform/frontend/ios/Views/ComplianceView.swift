@@ -163,7 +163,8 @@ struct ComplianceView: View {
         guard let url = URL(string: "\(AppConstants.apiBaseURL)/v1/compliance/checklist?city_code=\(cityCode)") else { return }
 
         var req = URLRequest(url: url)
-        req.setValue(userID, forHTTPHeaderField: "x-user-id")
+        let token = UserDefaults.standard.string(forKey: "auth_token") ?? ""
+        req.setValue("Bearer " + token, forHTTPHeaderField: "Authorization")
 
         guard let (data, _) = try? await URLSession.shared.data(for: req) else { return }
         guard let wrapper = try? JSONDecoder().decode(ResponseWrapper.self, from: data) else { return }

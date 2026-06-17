@@ -23,14 +23,23 @@ Page({
   onLogin() {
     if (!this.data.agreed) return;
     this.setData({ loading: true });
+    const api = require('../../services/api');
     my.getAuthCode({
       scopes: 'auth_user',
       success: (res) => {
-        app.globalData.userInfo = { nickName: res.authCode || 'default' };
-        this.getLocationAndNavigate();
+        const userID = res.authCode || 'default';
+        api.getToken(userID).then(() => {
+          app.globalData.userID = userID;
+          app.globalData.userInfo = { nickName: userID };
+          this.getLocationAndNavigate();
+        }).catch(() => {
+          this.setData({ loading: false });
+          my.showToast({ content: '登录失败，请重试', type: 'none' });
+        });
       },
       fail: () => {
-        this.getLocationAndNavigate();
+        this.setData({ loading: false });
+        my.showToast({ content: '登录失败，请重试', type: 'none' });
       },
     });
   },

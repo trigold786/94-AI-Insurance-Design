@@ -25,14 +25,30 @@ Page({
   onLogin() {
     if (!this.data.agreed) return;
     this.setData({ loading: true });
-    wx.getUserProfile({
-      desc: '用于完善用户资料',
-      success: (res) => {
-        app.globalData.userInfo = res.userInfo;
-        this.getLocationAndNavigate();
+    const api = require('../../services/api');
+    wx.login({
+      success: (loginRes) => {
+        const userID = loginRes.code || 'default';
+        api.getToken(userID).then(() => {
+          app.globalData.userID = userID;
+          wx.getUserProfile({
+            desc: '用于完善用户资料',
+            success: (res) => {
+              app.globalData.userInfo = res.userInfo;
+              this.getLocationAndNavigate();
+            },
+            fail: () => {
+              this.getLocationAndNavigate();
+            },
+          });
+        }).catch(() => {
+          this.setData({ loading: false });
+          wx.showToast({ title: '登录失败，请重试', icon: 'none' });
+        });
       },
       fail: () => {
-        this.getLocationAndNavigate();
+        this.setData({ loading: false });
+        wx.showToast({ title: '登录失败，请重试', icon: 'none' });
       },
     });
   },

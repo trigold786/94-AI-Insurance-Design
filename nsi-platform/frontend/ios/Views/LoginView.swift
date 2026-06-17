@@ -7,6 +7,7 @@ struct LoginView: View {
     @State private var showPrivacy = false
     @State private var showTerms = false
     @State private var navigateToHome = false
+    @State private var errorMessage: String?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -93,6 +94,11 @@ struct LoginView: View {
         } message: {
             Text("欢迎使用AI社保智筹...")
         }
+        .alert("登录失败", isPresented: Binding(get: { errorMessage != nil }, set: { _ in errorMessage = nil })) {
+            Button("确定", role: .cancel) { errorMessage = nil }
+        } message: {
+            Text(errorMessage ?? "")
+        }
         .navigationDestination(isPresented: $navigateToHome) {
             HomeView()
         }
@@ -101,9 +107,21 @@ struct LoginView: View {
     private func onLogin() {
         guard agreed else { return }
         loading = true
-        appState.userInfo = AppState.UserInfo(nickName: "default")
-        UserDefaults.standard.set("session_token", forKey: "auth_token")
-        loading = false
-        navigateToHome = true
+        let userID = appState.userInfo?.nickName ?? "default"
+        guard let client = try? NSIClient(baseURL: AppConstants.apiBaseURL, userID: userID) else {
+            loading = false
+            return
+        }
+        Task {
+            do {
+                let token = try await client.getToken(userID: userID)
+                UserDefaults.standard.set(token, forKey: "auth_token")
+                loading = false
+                navigateToHome = true
+            } catch {
+                errorMessage = (error as NSError).localizedDescription
+                loading = false
+            }
+        }
     }
 }
