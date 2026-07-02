@@ -156,10 +156,10 @@ func (e *Extractor) ProcessOne(entry RawTextEntry) error {
   "publish_date": "政策发布日期YYYY-MM-DD(可选)",
   "region_code": "地区行政代码(6位)",
   "policy_type": "政策类型(pension/medical/unemployment/injury/maternity/housing_fund/subsidy/training)",
-  "target_groups": ["适用人群标签(flexible_employment/unemployed/employed/4050/has_children/female/male/low_income)"],
+  "target_groups": ["适用人群标签(flexible_employment/unemployed/employed/4050/has_children/female/male/low_income/is_local_hukou)"],
   "subsidy_calc_method": "补贴计算方法描述",
-  "amount_min": 最低补贴金额(数字),
-  "amount_max": 最高补贴金额(数字,可选),
+  "amount_min": 最低补贴金额(数字,必须从文中提取具体的金额数字),
+  "amount_max": 最高补贴金额(数字,必须从文中提取具体的金额数字),
   "subsidy_duration": 补贴期限(月,可选),
   "effective_date": "生效日期YYYY-MM-DD",
   "expire_date": "失效日期YYYY-MM-DD(可选)",
@@ -168,9 +168,16 @@ func (e *Extractor) ProcessOne(entry RawTextEntry) error {
   "source_type": "原文类型(gov_doc/social_media/news/rumor)",
   "application_process": [{"step":1,"action":"办理步骤","description":"步骤描述"}],
   "contact_info": "咨询电话或办理地址",
-  "conditions": [{"name":"条件名称","description":"条件描述","tag_match":"对应人群标签"}],
+  "conditions": [{"name":"条件名称","description":"条件描述","tag_match":"对应人群标签(必须是以下之一:flexible_employment/unemployed/employed/4050/has_children/female/male/low_income/is_local_hukou)"}],
   "required_documents": [{"name":"材料名称","description":"描述","source":"user/gov","optional":false}]
-}`
+}
+
+提取规则：
+1. amount_min和amount_max必须是具体的数字，从文中提取，不要猜测
+2. conditions中的tag_match必须是以下值之一: flexible_employment/unemployed/employed/4050/has_children/female/male/low_income/is_local_hukou
+3. 如果文中没有明确的金额信息，amount_min和amount_max设为0
+4. 如果是政策通知或公告（不是具体补贴政策），policy_type设为对应的险种类型
+5. target_groups必须从文中提取，不要猜测`
 
 	extractionMethod := "full"
 	splitCount := 0

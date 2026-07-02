@@ -15,15 +15,19 @@ import (
 )
 
 type SimulatorRequest struct {
-	CityCode     string  `json:"city_code"`
-	Gender       string  `json:"gender"`
-	Age          int     `json:"age"`
-	BasePercent  int     `json:"base_percent"`
-	PaidYears    int     `json:"paid_years"`
-	PlanYears    int     `json:"plan_years"`
-	Employment   string  `json:"employment"`
-	IsLocalHukou bool    `json:"is_local_hukou"`
+	CityCode      string  `json:"city_code"`
+	Gender        string  `json:"gender"`
+	Age           int     `json:"age"`
+	BasePercent   int     `json:"base_percent"`
+	PaidYears     int     `json:"paid_years"`
+	PlanYears     int     `json:"plan_years"`
+	Employment    string  `json:"employment"`
+	IsLocalHukou  bool    `json:"is_local_hukou"`
+	MonthlyIncome float64 `json:"monthly_income"`
+	HasChildren   bool    `json:"has_children"`
 }
+
+const lowIncomeThreshold = 3000
 
 type SimulatorResponse struct {
 	Cost           SimCost         `json:"cost"`
@@ -36,6 +40,14 @@ type SimulatorResponse struct {
 	Comparison     SimComparison   `json:"comparison"`
 	BreakEvenAge   int             `json:"break_even_age"`
 	PolicyTriggers []SimTrigger    `json:"policy_triggers"`
+	ConditionChecks []SimCondition `json:"condition_checks"`
+}
+
+type SimCondition struct {
+	PolicyTitle string `json:"policy_title"`
+	Condition   string `json:"condition"`
+	Status      string `json:"status"`
+	Detail      string `json:"detail"`
 }
 
 type SimCost struct {
@@ -195,36 +207,68 @@ func calculateSimulation(ctx context.Context, req SimulatorRequest, tr *Threshol
 
 	subsidyItems := []SimSubsidyItem{}
 	annualSubsidy := 0.0
+	seenTitles := map[string]bool{}
+	var allPolicies []models.PolicyClaim
 	if req.Employment == "flexible" || req.Employment == "unemployed" {
 		if policies, err := policyRepo.QueryByRegionAndStatus(ctx, req.CityCode, "verified"); err == nil {
+			allPolicies = policies
 			for _, p := range policies {
-				if p.PolicyType == "subsidy" && p.SubsidyAmountMax != nil && *p.SubsidyAmountMax > 0 {
-					qualified := true
-					for _, tag := range p.TargetGroupTags {
-						if tag == "4050" {
-							if req.Gender == "female" && req.Age < 40 {
-								qualified = false
-							}
-							if req.Gender == "male" && req.Age < 50 {
-								qualified = false
-							}
-						}
-						if tag == "flexible_employment" && req.Employment != "flexible" {
+				if p.PolicyType != "subsidy" {
+					continue
+				}
+				titleKey := p.PolicyTitle
+				if titleKey == "" {
+					titleKey = p.ClaimID
+				}
+				if seenTitles[titleKey] {
+					continue
+				}
+				amount := 0.0
+				if p.SubsidyAmountMax != nil && *p.SubsidyAmountMax > 0 {
+					amount = *p.SubsidyAmountMax
+				} else if p.SubsidyAmountMin != nil && *p.SubsidyAmountMin > 0 {
+					amount = *p.SubsidyAmountMin
+				}
+				if amount <= 0 || amount > 100000 {
+					continue
+				}
+
+				qualified := true
+				for _, tag := range p.TargetGroupTags {
+					if tag == "4050" {
+						if req.Gender == "female" && req.Age < 40 {
 							qualified = false
 						}
-						if tag == "unemployed" && req.Employment != "unemployed" {
+						if req.Gender == "male" && req.Age < 50 {
 							qualified = false
 						}
 					}
-					if qualified {
-						amount := *p.SubsidyAmountMax
-						subsidyItems = append(subsidyItems, SimSubsidyItem{
-							Name: p.PolicyTitle, Amount: amount,
-							PolicyID: p.PolicyID, ClaimID: p.ClaimID,
-						})
-						annualSubsidy += amount
+					if tag == "flexible_employment" && req.Employment != "flexible" {
+						qualified = false
+					}
+					if tag == "unemployed" && req.Employment != "unemployed" {
+						qualified = false
+					}
+					if tag == "female" && req.Gender != "female" {
+						qualified = false
+					}
+					if tag == "male" && req.Gender != "male" {
+						qualified = false
+					}
+					if tag == "is_local_hukou" && !req.IsLocalHukou {
+						qualified = false
 					}
 				}
+				if !qualified {
+					continue
+				}
+
+				subsidyItems = append(subsidyItems, SimSubsidyItem{
+					Name: p.PolicyTitle, Amount: amount,
+					PolicyID: p.PolicyID, ClaimID: p.ClaimID,
+				})
+				annualSubsidy += amount
+				seenTitles[titleKey] = true
 			}
 		}
 	}
@@ -244,6 +288,7 @@ func calculateSimulation(ctx context.Context, req SimulatorRequest, tr *Threshol
 	cashflow := calculateCashflow(req, baseSalary, monthlyTotal, annualSubsidy, retAge)
 	comparison := calculateComparison(avgSalary, totalYears, req.Gender)
 	breakEven := calculateBreakEven(baseSalary, monthlyTotal, annualSubsidy, projectedPension, req.Age, retAge)
+	conditionChecks := evaluateConditions(allPolicies, req)
 
 	var triggers []SimTrigger
 	if !meetsMin {
@@ -300,7 +345,66 @@ func calculateSimulation(ctx context.Context, req SimulatorRequest, tr *Threshol
 		Comparison:     comparison,
 		BreakEvenAge:   breakEven,
 		PolicyTriggers: triggers,
+		ConditionChecks: conditionChecks,
 	}
+}
+
+func evaluateConditions(policies []models.PolicyClaim, req SimulatorRequest) []SimCondition {
+	var checks []SimCondition
+	for _, p := range policies {
+		if len(p.Conditions) == 0 {
+			continue
+		}
+		var conds []map[string]interface{}
+		if err := json.Unmarshal(p.Conditions, &conds); err != nil {
+			continue
+		}
+		for _, c := range conds {
+			name, _ := c["name"].(string)
+			tagMatch, _ := c["tag_match"].(string)
+			desc, _ := c["description"].(string)
+			if name == "" {
+				continue
+			}
+			status := "unknown"
+			detail := desc
+			if tagMatch != "" {
+				matched := false
+				switch tagMatch {
+				case "flexible_employment":
+					matched = req.Employment == "flexible"
+				case "unemployed":
+					matched = req.Employment == "unemployed"
+				case "employed":
+					matched = req.Employment == "employed"
+				case "4050":
+					matched = (req.Gender == "female" && req.Age >= 40) || (req.Gender == "male" && req.Age >= 50)
+				case "female":
+					matched = req.Gender == "female"
+				case "male":
+					matched = req.Gender == "male"
+				case "is_local_hukou":
+					matched = req.IsLocalHukou
+				case "low_income":
+					matched = req.MonthlyIncome > 0 && req.MonthlyIncome < lowIncomeThreshold
+				case "has_children":
+					matched = req.HasChildren
+				}
+				if matched {
+					status = "met"
+				} else {
+					status = "unmet"
+				}
+			}
+			checks = append(checks, SimCondition{
+				PolicyTitle: p.PolicyTitle,
+				Condition:   name,
+				Status:      status,
+				Detail:      detail,
+			})
+		}
+	}
+	return checks
 }
 
 func calculateQualifications(req SimulatorRequest, totalYears int, retirementYear int) []SimQual {

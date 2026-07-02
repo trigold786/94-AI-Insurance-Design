@@ -18,6 +18,11 @@ services:
       JWT_SECRET: ${JWT_SECRET:-nsi-dev-jwt-secret-2026}
       SERVICE_SECRET: ${SERVICE_SECRET:-nsi-service-secret-2026}
       ACTUARY_ENGINE_URL: http://actuarial-engine:39402
+      ALIYUN_SMS_ACCESS_KEY_ID: ${ALIYUN_SMS_ACCESS_KEY_ID:-}
+      ALIYUN_SMS_ACCESS_KEY_SECRET: ${ALIYUN_SMS_ACCESS_KEY_SECRET:-}
+      ALIYUN_SMS_SIGN_NAME: ${ALIYUN_SMS_SIGN_NAME:-}
+      POLICY_CRAWLER_URL: http://policy-crawler:39403
+      LOG_SMS_CODE: ${LOG_SMS_CODE:-}
     depends_on:
       postgres:
         condition: service_healthy

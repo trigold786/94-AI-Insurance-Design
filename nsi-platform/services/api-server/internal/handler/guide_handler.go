@@ -53,7 +53,7 @@ func GuideHandler(evaluator *ComplianceEvaluator, policyRepo PolicyQuerier, prof
 
 		for _, p := range policies {
 			if p.EffectiveDate != "" {
-				effectiveDate, parseErr := time.Parse("2006-01-02", p.EffectiveDate)
+				effectiveDate, parseErr := parseDateFlexible(p.EffectiveDate)
 				if parseErr != nil {
 					log.Printf("[guide] failed to parse effective_date for %s: %v", p.ClaimID, parseErr)
 					continue
@@ -63,7 +63,7 @@ func GuideHandler(evaluator *ComplianceEvaluator, policyRepo PolicyQuerier, prof
 				}
 			}
 			if p.ExpireDate != nil && *p.ExpireDate != "" {
-				expireDate, parseErr := time.Parse("2006-01-02", *p.ExpireDate)
+				expireDate, parseErr := parseDateFlexible(*p.ExpireDate)
 				if parseErr == nil && expireDate.Before(today) {
 					continue
 				}
@@ -76,7 +76,7 @@ func GuideHandler(evaluator *ComplianceEvaluator, policyRepo PolicyQuerier, prof
 			}
 			if len(p.Conditions) > 0 {
 				var conds []models.ComplianceCondition
-				if err := jsonUnmarshalNoError(p.Conditions, &conds); err == nil {
+				if err := jsonUnmarshalNoError(p.Conditions, &conds); err == nil && len(conds) > 0 {
 					pc.Conditions = conds
 				}
 			}
@@ -201,6 +201,13 @@ td{padding:7px 10px;border-bottom:1px solid #F3F4F6;font-size:13px}
 <div><strong>{{.PolicyType}}</strong> - {{.ClaimID}}</div>
 {{if .IsEligible}}<div style="margin-top:4px"><span class="badge bg-green">✅ 符合条件</span></div>{{else}}<div style="margin-top:4px"><span class="badge bg-yellow">⚠️ 部分条件未满足</span></div>{{end}}
 <div style="font-size:13px;color:#6B7280;margin-top:4px">计算方式: {{.SubsidyCalcMethod}}</div>
+{{if .Conditions}}
+<div style="margin-top:6px;font-size:12px;color:#374151"><strong>申请条件：</strong>
+<ul style="margin:4px 0;padding-left:20px">
+{{range .Conditions}}<li>{{if eq .Required true}}<span style="color:#059669">✅</span>{{else}}<span style="color:#9CA3AF">ℹ️</span>{{end}} <b>{{.Name}}</b>: {{.Description}}</li>{{end}}
+</ul>
+</div>
+{{end}}
 {{if .ProcessingSteps}}
 <div style="font-size:12px;color:#9CA3AF;margin-top:6px">流程: {{range .ProcessingSteps}}{{.Name}} → {{end}}</div>
 {{end}}
