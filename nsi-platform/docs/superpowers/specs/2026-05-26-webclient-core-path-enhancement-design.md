@@ -1,12 +1,20 @@
 # WebClient Core Path Enhancement Design
 
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúÐ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
+
 **Date**: 2026-05-26
-**Scope**: User-facing webclient (`/webclient`), focused on "Profile â†’ Plan â†’ Report" core path
+**Scope**: User-facing webclient (`/webclient`), focused on "Profile â†?Plan â†?Report" core path
 **Chart Library**: Chart.js v4 via CDN (~60KB, no build tools needed)
 
 ---
 
 ## 1. Backend Bug Fix: Cashflow & AfterTaxPension Passthrough
+
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúÐ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
 
 ### Problem
 `plan_handler.go` defines `SchemeResult` (line 38) without `AfterTaxPension` or `Cashflow` fields. When decoding the actuarial engine response (line 108-111), these fields are silently dropped. The mapping loop (lines 207-223) also omits them.
@@ -21,24 +29,28 @@
 - `shared/models/models.go` (add `AfterTaxPension` field to `Scheme`)
 
 ### Impact
-No DB migration needed â€” `recommended_schemes` is stored as JSON blob in `plan_snapshots`, so the new fields are automatically included.
+No DB migration needed â€?`recommended_schemes` is stored as JSON blob in `plan_snapshots`, so the new fields are automatically included.
 
 ---
 
 ## 2. Delayed Retirement Visualization (Profile Tab Enhancement)
 
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúÐ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
+
 ### Current
-Single line of text: "é¢„è®¡åˆæ¬¡é¢†å–é€€ä¼‘é‡‘: 2056å¹´3æœˆ"
+Single line of text: "é¢„è®¡åˆæ¬¡é¢†å–é€€ä¼‘é‡‘: 2056å¹?æœ?
 
 ### Enhancement
 Visual timeline bar showing:
 ```
-[Now 2026] ---- [æ³•å®š 60å² 2040] ---- [å»¶è¿ŸåŽ 60y8m 2040-08]
-                  â†‘ base              â†‘ actual (+8 months)
+[Now 2026] ---- [æ³•å®š 60å²?2040] ---- [å»¶è¿Ÿå?60y8m 2040-08]
+                  â†?base              â†?actual (+8 months)
 ```
 
 - Color-coded segments: elapsed (gray), remaining to base (blue), delay months (orange)
-- Label showing "2025æ–°æ”¿ç­–å»¶è¿Ÿ +8ä¸ªæœˆ"
+- Label showing "2025æ–°æ”¿ç­–å»¶è¿?+8ä¸ªæœˆ"
 - Comparison: old policy age vs new policy age
 
 ### Implementation
@@ -48,18 +60,26 @@ Pure HTML/CSS in webclient JS. No new API calls.
 
 ## 3. Scheme Comparison Cards + ROI Chart (Plan Tab Enhancement)
 
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúÐ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
+
 ### Current
-Plain HTML table with columns: æ–¹æ¡ˆ/ç¼´è´¹åŸºæ•°/æœˆç¼´/å¹´è¡¥è´´/é¢„è®¡æœˆå…»è€é‡‘
+Plain HTML table with columns: æ–¹æ¡ˆ/ç¼´è´¹åŸºæ•°/æœˆç¼´/å¹´è¡¥è´?é¢„è®¡æœˆå…»è€é‡‘
 
 ### Enhancement
+
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúÐ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
 
 #### 3a. Card Layout
 Each scheme rendered as a card with:
 - Header: scheme name (e.g. "æ–¹æ¡ˆA - 60%ç¤¾å¹³")
-- Key metrics in large font: æœˆç¼´ â†’ é¢„è®¡æœˆå…»è€é‡‘
+- Key metrics in large font: æœˆç¼´ â†?é¢„è®¡æœˆå…»è€é‡‘
 - ROI indicator: `projected_pension / monthly_cost` ratio with color (green > 3x, yellow 2-3x, red < 2x)
 - Badge: "æŽ¨è" for highest ROI scheme
-- Subsidy info: "å¹´è¡¥è´´ Â¥X,XXX"
+- Subsidy info: "å¹´è¡¥è´?Â¥X,XXX"
 - After-tax pension: "ç¨ŽåŽæœˆé¢† Â¥X,XXX" (from fix #1)
 
 #### 3b. Comparison Bar Chart
@@ -74,6 +94,10 @@ Chart.js CDN + vanilla JS. Uses data already returned by `POST /v1/plans/generat
 ---
 
 ## 4. Cashflow Trend Chart (Plan Detail Enhancement)
+
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúÐ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
 
 ### Current
 Cashflow data is dropped (bug #1).
@@ -92,6 +116,10 @@ Chart.js line chart. Data from `scheme.cashflow[]` array (available after fix #1
 
 ## 5. Retirement Pension Simulator (New Tab or Section in Plan Tab)
 
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúÐ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
+
 ### Current
 Fixed parameters, one-shot generation.
 
@@ -99,12 +127,12 @@ Fixed parameters, one-shot generation.
 Interactive parameter sliders + real-time result update:
 - Slider 1: ç¼´è´¹åŸºæ•° (contribution base, range from min to max based on city)
 - Slider 2: ç¼´è´¹å¹´é™ target (180-360 months)
-- Slider 3: æœˆé¢„ç®— (monthly budget)
+- Slider 3: æœˆé¢„ç®?(monthly budget)
 
 When user adjusts sliders:
 - Frontend recalculates estimated pension using simplified formula: `base_pension + personal_account_pension`
 - Displays projected monthly pension as a large number that updates in real-time
-- Shows a reference line for "å½“åœ°æœ€ä½Žç”Ÿæ´»ä¿éšœ" (city minimum living standard)
+- Shows a reference line for "å½“åœ°æœ€ä½Žç”Ÿæ´»ä¿éš? (city minimum living standard)
 
 ### Implementation
 No new API needed. Frontend JS uses:
@@ -122,6 +150,10 @@ total = basic_pension + personal_pension
 ---
 
 ## Technical Notes
+
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúÐ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
 
 ### Chart.js Integration
 ```html

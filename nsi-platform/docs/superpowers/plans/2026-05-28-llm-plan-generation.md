@@ -2,11 +2,11 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 新建 llm-gateway 独立微服务，改造 api-server 方案生成从精算模型切换为 LLM 智能生成，保留精算引擎作双向验证。
+**Goal:** 新建 llm-gateway 独立微服务，改�?api-server 方案生成从精算模型切换为 LLM 智能生成，保留精算引擎作双向验证�?
 
-**Architecture:** 新增 `llm-gateway` 服务（:39404）统一管理 LLM 调用（多 provider + fallback）。api-server 的 `GeneratePlanHandler` 改为：检索三级政策 → 组装 prompt → 调 llm-gateway → 解析双视图输出 → 精算引擎验证偏差 → 返回方案。前端增加视图切换和政策依据展示。
+**Architecture:** 新增 `llm-gateway` 服务�?39404）统一管理 LLM 调用（多 provider + fallback）。api-server �?`GeneratePlanHandler` 改为：检索三级政�?�?组装 prompt �?�?llm-gateway �?解析双视图输�?�?精算引擎验证偏差 �?返回方案。前端增加视图切换和政策依据展示�?
 
-**Tech Stack:** Go 1.24+, PostgreSQL, Docker, Chart.js, LLM APIs (DeepSeek/阿里云百炼/火山方舟/OpenCode Go)
+**Tech Stack:** Go 1.24+, PostgreSQL, Docker, Chart.js, LLM APIs (DeepSeek/阿里云百�?火山方舟/OpenCode Go)
 
 **Spec:** `docs/superpowers/specs/2026-05-28-llm-plan-generation-design.md`
 
@@ -20,9 +20,9 @@
 |------|---------------|
 | `services/llm-gateway/cmd/main.go` | 入口，HTTP server + 路由 |
 | `services/llm-gateway/go.mod` | Go module 定义 |
-| `services/llm-gateway/internal/gateway/gateway.go` | 核心网关：provider 选择、fallback、限流 |
+| `services/llm-gateway/internal/gateway/gateway.go` | 核心网关：provider 选择、fallback、限�?|
 | `services/llm-gateway/internal/provider/provider.go` | Provider 接口 + OpenAI 兼容实现 |
-| `services/llm-gateway/internal/provider/bailian.go` | 阿里云百炼实现 |
+| `services/llm-gateway/internal/provider/bailian.go` | 阿里云百炼实�?|
 | `services/llm-gateway/internal/config/config.go` | DB-backed provider 配置 CRUD |
 | `services/llm-gateway/internal/usage/usage.go` | 用量日志记录 |
 | `services/llm-gateway/internal/admin/admin.go` | 管理 API handler |
@@ -34,29 +34,29 @@
 
 | File | Change |
 |------|--------|
-| `shared/models/models.go` | 新增 LLMScheme, PolicyReference, VerificationResult, DeviationDetail；扩展 PlanSnapshot |
+| `shared/models/models.go` | 新增 LLMScheme, PolicyReference, VerificationResult, DeviationDetail；扩�?PlanSnapshot |
 | `shared/config/config.go` | 新增 LLMGatewayURL 字段 |
-| `services/api-server/internal/handler/plan_handler.go` | 重写：检索三级政策 + 调 llm-gateway + 解析双视图 |
-| `services/api-server/internal/handler/webclient_handler.go` | 改造方案展示：双视图 + 政策依据 |
+| `services/api-server/internal/handler/plan_handler.go` | 重写：检索三级政�?+ �?llm-gateway + 解析双视�?|
+| `services/api-server/internal/handler/webclient_handler.go` | 改造方案展示：双视�?+ 政策依据 |
 | `services/api-server/internal/repository/policy_repo.go` | 新增 QueryByRegionHierarchy + policy source fields 查询 |
-| `services/api-server/internal/repository/plan_repo.go` | 适配新 PlanSnapshot 结构 |
-| `services/api-server/cmd/main.go` | 新增 LLMGatewayURL 配置，传给 handler |
+| `services/api-server/internal/repository/plan_repo.go` | 适配�?PlanSnapshot 结构 |
+| `services/api-server/cmd/main.go` | 新增 LLMGatewayURL 配置，传�?handler |
 | `services/api-server/migrations/008_plan_verification.sql` | plan_verification_logs 建表 + plan_snapshots 新列 |
 | `docker-compose.yml` | 新增 llm-gateway 服务 + api-server 环境变量 |
 | `scripts/migrate.sh` | 新增 llm-gateway migrations |
 | `Makefile` | 新增 build-llm-gateway, test-llm-gateway |
-| `services/api-server/go.mod` | 无需改动（调 llm-gateway 用 HTTP） |
+| `services/api-server/go.mod` | 无需改动（调 llm-gateway �?HTTP�?|
 
 ---
 
-## Task 1: llm-gateway 项目脚手架 + go.mod
+## Task 1: llm-gateway 项目脚手�?+ go.mod
 
 **Files:**
 - Create: `services/llm-gateway/go.mod`
 - Create: `services/llm-gateway/cmd/main.go` (minimal healthz only)
 - Create: `services/llm-gateway/Dockerfile`
 
-- [ ] **Step 1: 创建目录结构和 go.mod**
+- [ ] **Step 1: 创建目录结构�?go.mod**
 
 ```sh
 mkdir -p services/llm-gateway/cmd
@@ -81,7 +81,7 @@ require (
 replace github.com/trigold786/94-AI-Insurance-Design/shared => ../../shared
 ```
 
-- [ ] **Step 2: 创建最小化 main.go（仅 healthz）**
+- [ ] **Step 2: 创建最小化 main.go（仅 healthz�?*
 
 `services/llm-gateway/cmd/main.go`:
 ```go
@@ -131,7 +131,7 @@ func main() {
 
 ```
 
-修复 import（需要加 `"time"`）。
+修复 import（需要加 `"time"`）�?
 
 - [ ] **Step 3: 创建 Dockerfile**
 
@@ -154,7 +154,7 @@ GOPROXY=https://goproxy.cn,direct go mod tidy
 GOOS=linux GOARCH=amd64 go build -o bin/llm-gateway ./cmd/main.go
 ```
 
-Expected: 编译成功，无错误。
+Expected: 编译成功，无错误�?
 
 - [ ] **Step 5: Commit**
 
@@ -275,7 +275,7 @@ cd services/llm-gateway
 go test ./internal/provider/ -v -run TestOpenAICompat
 ```
 
-Expected: 编译失败（类型未定义）。
+Expected: 编译失败（类型未定义）�?
 
 - [ ] **Step 3: 实现 Provider 接口 + OpenAI 兼容**
 
@@ -386,7 +386,7 @@ cd services/llm-gateway
 go test ./internal/provider/ -v -run TestOpenAICompat
 ```
 
-Expected: 3 tests PASS。
+Expected: 3 tests PASS�?
 
 - [ ] **Step 5: Commit**
 
@@ -397,16 +397,16 @@ git commit -m "feat(llm-gateway): add Provider interface + OpenAI compat impleme
 
 ---
 
-## Task 3: 阿里云百炼 Provider
+## Task 3: 阿里云百�?Provider
 
 **Files:**
-- Modify: `services/llm-gateway/internal/provider/provider.go` (无需改动，已在此文件加类型)
+- Modify: `services/llm-gateway/internal/provider/provider.go` (无需改动，已在此文件加类�?
 - Create: `services/llm-gateway/internal/provider/bailian.go`
 - Modify: `services/llm-gateway/internal/provider/provider_test.go`
 
 - [ ] **Step 1: 编写百炼 provider 测试**
 
-在 `provider_test.go` 末尾追加：
+�?`provider_test.go` 末尾追加�?
 ```go
 func TestBailianChat_Success(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -440,7 +440,7 @@ cd services/llm-gateway
 go test ./internal/provider/ -v -run TestBailian
 ```
 
-Expected: 编译失败（BailianProvider 未定义）。
+Expected: 编译失败（BailianProvider 未定义）�?
 
 - [ ] **Step 3: 实现 BailianProvider**
 
@@ -540,7 +540,7 @@ cd services/llm-gateway
 go test ./internal/provider/ -v
 ```
 
-Expected: 4 tests PASS。
+Expected: 4 tests PASS�?
 
 - [ ] **Step 5: Commit**
 
@@ -786,7 +786,7 @@ git commit -m "feat(llm-gateway): add usage logging store"
 
 ---
 
-## Task 6: Gateway 核心（fallback + 路由）
+## Task 6: Gateway 核心（fallback + 路由�?
 
 **Files:**
 - Create: `services/llm-gateway/internal/gateway/gateway.go`
@@ -882,7 +882,7 @@ cd services/llm-gateway
 go test ./internal/gateway/ -v
 ```
 
-Expected: 编译失败（Gateway 未定义）。
+Expected: 编译失败（Gateway 未定义）�?
 
 - [ ] **Step 3: 实现 Gateway**
 
@@ -951,7 +951,7 @@ cd services/llm-gateway
 go test ./internal/gateway/ -v
 ```
 
-Expected: 2 tests PASS。
+Expected: 2 tests PASS�?
 
 - [ ] **Step 5: Commit**
 
@@ -962,13 +962,13 @@ git commit -m "feat(llm-gateway): add gateway core with fallback routing"
 
 ---
 
-## Task 7: llm-gateway Migration + DB 初始化
+## Task 7: llm-gateway Migration + DB 初始�?
 
 **Files:**
 - Create: `services/llm-gateway/migrations/001_init.sql`
-- Modify: `scripts/migrate.sh` — 新增 llm-gateway migrations
-- Modify: `docker-compose.yml` — db-init 新增 nsi_llm 库
-- Modify: `docker-compose.yml` — db-migrate 新增 llm-gateway migrations 挂载
+- Modify: `scripts/migrate.sh` �?新增 llm-gateway migrations
+- Modify: `docker-compose.yml` �?db-init 新增 nsi_llm �?
+- Modify: `docker-compose.yml` �?db-migrate 新增 llm-gateway migrations 挂载
 
 - [ ] **Step 1: 创建 migration 文件**
 
@@ -1011,23 +1011,23 @@ COMMIT;
 
 - [ ] **Step 2: 修改 migrate.sh**
 
-在 `scripts/migrate.sh` 的 `echo 'Migrations complete.'` 行之前追加：
+�?`scripts/migrate.sh` �?`echo 'Migrations complete.'` 行之前追加：
 
 ```sh
 echo 'Running llm-gateway migrations...'
 run_migrations nsi_llm /migrations/llm
 ```
 
-- [ ] **Step 3: 修改 docker-compose.yml — db-init 新增 nsi_llm**
+- [ ] **Step 3: 修改 docker-compose.yml �?db-init 新增 nsi_llm**
 
-在 `db-init` 的 `entrypoint` 的 `psql` 命令行中，在 `CREATE DATABASE nsi_crawler;` 之后追加：
+�?`db-init` �?`entrypoint` �?`psql` 命令行中，在 `CREATE DATABASE nsi_crawler;` 之后追加�?
 ```
 psql -h postgres -U postgres -c 'CREATE DATABASE nsi_llm;' 2>/dev/null || true;
 ```
 
-- [ ] **Step 4: 修改 docker-compose.yml — db-migrate 新增挂载**
+- [ ] **Step 4: 修改 docker-compose.yml �?db-migrate 新增挂载**
 
-在 `db-migrate` 的 `volumes` 中追加：
+�?`db-migrate` �?`volumes` 中追加：
 ```yaml
       - ./services/llm-gateway/migrations:/migrations/llm:ro
 ```
@@ -1163,7 +1163,7 @@ func (h *Handler) TestProvider(w http.ResponseWriter, r *http.Request) {
 	}
 
 	start := time.Now()
-	content, err := p.Chat("你是测试助手，请回复：连接成功", "测试连接")
+	content, err := p.Chat("你是测试助手，请回复：连接成�?, "测试连接")
 	latency := time.Since(start).Milliseconds()
 
 	result := map[string]interface{}{
@@ -1205,14 +1205,14 @@ func (h *Handler) AdminPage(w http.ResponseWriter, r *http.Request) {
 - [ ] **Step 2: 实现管理页面 HTML**
 
 `services/llm-gateway/internal/admin/admin_page.go`:
-（内嵌 HTML，参考 crawler 的 admin_page.go 模式。包含 3 个 tab：Provider 配置、用量统计、连通性测试。使用 Chart.js 展示用量。页面较长，此处给出核心结构，具体 HTML 实现参照 `services/policy-crawler/internal/admin/admin_page.go` 的模式，用 Go const string 内嵌。）
+（内�?HTML，参�?crawler �?admin_page.go 模式。包�?3 �?tab：Provider 配置、用量统计、连通性测试。使�?Chart.js 展示用量。页面较长，此处给出核心结构，具�?HTML 实现参照 `services/policy-crawler/internal/admin/admin_page.go` 的模式，�?Go const string 内嵌。）
 
-页面核心功能：
-- Provider 列表：显示已配置的 provider，可编辑 API Key/Endpoint/Model/优先级/启用状态
+页面核心功能�?
+- Provider 列表：显示已配置�?provider，可编辑 API Key/Endpoint/Model/优先�?启用状�?
 - 保存按钮：POST /admin/providers
 - 测试按钮：POST /admin/providers/test
-- 用量图表：GET /admin/usage → Chart.js 柱状图
-- 默认 provider 预填：DeepSeek, 阿里云百炼, 火山方舟, OpenCode Go
+- 用量图表：GET /admin/usage �?Chart.js 柱状�?
+- 默认 provider 预填：DeepSeek, 阿里云百�? 火山方舟, OpenCode Go
 
 - [ ] **Step 3: Commit**
 
@@ -1223,23 +1223,23 @@ git commit -m "feat(llm-gateway): add admin API and management page"
 
 ---
 
-## Task 9: llm-gateway main.go 完整化 + 公共 Chat API
+## Task 9: llm-gateway main.go 完整�?+ 公共 Chat API
 
 **Files:**
 - Modify: `services/llm-gateway/cmd/main.go`
 
-- [ ] **Step 1: 完善 main.go — 连接 DB + 注册所有路由**
+- [ ] **Step 1: 完善 main.go �?连接 DB + 注册所有路�?*
 
 重写 `services/llm-gateway/cmd/main.go`，完整版本包含：
-- DB 连接（`shared/db.Connect`）
-- 初始化 ConfigStore, UsageStore
-- 从 DB 加载 providers 构建 Gateway
-- 公共端点 `POST /v1/chat`：接收请求 → Gateway.Chat → 记录 usage → 返回响应
+- DB 连接（`shared/db.Connect`�?
+- 初始�?ConfigStore, UsageStore
+- �?DB 加载 providers 构建 Gateway
+- 公共端点 `POST /v1/chat`：接收请�?�?Gateway.Chat �?记录 usage �?返回响应
 - 管理端点：Basic Auth 保护
 - 请求格式：`{"system_prompt":"...","user_content":"...","max_tokens":4096,"caller":"api-server"}`
 - 响应格式：`{"content":"...","provider_used":"deepseek","model":"deepseek-v4-flash","latency_ms":1200}`
 
-关键逻辑：
+关键逻辑�?
 ```go
 func chatHandler(gw *gateway.Gateway, us *usage.UsageStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -1287,7 +1287,7 @@ func chatHandler(gw *gateway.Gateway, us *usage.UsageStore) http.HandlerFunc {
 }
 ```
 
-注意：需要引入 `shared/db`，go.mod 中已有 replace 指令。需要在 go.mod require 中加入 `github.com/trigold786/94-AI-Insurance-Design/shared v0.0.0`。
+注意：需要引�?`shared/db`，go.mod 中已�?replace 指令。需要在 go.mod require 中加�?`github.com/trigold786/94-AI-Insurance-Design/shared v0.0.0`�?
 
 - [ ] **Step 2: 编译验证**
 
@@ -1297,7 +1297,7 @@ GOPROXY=https://goproxy.cn,direct go mod tidy
 GOOS=linux GOARCH=amd64 go build -o bin/llm-gateway ./cmd/main.go
 ```
 
-Expected: 编译成功。
+Expected: 编译成功�?
 
 - [ ] **Step 3: Commit**
 
@@ -1308,14 +1308,14 @@ git commit -m "feat(llm-gateway): complete main.go with chat API and admin route
 
 ---
 
-## Task 10: shared/models 更新 — 新增 LLM 方案类型
+## Task 10: shared/models 更新 �?新增 LLM 方案类型
 
 **Files:**
 - Modify: `shared/models/models.go`
 
-- [ ] **Step 1: 在 models.go 末尾追加新类型**
+- [ ] **Step 1: �?models.go 末尾追加新类�?*
 
-在 `shared/models/models.go` 的 `VersionSnapshot` 结构体之后追加：
+�?`shared/models/models.go` �?`VersionSnapshot` 结构体之后追加：
 
 ```go
 type LLMScheme struct {
@@ -1366,7 +1366,7 @@ type LLMSchemeResponse struct {
 }
 ```
 
-- [ ] **Step 2: 更新 PlanSnapshot 结构体**
+- [ ] **Step 2: 更新 PlanSnapshot 结构�?*
 
 将现有的 `PlanSnapshot` 替换为：
 
@@ -1388,7 +1388,7 @@ type PlanSnapshot struct {
 }
 ```
 
-注意：保留 `RecommendedSchemes []Scheme`（旧格式）以兼容现有方案数据和报告功能。新增字段都有 `db` tag 以支持后续 DB 存储。
+注意：保�?`RecommendedSchemes []Scheme`（旧格式）以兼容现有方案数据和报告功能。新增字段都�?`db` tag 以支持后�?DB 存储�?
 
 - [ ] **Step 3: 编译验证 shared**
 
@@ -1396,7 +1396,7 @@ type PlanSnapshot struct {
 cd shared && go build ./...
 ```
 
-Expected: 编译成功。
+Expected: 编译成功�?
 
 - [ ] **Step 4: Commit**
 
@@ -1407,19 +1407,19 @@ git commit -m "feat(shared): add LLM scheme types, policy references, verificati
 
 ---
 
-## Task 11: shared/config 更新 — 新增 LLMGatewayURL
+## Task 11: shared/config 更新 �?新增 LLMGatewayURL
 
 **Files:**
 - Modify: `shared/config/config.go`
 
-- [ ] **Step 1: 在 Config 结构体和 Load 函数中添加 LLMGatewayURL**
+- [ ] **Step 1: �?Config 结构体和 Load 函数中添�?LLMGatewayURL**
 
-在 `shared/config/config.go` 的 `Config` 结构体中追加：
+�?`shared/config/config.go` �?`Config` 结构体中追加�?
 ```go
 LLMGatewayURL string
 ```
 
-在 `Load()` 函数中追加：
+�?`Load()` 函数中追加：
 ```go
 LLMGatewayURL: getEnv("LLM_GATEWAY_URL", "http://localhost:39404"),
 ```
@@ -1439,7 +1439,7 @@ git commit -m "feat(shared): add LLMGatewayURL config field"
 
 ---
 
-## Task 12: api-server migration — plan_snapshots 新列 + verification_logs
+## Task 12: api-server migration �?plan_snapshots 新列 + verification_logs
 
 **Files:**
 - Create: `services/api-server/migrations/008_plan_llm_fields.sql`
@@ -1487,19 +1487,19 @@ git commit -m "feat(api-server): add migration for LLM plan fields and verificat
 
 ---
 
-## Task 13: api-server policy_repo — QueryByRegionHierarchy + 溯源字段
+## Task 13: api-server policy_repo �?QueryByRegionHierarchy + 溯源字段
 
 **Files:**
 - Modify: `services/api-server/internal/repository/policy_repo.go`
 
 - [ ] **Step 1: 新增 QueryByRegionHierarchy 方法**
 
-在 `policy_repo.go` 的 `PolicyRepository` 接口中追加：
+�?`policy_repo.go` �?`PolicyRepository` 接口中追加：
 ```go
 QueryByRegionHierarchy(ctx context.Context, regionCode, status string) ([]models.PolicyClaim, error)
 ```
 
-实现此方法，核心逻辑：
+实现此方法，核心逻辑�?
 
 ```go
 func (r *policyRepository) QueryByRegionHierarchy(ctx context.Context, regionCode, status string) ([]models.PolicyClaim, error) {
@@ -1521,7 +1521,7 @@ func (r *policyRepository) QueryByRegionHierarchy(ctx context.Context, regionCod
 			END, updated_at DESC`
 
 	rows, err := r.db.QueryContext(ctx, query, pq.Array(codes), status)
-	// ... scan 同 QueryByRegionAndStatus，但额外扫描 source 字段
+	// ... scan �?QueryByRegionAndStatus，但额外扫描 source 字段
 	// 返回 claims
 }
 
@@ -1538,13 +1538,13 @@ func buildRegionHierarchy(code string) []string {
 }
 ```
 
-注意：需要在 `QueryByRegionAndStatus` 的 SELECT 和 Scan 中也加上 `source_id, source_name, source_url, policy_url, policy_title, issuing_authority, document_number, application_process` 这些溯源字段，目前它们在 DB 中有但在查询中未返回。这是"链接 + 提取的原文片段"展示的前提。
+注意：需要在 `QueryByRegionAndStatus` �?SELECT �?Scan 中也加上 `source_id, source_name, source_url, policy_url, policy_title, issuing_authority, document_number, application_process` 这些溯源字段，目前它们在 DB 中有但在查询中未返回。这�?链接 + 提取的原文片�?展示的前提�?
 
-- [ ] **Step 2: 同时修改现有的 Query 和 QueryByRegionAndStatus 方法**
+- [ ] **Step 2: 同时修改现有�?Query �?QueryByRegionAndStatus 方法**
 
-在所有查询的 SELECT 列表中追加溯源字段，Scan 中追加对应变量。
+在所有查询的 SELECT 列表中追加溯源字段，Scan 中追加对应变量�?
 
-- [ ] **Step 3: 运行 api-server 测试确保不破坏现有功能**
+- [ ] **Step 3: 运行 api-server 测试确保不破坏现有功�?*
 
 ```sh
 cd services/api-server && go test ./internal/repository/ -v -run TestPolicy
@@ -1559,14 +1559,14 @@ git commit -m "feat(api-server): add QueryByRegionHierarchy and source fields in
 
 ---
 
-## Task 14: api-server plan_repo 适配新 PlanSnapshot
+## Task 14: api-server plan_repo 适配�?PlanSnapshot
 
 **Files:**
 - Modify: `services/api-server/internal/repository/plan_repo.go`
 
 - [ ] **Step 1: 更新 Save 方法以存储新字段**
 
-修改 `plan_repo.go` 的 `Save` 方法：
+修改 `plan_repo.go` �?`Save` 方法�?
 ```go
 func (r *planRepository) Save(ctx context.Context, plan *models.PlanSnapshot) error {
 	schemesJSON, _ := json.Marshal(plan.RecommendedSchemes)
@@ -1610,7 +1610,7 @@ func (r *planRepository) Save(ctx context.Context, plan *models.PlanSnapshot) er
 
 - [ ] **Step 2: 更新 GetByID 以读取新字段**
 
-修改 `GetByID` 的 Scan 以包含新列。注意 `verification_result` 可能为 NULL，需要用 `[]byte` 接收。
+修改 `GetByID` �?Scan 以包含新列。注�?`verification_result` 可能�?NULL，需要用 `[]byte` 接收�?
 
 - [ ] **Step 3: 运行测试**
 
@@ -1627,13 +1627,13 @@ git commit -m "feat(api-server): update plan_repo for LLM scheme fields"
 
 ---
 
-## Task 15: api-server plan_handler 重写 — LLM 方案生成
+## Task 15: api-server plan_handler 重写 �?LLM 方案生成
 
 **Files:**
 - Modify: `services/api-server/internal/handler/plan_handler.go`
 - Modify: `services/api-server/internal/handler/plan_handler_test.go`
 
-这是核心改造。新的 `GeneratePlanHandler` 不再接受 `Calculator` 参数，改为接受 `LLMGatewayURL`。
+这是核心改造。新�?`GeneratePlanHandler` 不再接受 `Calculator` 参数，改为接�?`LLMGatewayURL`�?
 
 - [ ] **Step 1: 重写 plan_handler.go**
 
@@ -1642,19 +1642,19 @@ git commit -m "feat(api-server): update plan_repo for LLM scheme fields"
 func GeneratePlanHandler(llmGatewayURL string, repo PlanRepository, profileRepo ProfileLookuper, policyRepo PolicyQuerier) http.Handler
 ```
 
-核心流程：
-1. 解析请求（保留现有验证：age 16-70, gender male/female, monthly_budget > 0）
-2. 获取用户画像 → 确定地区代码
+核心流程�?
+1. 解析请求（保留现有验证：age 16-70, gender male/female, monthly_budget > 0�?
+2. 获取用户画像 �?确定地区代码
 3. 调用 `policyRepo.QueryByRegionHierarchy(ctx, code, "verified")` 获取三级政策
-4. 过滤 target_group_tags 匹配用户条件的政策
-5. 组装 LLM Prompt（system prompt + user content = 画像JSON + 政策数据JSON）
-6. HTTP POST 调 llm-gateway `/v1/chat`
-7. 解析 LLM 响应（提取 `===FREE_FORM_START===` 和 `===STRUCTURED_START===` 之间的内容）
-8. [异步 goroutine] 精算引擎验证：从 LLM 输出中提取数值 → 调 actuarial-engine → 比对 → 记录偏差
-9. 构建 PlanSnapshot 并保存
+4. 过滤 target_group_tags 匹配用户条件的政�?
+5. 组装 LLM Prompt（system prompt + user content = 画像JSON + 政策数据JSON�?
+6. HTTP POST �?llm-gateway `/v1/chat`
+7. 解析 LLM 响应（提�?`===FREE_FORM_START===` �?`===STRUCTURED_START===` 之间的内容）
+8. [异步 goroutine] 精算引擎验证：从 LLM 输出中提取数�?�?�?actuarial-engine �?比对 �?记录偏差
+9. 构建 PlanSnapshot 并保�?
 10. 返回响应
 
-LLM Gateway 客户端（内联在 plan_handler.go 中）：
+LLM Gateway 客户端（内联�?plan_handler.go 中）�?
 ```go
 type LLMGatewayClient struct {
 	URL string
@@ -1702,22 +1702,22 @@ func (c *LLMGatewayClient) Chat(ctx context.Context, systemPrompt, userContent s
 }
 ```
 
-Prompt 组装函数：
+Prompt 组装函数�?
 ```go
 func buildPlanPrompt(profile *models.UserProfile, policies []models.PolicyClaim) (systemPrompt, userContent string) {
-	systemPrompt = `你是一位资深社保政策顾问。根据用户的个人情况和所在地的社保政策，为用户量身定制最优社保参保方案。
+	systemPrompt = `你是一位资深社保政策顾问。根据用户的个人情况和所在地的社保政策，为用户量身定制最优社保参保方案�?
 
-规则：
-1. 所有政策依据必须来自提供的政策库数据，不可编造
-2. 必须理解上位法与下位法的关系：国家法律 > 省级规定 > 市级细则 > 区级优惠
+规则�?
+1. 所有政策依据必须来自提供的政策库数据，不可编�?
+2. 必须理解上位法与下位法的关系：国家法�?> 省级规定 > 市级细则 > 区级优惠
 3. 当地方政策与上位法冲突时，以有利于用户的原则解释
 4. 方案必须包含所有适用的优惠政策，不能遗漏
-5. 每一条建议都必须标注所依据的政策（标题+文号+链接）
+5. 每一条建议都必须标注所依据的政策（标题+文号+链接�?
 6. 数值计算必须精确，基于提供的费率和基数
 
-输出格式（必须严格遵守）：
+输出格式（必须严格遵守）�?
 ===FREE_FORM_START===
-[自由文本格式的方案建议书，面向普通用户，通俗易懂，2000字以内]
+[自由文本格式的方案建议书，面向普通用户，通俗易懂�?000字以内]
 ===FREE_FORM_END===
 ===STRUCTURED_START===
 {
@@ -1744,7 +1744,7 @@ func buildPlanPrompt(profile *models.UserProfile, policies []models.PolicyClaim)
       "policy_title": "",
       "document_number": "",
       "policy_url": "",
-      "relevant_excerpt": "提取的原文片段",
+      "relevant_excerpt": "提取的原文片�?,
       "how_applied": "如何应用于本方案"
     }
   ],
@@ -1770,7 +1770,7 @@ func buildPlanPrompt(profile *models.UserProfile, policies []models.PolicyClaim)
 }
 ```
 
-LLM 响应解析函数：
+LLM 响应解析函数�?
 ```go
 func parseLLMResponse(raw string) (freeForm string, structured *models.LLMSchemeResponse, err error) {
 	freeStart := strings.Index(raw, "===FREE_FORM_START===")
@@ -1810,11 +1810,11 @@ type LLMSchemeResponse struct {
 }
 ```
 
-将此类型加到 Task 10 的 models.go 中。
+将此类型加到 Task 10 �?models.go 中�?
 
 - [ ] **Step 2: 重写 plan_handler_test.go**
 
-更新 mock 类型。移除 `mockCalculator`，新增 `mockLLMGateway`：
+更新 mock 类型。移�?`mockCalculator`，新�?`mockLLMGateway`�?
 
 ```go
 type mockLLMGateway struct {
@@ -1823,13 +1823,13 @@ type mockLLMGateway struct {
 }
 ```
 
-测试用例：
-- TestGeneratePlanHandlerSuccess：mock LLM 返回合法双视图响应
-- TestGeneratePlanHandlerInvalidAge：保留
-- TestGeneratePlanHandlerInvalidGender：保留
-- TestGeneratePlanHandlerInvalidBudget：保留
+测试用例�?
+- TestGeneratePlanHandlerSuccess：mock LLM 返回合法双视图响�?
+- TestGeneratePlanHandlerInvalidAge：保�?
+- TestGeneratePlanHandlerInvalidGender：保�?
+- TestGeneratePlanHandlerInvalidBudget：保�?
 - TestGeneratePlanHandlerLLMError：mock LLM 返回错误
-- TestGeneratePlanHandlerParseError：mock LLM 返回无 marker 的文本
+- TestGeneratePlanHandlerParseError：mock LLM 返回�?marker 的文�?
 
 - [ ] **Step 3: 运行测试**
 
@@ -1837,7 +1837,7 @@ type mockLLMGateway struct {
 cd services/api-server && go test ./internal/handler/ -v -run TestGeneratePlan
 ```
 
-Expected: 所有测试 PASS。
+Expected: 所有测�?PASS�?
 
 - [ ] **Step 4: Commit**
 
@@ -1855,13 +1855,13 @@ git commit -m "feat(api-server): rewrite plan_handler for LLM-based generation"
 
 - [ ] **Step 1: 修改路由注册**
 
-在 `cmd/main.go` 中：
+�?`cmd/main.go` 中：
 
-1. 将 `GeneratePlanHandler` 的调用从 `GeneratePlanHandler(calculator, ...)` 改为 `GeneratePlanHandler(cfg.LLMGatewayURL, ...)`
-2. 保留 `calculator` 初始化（用于精算验证），但不再传给 GeneratePlanHandler
-3. 在 `mux.Handle("/v1/plans/generate", ...)` 处使用新签名
+1. �?`GeneratePlanHandler` 的调用从 `GeneratePlanHandler(calculator, ...)` 改为 `GeneratePlanHandler(cfg.LLMGatewayURL, ...)`
+2. 保留 `calculator` 初始化（用于精算验证），但不再传�?GeneratePlanHandler
+3. �?`mux.Handle("/v1/plans/generate", ...)` 处使用新签名
 
-关键改动：
+关键改动�?
 ```go
 // 旧：handler.GeneratePlanHandler(calculator, planRepo, profileRepo, policyRepo)
 // 新：handler.GeneratePlanHandler(cfg.LLMGatewayURL, planRepo, profileRepo, policyRepo)
@@ -1882,35 +1882,35 @@ git commit -m "feat(api-server): wire LLM gateway URL into plan handler"
 
 ---
 
-## Task 17: WebClient 改造 — 双视图 + 政策依据
+## Task 17: WebClient 改�?�?双视�?+ 政策依据
 
 **Files:**
 - Modify: `services/api-server/internal/handler/webclient_handler.go`
 
 - [ ] **Step 1: 修改方案生成 tab 的渲染逻辑**
 
-在 `webclient_handler.go` 的 `onGeneratePlan()` JS 函数中：
+�?`webclient_handler.go` �?`onGeneratePlan()` JS 函数中：
 
-1. 发送请求到 `/v1/plans/generate`（请求体不变）
+1. 发送请求到 `/v1/plans/generate`（请求体不变�?
 2. 解析响应中的新字段：`free_form_text`, `structured_schemes`, `policy_references`, `recommendation`, `verification_result`
 3. 渲染方案结果区域，包含：
    - 视图切换下拉：`自由文本` / `结构化分析`
-   - 自由文本视图：渲染 `free_form_text`（支持简单 markdown → HTML 转换：换行→`<br>`，`**text**`→`<strong>`）
-   - 结构化视图：schemes 列表（表格形式：方案名/缴费基数/月缴费/年补贴/预计养老金）+ 每个方案的 analysis 文字
+   - 自由文本视图：渲�?`free_form_text`（支持简�?markdown �?HTML 转换：换行→`<br>`，`**text**`→`<strong>`�?
+   - 结构化视图：schemes 列表（表格形式：方案�?缴费基数/月缴�?年补�?预计养老金�? 每个方案�?analysis 文字
    - 推荐方案高亮卡片 + 推荐理由
-   - 政策依据区域：每个 PolicyReference 显示为卡片，包含：
+   - 政策依据区域：每�?PolicyReference 显示为卡片，包含�?
      - `policy_title` + `document_number`
      - 可点击的 `policy_url` 链接
-     - `relevant_excerpt` 原文片段（灰色背景引用块）
+     - `relevant_excerpt` 原文片段（灰色背景引用块�?
      - `how_applied` 应用说明
 
-- [ ] **Step 2: 验证 webclient 页面可正常加载**
+- [ ] **Step 2: 验证 webclient 页面可正常加�?*
 
 ```sh
 curl -s http://localhost:39401/webclient | head -20
 ```
 
-Expected: HTML 页面正常返回。
+Expected: HTML 页面正常返回�?
 
 - [ ] **Step 3: Commit**
 
@@ -1921,14 +1921,14 @@ git commit -m "feat(api-server): add dual-view plan display with policy referenc
 
 ---
 
-## Task 18: Docker 集成 — llm-gateway 服务
+## Task 18: Docker 集成 �?llm-gateway 服务
 
 **Files:**
 - Modify: `docker-compose.yml`
 
-- [ ] **Step 1: 在 docker-compose.yml 中添加 llm-gateway 服务**
+- [ ] **Step 1: �?docker-compose.yml 中添�?llm-gateway 服务**
 
-在 `policy-crawler` 服务之后、`db-init` 之前追加：
+�?`policy-crawler` 服务之后、`db-init` 之前追加�?
 
 ```yaml
   llm-gateway:
@@ -1961,7 +1961,7 @@ git commit -m "feat(api-server): add dual-view plan display with policy referenc
 
 - [ ] **Step 2: 修改 api-server 环境变量**
 
-在 api-server 的 `environment` 中追加：
+�?api-server �?`environment` 中追加：
 ```yaml
       LLM_GATEWAY_URL: http://llm-gateway:39404
 ```
@@ -1980,12 +1980,12 @@ git commit -m "feat(docker): add llm-gateway service to docker-compose"
 **Files:**
 - Modify: `Makefile`
 
-- [ ] **Step 1: 添加 llm-gateway 构建和测试目标**
+- [ ] **Step 1: 添加 llm-gateway 构建和测试目�?*
 
-在 `Makefile` 中：
+�?`Makefile` 中：
 
-1. 修改 `build` 和 `test` 目标添加 `build-llm-gateway` 和 `test-llm-gateway`
-2. 新增：
+1. 修改 `build` �?`test` 目标添加 `build-llm-gateway` �?`test-llm-gateway`
+2. 新增�?
 ```makefile
 build-llm-gateway:
 	cd services/llm-gateway && go build ./cmd/main.go
@@ -2005,7 +2005,7 @@ git commit -m "feat(makefile): add llm-gateway build and test targets"
 
 ---
 
-## Task 20: 构建部署 + 端到端验证
+## Task 20: 构建部署 + 端到端验�?
 
 **Files:** 无新文件
 
@@ -2037,7 +2037,7 @@ docker compose up -d --build
 docker compose ps
 ```
 
-Expected: 所有容器 healthy，包括 `nsi-llm-gateway`。
+Expected: 所有容�?healthy，包�?`nsi-llm-gateway`�?
 
 - [ ] **Step 5: 测试 llm-gateway healthz**
 
@@ -2049,13 +2049,13 @@ Expected: `{"status":"ok"}`
 
 - [ ] **Step 6: 访问 llm-gateway 管理页面**
 
-浏览器访问 `http://localhost:39404/admin/`，用 admin/changeme 登录。配置一个 provider（如 DeepSeek），测试连通性。
+浏览器访�?`http://localhost:39404/admin/`，用 admin/changeme 登录。配置一�?provider（如 DeepSeek），测试连通性�?
 
 - [ ] **Step 7: 通过 webclient 生成方案**
 
-浏览器访问 `http://localhost:39401/webclient`，填写用户画像，生成方案。验证：
+浏览器访�?`http://localhost:39401/webclient`，填写用户画像，生成方案。验证：
 - 自由文本视图显示
-- 结构化视图显示
+- 结构化视图显�?
 - 政策依据卡片显示
 - 视图切换正常
 

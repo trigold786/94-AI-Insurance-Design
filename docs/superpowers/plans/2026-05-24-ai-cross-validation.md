@@ -1,16 +1,22 @@
 # AI 交叉验证 + 语义搜索 实现计划
 
+| **�汾��** | V1.0.0 |
+| **״̬** | ����Ч |
+| **��������** | 2026-06-15 |
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 为政策条款添加基于嵌入向量的余弦相似度搜索，实现提取时交叉验证（重复/矛盾检测）和管理后台/API 语义搜索。
-
-**Architecture:** 内存嵌入缓存（EmbeddingCache）+ Go 余弦相似度 O(n) 搜索。提取器 ProcessOne 在 LLM 解析后、InsertClaim 前交叉验证相似政策，调整 confidence/status。缓存定时全量刷新 + 单条增量更新。
-
+**Goal:** 为政策条款添加基于嵌入向量的余弦相似度搜索，实现提取时交叉验证（重复/矛盾检测）和管理后�?API 语义搜索�?
+**Architecture:** 内存嵌入缓存（EmbeddingCache�? Go 余弦相似�?O(n) 搜索。提取器 ProcessOne �?LLM 解析后、InsertClaim 前交叉验证相似政策，调整 confidence/status。缓存定时全量刷�?+ 单条增量更新�?
 **Tech Stack:** Go 1.24, PostgreSQL 18 float8[], pq.Array, net/http
 
 ---
 
 ### Task 1: 嵌入缓存模型定义
+
+| **�汾��** | V1.0.0 |
+| **״̬** | ����Ч |
+| **��������** | 2026-06-15 |
 
 **Files:**
 - Create: `nsi-platform/services/policy-crawler/internal/embeddings/models.go`
@@ -45,9 +51,7 @@ type SimilarResult struct {
 
 // SearchFilter 搜索过滤条件
 type SearchFilter struct {
-	RegionCode string // 为空不过滤
-	PolicyType string // 为空不过滤
-}
+	RegionCode string // 为空不过�?	PolicyType string // 为空不过�?}
 ```
 
 - [ ] **Step 2: Commit**
@@ -59,8 +63,7 @@ git commit -m "feat(embeddings): add EmbeddedClaim, SimilarResult, SearchFilter 
 
 ---
 
-### Task 2: 余弦相似度函数
-
+### Task 2: 余弦相似度函�?
 **Files:**
 - Create: `nsi-platform/services/policy-crawler/internal/embeddings/similarity.go`
 - Create: `nsi-platform/services/policy-crawler/internal/embeddings/similarity_test.go`
@@ -167,8 +170,7 @@ func CosineSimilarity(a, b []float64) float64 {
 
 func sqrt(x float64) float64 {
 	// 内联 math.Sqrt 避免引入 math 包（可选）
-	// 使用 math.Sqrt 更精确
-	return float64(int64(x*1e15)) / 1e15 // 简化版，实际使用 math.Sqrt
+	// 使用 math.Sqrt 更精�?	return float64(int64(x*1e15)) / 1e15 // 简化版，实际使�?math.Sqrt
 }
 ```
 
@@ -215,6 +217,10 @@ git commit -m "feat(embeddings): add CosineSimilarity function"
 
 ### Task 3: EmbeddingCache 实现
 
+| **�汾��** | V1.0.0 |
+| **״̬** | ����Ч |
+| **��������** | 2026-06-15 |
+
 **Files:**
 - Create: `nsi-platform/services/policy-crawler/internal/embeddings/cache.go`
 - Create: `nsi-platform/services/policy-crawler/internal/embeddings/cache_test.go`
@@ -237,15 +243,13 @@ type EmbeddingCache struct {
 }
 
 // SearchFilter 搜索过滤条件
-// (如果在 models.go 中已定义则省略)
+// (如果�?models.go 中已定义则省�?
 
-// NewEmbeddingCache 创建缓存，loader 是首次加载和刷新的回调
-func NewEmbeddingCache(loader func() ([]EmbeddedClaim, error)) *EmbeddingCache {
+// NewEmbeddingCache 创建缓存，loader 是首次加载和刷新的回�?func NewEmbeddingCache(loader func() ([]EmbeddedClaim, error)) *EmbeddingCache {
 	return &EmbeddingCache{loader: loader}
 }
 
-// Load 全量加载（启动时调用）
-func (c *EmbeddingCache) Load() error {
+// Load 全量加载（启动时调用�?func (c *EmbeddingCache) Load() error {
 	claims, err := c.loader()
 	if err != nil {
 		return err
@@ -256,27 +260,23 @@ func (c *EmbeddingCache) Load() error {
 	return nil
 }
 
-// Refresh 全量刷新（定时器调用）
-func (c *EmbeddingCache) Refresh() error {
+// Refresh 全量刷新（定时器调用�?func (c *EmbeddingCache) Refresh() error {
 	return c.Load()
 }
 
-// Add 单条新增（提取成功后调用）
-func (c *EmbeddingCache) Add(ec EmbeddedClaim) {
+// Add 单条新增（提取成功后调用�?func (c *EmbeddingCache) Add(ec EmbeddedClaim) {
 	c.mu.Lock()
 	c.claims = append(c.claims, ec)
 	c.mu.Unlock()
 }
 
-// Len 返回缓存大小（测试用）
-func (c *EmbeddingCache) Len() int {
+// Len 返回缓存大小（测试用�?func (c *EmbeddingCache) Len() int {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return len(c.claims)
 }
 
-// SearchSimilar 搜索最相似的 K 条结果
-func (c *EmbeddingCache) SearchSimilar(emb []float64, threshold float64, limit int, filter *SearchFilter) []SimilarResult {
+// SearchSimilar 搜索最相似�?K 条结�?func (c *EmbeddingCache) SearchSimilar(emb []float64, threshold float64, limit int, filter *SearchFilter) []SimilarResult {
 	c.mu.RLock()
 	claims := make([]EmbeddedClaim, len(c.claims))
 	copy(claims, c.claims)
@@ -450,14 +450,17 @@ git commit -m "feat(embeddings): add EmbeddingCache with SearchSimilar"
 
 ### Task 4: DBStore 增加 LoadEmbeddings 方法
 
+| **�汾��** | V1.0.0 |
+| **״̬** | ����Ч |
+| **��������** | 2026-06-15 |
+
 **Files:**
 - Modify: `nsi-platform/services/policy-crawler/internal/crawler/store.go`
 - Modify: `nsi-platform/services/policy-crawler/internal/crawler/store_test.go`（如果存在）
 
-- [ ] **Step 1: 修改 store.go，增加 LoadEmbeddings**
+- [ ] **Step 1: 修改 store.go，增�?LoadEmbeddings**
 
-在 `SaveEmbedding` 方法后面添加：
-
+�?`SaveEmbedding` 方法后面添加�?
 ```go
 func (s *DBStore) LoadEmbeddings() ([]embeddings.EmbeddedClaim, error) {
 	rows, err := s.db.Query(`
@@ -483,15 +486,13 @@ func (s *DBStore) LoadEmbeddings() ([]embeddings.EmbeddedClaim, error) {
 }
 ```
 
-需要在文件顶部 import 中添加 `"github.com/trigold786/94-AI-Insurance-Design/policy-crawler/internal/embeddings"`。
-
+需要在文件顶部 import 中添�?`"github.com/trigold786/94-AI-Insurance-Design/policy-crawler/internal/embeddings"`�?
 - [ ] **Step 2: 编译验证**
 
 ```powershell
 go build ./internal/crawler/ 2>&1
 ```
-Expected: 无错误
-
+Expected: 无错�?
 - [ ] **Step 3: Commit**
 
 ```bash
@@ -501,15 +502,14 @@ git commit -m "feat(crawler): add LoadEmbeddings method to DBStore"
 
 ---
 
-### Task 5: 提取器集成交叉验证
-
+### Task 5: 提取器集成交叉验�?
 **Files:**
 - Modify: `nsi-platform/services/policy-crawler/internal/extractor/extractor.go`
 - Modify: `nsi-platform/services/policy-crawler/internal/embeddings/embedding.go`（如需要）
 
 - [ ] **Step 1: 修改 Extractor struct 增加 ReferenceChecker 接口**
 
-在 `extractor.go` 中新增接口，并修改 Extractor struct 和构造函数：
+�?`extractor.go` 中新增接口，并修�?Extractor struct 和构造函数：
 
 ```go
 // ReferenceChecker 交叉验证接口
@@ -517,8 +517,7 @@ type ReferenceChecker interface {
 	SearchSimilar(emb []float64, threshold float64, limit int, filter *embeddings.SearchFilter) []embeddings.SimilarResult
 }
 
-// Extractor LLM 政策提取器
-type Extractor struct {
+// Extractor LLM 政策提取�?type Extractor struct {
 	store    RawTextStore
 	client   *llm.Client
 	checker  ReferenceChecker // 新增
@@ -534,13 +533,12 @@ func (e *Extractor) SetReferenceChecker(c ReferenceChecker) {
 }
 ```
 
-- [ ] **Step 2: 在 ProcessOne 中插入交叉验证逻辑**
+- [ ] **Step 2: �?ProcessOne 中插入交叉验证逻辑**
 
-在 Step 4 和 Step 5 之间（parsed 解析后、构建 claim 前），添加：
+�?Step 4 �?Step 5 之间（parsed 解析后、构�?claim 前），添加：
 
 ```go
-	// 4f. 交叉验证（如果配置了 checker）
-	if e.checker != nil {
+	// 4f. 交叉验证（如果配置了 checker�?	if e.checker != nil {
 		embedText := parsed.PolicyType + " " + parsed.SubsidyCalcMethod + " " + parsed.PolicyID + " " + parsed.RegionCode
 		if len(parsed.Conditions) > 0 {
 			for _, c := range parsed.Conditions {
@@ -583,20 +581,15 @@ func (e *Extractor) SetReferenceChecker(c ReferenceChecker) {
 	}
 ```
 
-需要添加 `"math"` 到 import。
-
-辅助函数：
-```go
+需要添�?`"math"` �?import�?
+辅助函数�?```go
 func amountFromResult(r *embeddings.SimilarResult) float64 {
-	// 从 DB 查询具体金额（简化：返回 0，实际场景可扩展）
-	return 0
+	// �?DB 查询具体金额（简化：返回 0，实际场景可扩展�?	return 0
 }
 ```
 
-实际上这里设计有误——similar results 没有 amount 字段。金额需要在搜索时额外关联。简化起见，当 maxScore > 0.7 且 parsed.AmountMin != nil 时，标记为 pending_review 让人工审核即可。矛盾检测在 MVP 阶段做到这个粒度足够。
-
-修正后的逻辑：
-
+实际上这里设计有误——similar results 没有 amount 字段。金额需要在搜索时额外关联。简化起见，�?maxScore > 0.7 �?parsed.AmountMin != nil 时，标记�?pending_review 让人工审核即可。矛盾检测在 MVP 阶段做到这个粒度足够�?
+修正后的逻辑�?
 ```go
 	if bestMatch != nil && parsed.RegionCode != "" && bestMatch.RegionCode == parsed.RegionCode {
 		switch {
@@ -614,18 +607,15 @@ func amountFromResult(r *embeddings.SimilarResult) float64 {
 ```powershell
 go build ./internal/extractor/ 2>&1
 ```
-Expected: 无错误
+Expected: 无错�?
+- [ ] **Step 4: 修改 admin_llm.go 传�?ReferenceChecker**
 
-- [ ] **Step 4: 修改 admin_llm.go 传递 ReferenceChecker**
-
-将 `LLMExtractRunHandler` 签名改为：
-
+�?`LLMExtractRunHandler` 签名改为�?
 ```go
 func LLMExtractRunHandler(store interface{}, checker extractor.ReferenceChecker) http.Handler {
 ```
 
-在 goroutine 中创建 extractor 后设置 checker：
-
+�?goroutine 中创�?extractor 后设�?checker�?
 ```go
 ext := extractor.NewExtractor(rawStore, client)
 if checker != nil {
@@ -638,8 +628,7 @@ if checker != nil {
 ```powershell
 go build ./internal/extractor/ ./internal/admin/ 2>&1
 ```
-Expected: 无错误
-
+Expected: 无错�?
 - [ ] **Step 6: Commit**
 
 ```bash
@@ -651,6 +640,10 @@ git commit -m "feat(extractor): add cross-validation via ReferenceChecker"
 ---
 
 ### Task 6: 外部 API 端点
+
+| **�汾��** | V1.0.0 |
+| **״̬** | ����Ч |
+| **��������** | 2026-06-15 |
 
 **Files:**
 - Create: `nsi-platform/services/policy-crawler/internal/handler/similar_handler.go`
@@ -696,11 +689,10 @@ func SimilarSearchHandler(cache SimilarCache) http.Handler {
 			limit = 10
 		}
 
-		// 优先用 claim_id 获取嵌入
+		// 优先�?claim_id 获取嵌入
 		var emb []float64
 		if req.ClaimID != "" {
-			// 从缓存或 DB 加载该 claim 的嵌入
-			emb = loadEmbeddingByClaimID(req.ClaimID)
+			// 从缓存或 DB 加载�?claim 的嵌�?			emb = loadEmbeddingByClaimID(req.ClaimID)
 		}
 		if emb == nil && req.Text != "" {
 			emb = embeddings.FromText(req.Text)
@@ -730,19 +722,14 @@ func SimilarSearchHandler(cache SimilarCache) http.Handler {
 	})
 }
 
-// loadEmbeddingByClaimID 从缓存加载指定 claim 的嵌入向量
-// 由于缓存只存了 []EmbeddedClaim，需要遍历查找
-func loadEmbeddingByClaimID(claimID string) []float64 {
-	// 这是一个桩函数，需要从 EmbeddingCache 中查找
-	// 实际实现需要修改 EmbeddingCache 暴露一个 GetByID 方法
+// loadEmbeddingByClaimID 从缓存加载指�?claim 的嵌入向�?// 由于缓存只存�?[]EmbeddedClaim，需要遍历查�?func loadEmbeddingByClaimID(claimID string) []float64 {
+	// 这是一个桩函数，需要从 EmbeddingCache 中查�?	// 实际实现需要修�?EmbeddingCache 暴露一�?GetByID 方法
 	return nil
 }
 ```
 
-这个方案有缺陷——`loadEmbeddingByClaimID` 无法访问 cache。更好的方案是让 EmbeddingCache 暴露 `GetEmbedding(claimID string) []float64` 方法。
-
-改为先给 EmbeddingCache 增加 GetEmbedding 方法：
-
+这个方案有缺陷——`loadEmbeddingByClaimID` 无法访问 cache。更好的方案是让 EmbeddingCache 暴露 `GetEmbedding(claimID string) []float64` 方法�?
+改为先给 EmbeddingCache 增加 GetEmbedding 方法�?
 ```go
 // GetEmbedding 根据 claimID 获取嵌入向量
 func (c *EmbeddingCache) GetEmbedding(claimID string) []float64 {
@@ -757,7 +744,7 @@ func (c *EmbeddingCache) GetEmbedding(claimID string) []float64 {
 }
 ```
 
-- [ ] **Step 2: 在 EmbeddingCache 中增加 GetEmbedding 方法**
+- [ ] **Step 2: �?EmbeddingCache 中增�?GetEmbedding 方法**
 
 ```go
 // GetEmbedding 根据 claimID 获取嵌入向量
@@ -851,8 +838,7 @@ func respondJSON(w http.ResponseWriter, status int, data interface{}) {
 ```powershell
 go build ./internal/handler/ 2>&1
 ```
-Expected: 无错误
-
+Expected: 无错�?
 - [ ] **Step 5: Commit**
 
 ```bash
@@ -865,6 +851,10 @@ git commit -m "feat(api): add POST /v1/policies/similar endpoint"
 ---
 
 ### Task 7: Admin 语义搜索 Handler
+
+| **�汾��** | V1.0.0 |
+| **״̬** | ����Ч |
+| **��������** | 2026-06-15 |
 
 **Files:**
 - Create: `nsi-platform/services/policy-crawler/internal/admin/admin_search.go`
@@ -962,12 +952,12 @@ body { font-family: "Microsoft YaHei", sans-serif; margin: 20px; background: #f5
 <select id="typeSelect">
 <option value="">全部类型</option>
 <option value="subsidy">补贴</option>
-<option value="pension">养老</option>
+<option value="pension">养�?/option>
 <option value="medical">医疗</option>
 <option value="unemployment">失业</option>
 <option value="injury">工伤</option>
 <option value="maternity">生育</option>
-<option value="housing_fund">公积金</option>
+<option value="housing_fund">公积�?/option>
 <option value="training">培训</option>
 </select>
 <button onclick="search()">搜索</button>
@@ -980,13 +970,13 @@ function search() {
   const region = document.getElementById('regionSelect').value;
   const type = document.getElementById('typeSelect').value;
   if (!q) return;
-  document.getElementById('results').innerHTML = '<p>搜索中...</p>';
+  document.getElementById('results').innerHTML = '<p>搜索�?..</p>';
   fetch('/admin/llm/search?q=' + encodeURIComponent(q) + '&region=' + region + '&type=' + type)
     .then(r => r.json())
     .then(d => {
       if (d.code !== 0) { document.getElementById('results').innerHTML = '<p style="color:red">错误: ' + d.msg + '</p>'; return; }
       const items = d.data || [];
-      if (items.length === 0) { document.getElementById('results').innerHTML = '<p>没有找到匹配的政策</p>'; return; }
+      if (items.length === 0) { document.getElementById('results').innerHTML = '<p>没有找到匹配的政�?/p>'; return; }
       let html = '';
       for (const item of items) {
         const cls = item.score >= 0.8 ? 'score-high' : (item.score >= 0.6 ? 'score-mid' : 'score-low');
@@ -996,7 +986,7 @@ function search() {
         html += '<span>类型: ' + item.policy_type + '</span>';
         html += '<span>城市: ' + item.region_code + '</span>';
         html += '<span>来源: ' + (item.source_name || '-') + '</span>';
-        html += '<span>状态: ' + item.status + '</span>';
+        html += '<span>状�? ' + item.status + '</span>';
         html += '</div></div>';
       }
       document.getElementById('results').innerHTML = html;
@@ -1009,9 +999,9 @@ function search() {
 }
 ```
 
-- [ ] **Step 2: 在 admin.go 中注册路由**
+- [ ] **Step 2: �?admin.go 中注册路�?*
 
-在 `RegisterAdminRoutes` 函数中添加（如果没有该函数，则在已有的路由注册处添加）：
+�?`RegisterAdminRoutes` 函数中添加（如果没有该函数，则在已有的路由注册处添加）：
 
 ```go
 // 语义搜索
@@ -1023,22 +1013,19 @@ mux.Handle("/admin/search_page", middleware.RecoveryMiddleware()(http.HandlerFun
 })))
 ```
 
-- [ ] **Step 3: 在 admin_page.go 中增加"语义搜索"Tab**
+- [ ] **Step 3: �?admin_page.go 中增�?语义搜索"Tab**
 
-在 `const adminHTML` 的 `navItems` 数组中（第 70-77 行），在 `{id:'import', ...}` 前面添加：
-
+�?`const adminHTML` �?`navItems` 数组中（�?70-77 行），在 `{id:'import', ...}` 前面添加�?
 ```javascript
   {id:'search',label:'\u8bed\u4e49\u641c\u7d22'},
 ```
 
-在 `switchPanel` 函数中（第 87-100 行），`else if(id==='import')` 前面添加：
-
+�?`switchPanel` 函数中（�?87-100 行），`else if(id==='import')` 前面添加�?
 ```javascript
   else if(id==='search')loadSearch();
 ```
 
-在 `loadExtract` 函数后面添加 `loadSearch` 函数：
-
+�?`loadExtract` 函数后面添加 `loadSearch` 函数�?
 ```javascript
 function loadSearch(){
   var app=document.getElementById('app');
@@ -1052,8 +1039,7 @@ function loadSearch(){
 ```powershell
 go build ./internal/admin/ 2>&1
 ```
-Expected: 无错误
-
+Expected: 无错�?
 - [ ] **Step 5: Commit**
 
 ```bash
@@ -1065,14 +1051,13 @@ git commit -m "feat(admin): add semantic search tab and handler"
 
 ---
 
-### Task 8: main.go 初始化 EmbeddingCache 和路由
-
+### Task 8: main.go 初始�?EmbeddingCache 和路�?
 **Files:**
 - Modify: `nsi-platform/services/policy-crawler/cmd/main.go`
 
 - [ ] **Step 1: 修改 main.go**
 
-在 `store` 初始化之后、`manager` 初始化之前，添加 EmbeddingCache 初始化：
+�?`store` 初始化之后、`manager` 初始化之前，添加 EmbeddingCache 初始化：
 
 ```go
 import (
@@ -1081,13 +1066,11 @@ import (
 	"github.com/trigold786/94-AI-Insurance-Design/policy-crawler/internal/handler"
 )
 
-// 在初始化 store 之后、manager 初始化之前
-embedCache := embeddings.NewEmbeddingCache(store.LoadEmbeddings)
+// 在初始化 store 之后、manager 初始化之�?embedCache := embeddings.NewEmbeddingCache(store.LoadEmbeddings)
 if err := embedCache.Load(); err != nil {
 	log.Printf("[embeddings] warning: initial load failed: %v", err)
 }
-// 每分钟刷新缓存
-go func() {
+// 每分钟刷新缓�?go func() {
 	ticker := time.NewTicker(1 * time.Minute)
 	defer ticker.Stop()
 	for range ticker.C {
@@ -1104,18 +1087,16 @@ go func() {
 // 语义搜索 API
 mux.Handle("/v1/policies/similar", middleware.RecoveryMiddleware()(handler.SimilarSearchHandler(embedCache)))
 
-// Admin 语义搜索（已包含在 admin 注册中，确保 searcher 参数传递）
+// Admin 语义搜索（已包含�?admin 注册中，确保 searcher 参数传递）
 ```
 
-修改 `RegisterAdminRoutes` 调用或直接注册，将 `embedCache` 传给 admin 搜索 handler。
-
+修改 `RegisterAdminRoutes` 调用或直接注册，�?`embedCache` 传给 admin 搜索 handler�?
 - [ ] **Step 2: 全量编译验证**
 
 ```powershell
 go build ./cmd/ 2>&1
 ```
-Expected: 无错误
-
+Expected: 无错�?
 - [ ] **Step 3: Commit**
 
 ```bash
@@ -1127,10 +1108,13 @@ git commit -m "feat(main): init EmbeddingCache with timer, register similarity r
 
 ### Task 9: 集成测试
 
+| **�汾��** | V1.0.0 |
+| **״̬** | ����Ч |
+| **��������** | 2026-06-15 |
+
 **Files:**
 - Create: `nsi-platform/services/policy-crawler/internal/embeddings/similarity_integration_test.go`（可选）
-- Create: `nsi-platform/services/policy-crawler/cmd/integration_test.go` 或修改现有测试
-
+- Create: `nsi-platform/services/policy-crawler/cmd/integration_test.go` 或修改现有测�?
 - [ ] **Step 1: 构建新二进制**
 
 ```powershell
@@ -1138,9 +1122,8 @@ $env:GOOS="linux"; $env:GOARCH="amd64"; $env:CGO_ENABLED="0"
 cd nsi-platform/services/policy-crawler
 go build -o bin/policy-crawler ./cmd/main.go 2>&1
 ```
-Expected: 无输出（成功）
-
-- [ ] **Step 2: 重建 Docker 镜像并重启**
+Expected: 无输出（成功�?
+- [ ] **Step 2: 重建 Docker 镜像并重�?*
 
 ```powershell
 cd nsi-platform
@@ -1155,14 +1138,13 @@ Expected: 容器成功启动
 Start-Sleep -Seconds 10
 curl.exe -s http://127.0.0.1:39403/admin/llm/progress
 ```
-Expected: 返回 JSON（缓存已加载）
-
+Expected: 返回 JSON（缓存已加载�?
 - [ ] **Step 4: 验证语义搜索 Admin API**
 
 ```powershell
 curl.exe -s "http://127.0.0.1:39403/admin/llm/search?q=失业补贴&limit=5"
 ```
-Expected: 返回含 score 的搜索结果 JSON
+Expected: 返回�?score 的搜索结�?JSON
 
 - [ ] **Step 5: 验证外部 API**
 
@@ -1173,8 +1155,7 @@ Expected: 返回相似政策列表，score 从高到低排序
 
 - [ ] **Step 6: 验证管理后台搜索页面**
 
-访问 `http://127.0.0.1:39403/admin` 并在导航中点击"语义搜索" Tab，输入关键词搜索。
-Expected: 显示搜索结果表格
+访问 `http://127.0.0.1:39403/admin` 并在导航中点�?语义搜索" Tab，输入关键词搜索�?Expected: 显示搜索结果表格
 
 - [ ] **Step 7: 提交**
 
@@ -1187,8 +1168,10 @@ git commit -m "test: verify cross-validation end-to-end via curl"
 
 ### 自检清单
 
+| **�汾��** | V1.0.0 |
+| **״̬** | ����Ч |
+| **��������** | 2026-06-15 |
+
 - [ ] 每个任务的代码块包含完整实现
-- [ ] 无 TBD/TODO/占位符
-- [ ] 类型签名跨任务一致（EmbeddedClaim, SimilarResult, SearchFilter）
-- [ ] 测试覆盖核心函数（余弦相似度、缓存搜索、并发安全、空值边界）
+- [ ] �?TBD/TODO/占位�?- [ ] 类型签名跨任务一致（EmbeddedClaim, SimilarResult, SearchFilter�?- [ ] 测试覆盖核心函数（余弦相似度、缓存搜索、并发安全、空值边界）
 - [ ] 文件路径准确，无拼写错误

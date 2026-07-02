@@ -1,16 +1,24 @@
 # æ”¯ä»˜å®å°ç¨‹åº MVP å®ç°è®¡åˆ’
 
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Build complete æ”¯ä»˜å®å°ç¨‹åº MVP with 7 pages (P1-P7) + API integration
 
-**Architecture:** Native Alipay Mini Program (AXML+ACSS+JS), 7 independent pages under `pages/`, API layer in `services/api.js`. Navigation flows login â†’ index â†’ city-picker â†’ profile â†’ loading â†’ preview â†’ plan. Data flows via `app.globalData`.
+**Architecture:** Native Alipay Mini Program (AXML+ACSS+JS), 7 independent pages under `pages/`, API layer in `services/api.js`. Navigation flows login â†?index â†?city-picker â†?profile â†?loading â†?preview â†?plan. Data flows via `app.globalData`.
 
-**Tech Stack:** AXML, ACSS, JavaScript, Alipay Mini Program SDK (my.* API), existing backend REST API. Direct translation from WeChat Mini Program with `wx.*` â†’ `my.*` API mapping.
+**Tech Stack:** AXML, ACSS, JavaScript, Alipay Mini Program SDK (my.* API), existing backend REST API. Direct translation from WeChat Mini Program with `wx.*` â†?`my.*` API mapping.
 
 ---
 
 ### Task 1: Project Scaffold + Global Config
+
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
 
 **Files:**
 - Create: `frontend/alipay/app.json`
@@ -146,14 +154,14 @@ const EMPLOYMENT_STATUS = [
 ];
 
 const GENDER_OPTIONS = [
-  { value: 'male', label: 'ç”·' },
-  { value: 'female', label: 'å¥³' },
+  { value: 'male', label: 'ç”? },
+  { value: 'female', label: 'å¥? },
 ];
 
 const POLICY_TYPES = [
   { type: 'subsidy', label: 'è¡¥è´´æ”¿ç­–' },
   { type: 'training', label: 'åŸ¹è®­æ”¿ç­–' },
-  { type: 'pension', label: 'å…»è€ä¿é™©' },
+  { type: 'pension', label: 'å…»è€ä¿é™? },
 ];
 
 module.exports = { CITIES, EMPLOYMENT_STATUS, GENDER_OPTIONS, POLICY_TYPES };
@@ -196,7 +204,7 @@ function request(method, path, data, userID) {
         resolve(body);
       },
       fail: () => {
-        showError('ç½‘ç»œè¯·æ±‚å¤±è´¥ï¼Œè¯·æ£€æŸ¥ç½‘ç»œè¿æ¥');
+        showError('ç½‘ç»œè¯·æ±‚å¤±è´¥ï¼Œè¯·æ£€æŸ¥ç½‘ç»œè¿æ?);
         reject(new Error('Network error'));
       },
     });
@@ -238,6 +246,10 @@ Note differences from WeChat: `my.request()` uses `headers` (not `header`), `my.
 
 ### Task 2: P1 Login Page (Alipay)
 
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
+
 **Files:**
 - Create: `frontend/alipay/pages/login/login.js`
 - Create: `frontend/alipay/pages/login/login.axml`
@@ -252,22 +264,22 @@ Note differences from WeChat: `my.request()` uses `headers` (not `header`), `my.
       <text class="logo-text">ç¤¾ä¿</text>
     </view>
     <text class="title">AIç¤¾ä¿æ™ºç­¹</text>
-    <text class="subtitle">AIé©±åŠ¨çš„ç¤¾ä¿è§„åˆ’åŠ©æ‰‹</text>
+    <text class="subtitle">AIé©±åŠ¨çš„ç¤¾ä¿è§„åˆ’åŠ©æ‰?/text>
   </view>
 
   <view class="policy-card">
     <checkbox class="policy-checkbox" checked="{{agreed}}" onChange="onAgreeChange"/>
-    <text class="policy-text">æˆ‘å·²é˜…è¯»å¹¶åŒæ„</text>
-    <text class="policy-link" onTap="onViewPrivacy">ã€Šéšç§æ”¿ç­–ã€‹</text>
-    <text class="policy-text">å’Œ</text>
-    <text class="policy-link" onTap="onViewTerms">ã€Šç”¨æˆ·åè®®ã€‹</text>
+    <text class="policy-text">æˆ‘å·²é˜…è¯»å¹¶åŒæ„?/text>
+    <text class="policy-link" onTap="onViewPrivacy">ã€Šéšç§æ”¿ç­–ã€?/text>
+    <text class="policy-text">å’?/text>
+    <text class="policy-link" onTap="onViewTerms">ã€Šç”¨æˆ·åè®®ã€?/text>
   </view>
 
   <button class="btn-primary {{!agreed ? 'btn-disabled' : ''}}" 
           disabled="{{!agreed}}" 
           onTap="onLogin">
-    <text a:if="{{!loading}}">æ”¯ä»˜å®ä¸€é”®ç™»å½•</text>
-    <text a:else>ç™»å½•ä¸­...</text>
+    <text a:if="{{!loading}}">æ”¯ä»˜å®ä¸€é”®ç™»å½?/text>
+    <text a:else>ç™»å½•ä¸?..</text>
   </button>
 
   <view class="footer">
@@ -385,32 +397,36 @@ Page({
 
 ### Task 3: P2-P7 Pages (Alipay)
 
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
+
 **Files:** Create 6 page directories with .axml, .acss, .js for each.
 
 API mapping from WeChat to Alipay:
-- `wx.request` â†’ `my.request` (with `headers` instead of `header`, `res.status` instead of `res.statusCode`)
-- `wx.navigateTo` â†’ `my.navigateTo`
-- `wx.redirectTo` â†’ `my.redirectTo`
-- `wx.navigateBack` â†’ `my.navigateBack`
-- `wx.showToast` â†’ `my.showToast` (uses `content` instead of `title`)
-- `wx.showModal` â†’ `my.confirm`
-- `wx.setStorageSync` â†’ `my.setStorageSync`
-- `wx.getStorageSync` â†’ `my.getStorageSync`
-- `wx.getUserProfile` â†’ `my.getAuthCode`
+- `wx.request` â†?`my.request` (with `headers` instead of `header`, `res.status` instead of `res.statusCode`)
+- `wx.navigateTo` â†?`my.navigateTo`
+- `wx.redirectTo` â†?`my.redirectTo`
+- `wx.navigateBack` â†?`my.navigateBack`
+- `wx.showToast` â†?`my.showToast` (uses `content` instead of `title`)
+- `wx.showModal` â†?`my.confirm`
+- `wx.setStorageSync` â†?`my.setStorageSync`
+- `wx.getStorageSync` â†?`my.getStorageSync`
+- `wx.getUserProfile` â†?`my.getAuthCode`
 - `a:if`/`a:else` instead of `wx:if`/`wx:else`
 - `onTap` instead of `bindtap`
 - `onChange` instead of `bindchange`
 
 Pages to create (all follow WeChat pattern with `a:` prefix and `my.*` APIs):
 
-1. `pages/index/` â€” P2 Home with city bar, hero CTA, policy scroll (use `onTap`, `a:if`, `my.navigateTo`, `my.request`)
-2. `pages/city-picker/` â€” P3 City picker with city list, `my.navigateBack`
-3. `pages/profile/` â€” P4 Multi-step form (3 steps), `my.request` for API
-4. `pages/loading/` â€” P5 Loading spinner, `my.request` for generatePlan
-5. `pages/preview/` â€” P6 Preview with blurred values
-6. `pages/plan/` â€” P7 Plan detail with scheme comparison
+1. `pages/index/` â€?P2 Home with city bar, hero CTA, policy scroll (use `onTap`, `a:if`, `my.navigateTo`, `my.request`)
+2. `pages/city-picker/` â€?P3 City picker with city list, `my.navigateBack`
+3. `pages/profile/` â€?P4 Multi-step form (3 steps), `my.request` for API
+4. `pages/loading/` â€?P5 Loading spinner, `my.request` for generatePlan
+5. `pages/preview/` â€?P6 Preview with blurred values
+6. `pages/plan/` â€?P7 Plan detail with scheme comparison
 
-Each page's WXML â†’ AXML, WXSS â†’ ACSS, JS API mapping as above.
+Each page's WXML â†?AXML, WXSS â†?ACSS, JS API mapping as above.
 
 - [ ] **Step 1: Copy WeChat page logic for all 6 pages**
 - [ ] **Step 2: Replace all `wx.` with `my.` and `wx:` with `a:`**
@@ -419,6 +435,10 @@ Each page's WXML â†’ AXML, WXSS â†’ ACSS, JS API mapping as above.
 ---
 
 ### Task 4: Final Verification
+
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
 
 - [ ] **Step 1: Verify file structure**
 
@@ -430,8 +450,8 @@ Expected: 7 page dirs Ã— 3 files each + app.js, app.json, app.acss, utils/consta
 
 - [ ] **Step 2: Verify navigation flow**
 
-login â†’ index â†’ city-picker â†’ profile â†’ loading â†’ preview â†’ plan â€” all using `my.navigateTo`/`my.redirectTo`
+login â†?index â†?city-picker â†?profile â†?loading â†?preview â†?plan â€?all using `my.navigateTo`/`my.redirectTo`
 
 - [ ] **Step 3: Verify API mapping**
 
-All `wx.request` â†’ `my.request`, `wx.showToast` â†’ `my.showToast` (with `content` param), etc.
+All `wx.request` â†?`my.request`, `wx.showToast` â†?`my.showToast` (with `content` param), etc.

@@ -1,4 +1,8 @@
-# LLM Extraction Enhancement & Failure Analytics Dashboard â€” Design Spec
+# LLM Extraction Enhancement & Failure Analytics Dashboard â€?Design Spec
+
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
 
 **Date**: 2026-05-27
 **Scope**: policy-crawler service (Sub-project 2 + Sub-project 3)
@@ -7,15 +11,23 @@
 
 ## Background
 
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
+
 Current state:
 - **748 claims** extracted from **2564 raw texts**, with **10643 crawl logs** and **4015 extract logs**
-- **Extract failure rate: 78%** (3136 failed vs 879 success) â€” primary pain point
+- **Extract failure rate: 78%** (3136 failed vs 879 success) â€?primary pain point
 - `extractPlainText` hard-truncates at 8000 chars; long PDF/DOCX policies (20k+ chars) lose information
 - `parseExtractionResult` fails on non-standard JSON output from LLM (markdown wrapping, missing commas, trailing text)
 - Current `FailureAnalysisHandler` only aggregates by source+error_message, no charts/trends/retry
 - No visibility into video extraction failures (`video_extract_status='failed'`)
 
 ## Goals
+
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
 
 1. **Raise extraction success rate** from 22% to >70% via fault-tolerant parsing + document splitting
 2. **Enrich extracted fields** with valuable policy metadata (title, authority, doc number, process, contact, type)
@@ -26,7 +38,15 @@ Current state:
 
 ## Sub-project 2: LLM Extraction Enhancement
 
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
+
 ### 2.1 Smart Document Splitting
+
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
 
 **File**: `services/policy-crawler/internal/extractor/splitter.go` (new)
 
@@ -35,40 +55,48 @@ func splitDocument(text string, maxChunkSize int) []string
 ```
 
 - Split by paragraph boundaries (`\n\n`)
-- Each chunk â‰¤ `maxChunkSize` chars (default 4000, leaving room for system prompt)
-- Short documents (â‰¤6000 chars): single-pass extraction, zero overhead
-- Long documents: each chunk extracted independently â†’ `[]ExtractionResult`
+- Each chunk â‰?`maxChunkSize` chars (default 4000, leaving room for system prompt)
+- Short documents (â‰?000 chars): single-pass extraction, zero overhead
+- Long documents: each chunk extracted independently â†?`[]ExtractionResult`
 - Max 5 chunks (excess truncated, logged)
-- Merge step: LLM call with prompt "ä»¥ä¸‹æ˜¯åŒä¸€æ”¿ç­–æ–‡æ¡£ä¸åŒç‰‡æ®µçš„æå–ç»“æœï¼Œè¯·åˆå¹¶ä¸ºä¸€ä¸ªå®Œæ•´ç»“æœï¼Œä¿ç•™æ‰€æœ‰ä¿¡æ¯"
+- Merge step: LLM call with prompt "ä»¥ä¸‹æ˜¯åŒä¸€æ”¿ç­–æ–‡æ¡£ä¸åŒç‰‡æ®µçš„æå–ç»“æœï¼Œè¯·åˆå¹¶ä¸ºä¸€ä¸ªå®Œæ•´ç»“æœï¼Œä¿ç•™æ‰€æœ‰ä¿¡æ?
 
 **Flow**:
 ```
-raw_text â†’ clean â†’ len â‰¤ 6000?
-  YES â†’ single LLM call â†’ parse
-  NO  â†’ split â†’ N LLM calls â†’ N results â†’ merge LLM call â†’ parse
+raw_text â†?clean â†?len â‰?6000?
+  YES â†?single LLM call â†?parse
+  NO  â†?split â†?N LLM calls â†?N results â†?merge LLM call â†?parse
 ```
 
 ### 2.2 Fault-Tolerant Parsing
+
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
 
 **File**: `services/policy-crawler/internal/extractor/parser.go` (new)
 
 Three-level degradation:
 
-**Level 1 â€” Standard JSON** (existing):
+**Level 1 â€?Standard JSON** (existing):
 - Find `{...}` block, `json.Unmarshal`
 
-**Level 2 â€” Repair parsing** (new):
+**Level 2 â€?Repair parsing** (new):
 - Strip markdown code block wrapping (```json ... ```)
 - Strip trailing non-JSON text after last `}`
 - Fix common LLM errors: singleâ†’double quotes, missing commas, trailing commas before `}`
 - Re-attempt `json.Unmarshal`
 
-**Level 3 â€” Regex fallback** (new):
+**Level 3 â€?Regex fallback** (new):
 - Extract fields individually via regex patterns from raw LLM output
 - Fill what's extractable, leave rest empty
 - Mark `extraction_method = 'regex_fallback'`
 
 ### 2.3 Field Enhancement
+
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
 
 **New fields added to `ExtractionResult` struct and LLM prompt:**
 
@@ -76,14 +104,18 @@ Three-level degradation:
 |-------|-----------|------|-------------|
 | `policy_title` | `policy_title` | text | Official policy title |
 | `issuing_authority` | `issuing_authority` | text | Issuing government body |
-| `document_number` | `document_number` | text | Document number (e.g. "æ²ªäººç¤¾è§„ã€”2024ã€•1å·") |
+| `document_number` | `document_number` | text | Document number (e.g. "æ²ªäººç¤¾è§„ã€?024ã€?å?) |
 | `application_process` | `application_process` | jsonb | Steps array `[{"step":1,"action":"...","description":"..."}]` |
 | `contact_info` | `contact_info` | text | Phone/address/website for consultation |
 | `source_type` | `source_type` | text | `gov_doc`/`social_media`/`news`/`rumor` |
 
-All new columns are nullable â€” no breaking changes to existing data.
+All new columns are nullable â€?no breaking changes to existing data.
 
 ### 2.4 Quality Metadata
+
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
 
 | Field | DB Column | Type | Default |
 |-------|-----------|------|---------|
@@ -92,11 +124,15 @@ All new columns are nullable â€” no breaking changes to existing data.
 | split count | `split_count` | int | `0` |
 
 Values for `extraction_method`:
-- `'full'` â€” single-pass extraction succeeded
-- `'split'` â€” document was split, merged successfully
-- `'regex_fallback'` â€” JSON parsing failed, regex extraction used
+- `'full'` â€?single-pass extraction succeeded
+- `'split'` â€?document was split, merged successfully
+- `'regex_fallback'` â€?JSON parsing failed, regex extraction used
 
 ### 2.5 Migration 025
+
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
 
 ```sql
 -- 025_extraction_enhancement.sql
@@ -113,6 +149,10 @@ ALTER TABLE policy_claims ADD COLUMN IF NOT EXISTS split_count int DEFAULT 0;
 
 ### 2.6 Updated LLM System Prompt
 
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
+
 Extended JSON schema in system prompt:
 
 ```json
@@ -121,7 +161,7 @@ Extended JSON schema in system prompt:
   "policy_title": "æ”¿ç­–æ­£å¼æ ‡é¢˜",
   "issuing_authority": "å‘æ–‡æœºå…³",
   "document_number": "æ–‡å·",
-  "region_code": "6ä½åœ°åŒºä»£ç ",
+  "region_code": "6ä½åœ°åŒºä»£ç ?,
   "policy_type": "...",
   "target_groups": ["..."],
   "subsidy_calc_method": "...",
@@ -131,7 +171,7 @@ Extended JSON schema in system prompt:
   "effective_date": "YYYY-MM-DD",
   "expire_date": "YYYY-MM-DD",
   "policy_url": "...",
-  "brief_summary": "ä¸€å¥è¯æ¦‚æ‹¬(â‰¤50å­—)",
+  "brief_summary": "ä¸€å¥è¯æ¦‚æ‹¬(â‰?0å­?",
   "source_type": "gov_doc|social_media|news|rumor",
   "application_process": [{"step":1,"action":"æ­¥éª¤","description":"æè¿°"}],
   "contact_info": "å’¨è¯¢ç”µè¯/åœ°å€",
@@ -144,7 +184,15 @@ Extended JSON schema in system prompt:
 
 ## Sub-project 3: Failure Analytics Dashboard Enhancement
 
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
+
 ### 3.1 Three-Dimension Coverage
+
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
 
 | Dimension | Source | Filter |
 |-----------|--------|--------|
@@ -152,7 +200,11 @@ Extended JSON schema in system prompt:
 | Extract failures | `extract_logs WHERE status='failed'` | by source, date range |
 | Video extract failures | `policy_raw_texts WHERE video_extract_status='failed'` | by source, date range |
 
-### 3.2 Data Layer â€” New Store Methods
+### 3.2 Data Layer â€?New Store Methods
+
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
 
 **File**: `services/policy-crawler/internal/crawler/store.go` (extend)
 
@@ -197,25 +249,33 @@ func (s *DBStore) RetryAllFailed(sourceID string) (int, error)
 ```
 
 **Retry logic**:
-- `RetryRawText(id)`: `UPDATE policy_raw_texts SET extracted=false, video_extract_status=NULL WHERE id=$1` â€” re-queues a single raw_text for the full pipeline (LLM extract + video extract)
+- `RetryRawText(id)`: `UPDATE policy_raw_texts SET extracted=false, video_extract_status=NULL WHERE id=$1` â€?re-queues a single raw_text for the full pipeline (LLM extract + video extract)
 - `RetryAllFailed(sourceID)`: Two-step reset:
-  1. `UPDATE policy_raw_texts SET video_extract_status='pending' WHERE source_id=$1 AND video_extract_status='failed'` â€” re-queue video extracts
-  2. Look up extract_logs for failed extractions of this source, get raw_text_ids, then `UPDATE policy_raw_texts SET extracted=false WHERE id = ANY($1)` â€” re-queue LLM extraction
+  1. `UPDATE policy_raw_texts SET video_extract_status='pending' WHERE source_id=$1 AND video_extract_status='failed'` â€?re-queue video extracts
+  2. Look up extract_logs for failed extractions of this source, get raw_text_ids, then `UPDATE policy_raw_texts SET extracted=false WHERE id = ANY($1)` â€?re-queue LLM extraction
 
 ### 3.3 Admin API Endpoints
+
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
 
 **File**: `services/policy-crawler/internal/admin/admin_failures.go` (new)
 
 | Endpoint | Method | Params | Description |
 |----------|--------|--------|-------------|
-| `/admin/failures/summary` | GET | â€” | Total counts for 3 dimensions |
+| `/admin/failures/summary` | GET | â€?| Total counts for 3 dimensions |
 | `/admin/failures/trend` | GET | `?days=7\|30` | Daily failure trend |
-| `/admin/failures/by-source` | GET | â€” | Failures aggregated by source |
+| `/admin/failures/by-source` | GET | â€?| Failures aggregated by source |
 | `/admin/failures/top-reasons` | GET | `?limit=10` | Top N failure reasons |
 | `/admin/failures/failed-raw-texts` | GET | `?source_id=&limit=50` | Failed raw_text detail list |
 | `/admin/failures/retry` | POST | `{"raw_text_id":123}` or `{"source_id":"X","all":true}` | Retry failed items |
 
-### 3.4 Admin UI â€” Failure Analytics Tab
+### 3.4 Admin UI â€?Failure Analytics Tab
+
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
 
 **File**: `services/policy-crawler/internal/admin/admin_page.go` (extend)
 
@@ -226,11 +286,15 @@ New tab "å¤±è´¥åˆ†æ" in admin navigation with:
 3. **By-source pie chart**: Chart.js doughnut showing failure distribution across sources
 4. **Top 10 reasons bar chart**: Chart.js horizontal bar
 5. **Failed items table**: ID, source, title, error, time, retry button (per-row)
-6. **Batch retry**: Select multiple rows â†’ "Retry Selected" button
+6. **Batch retry**: Select multiple rows â†?"Retry Selected" button
 
 Chart.js v4 already loaded via CDN. CSP already allows `cdn.jsdelivr.net`.
 
 ### 3.5 Existing Code Impact
+
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
 
 - `admin_dashboard.go`: `DashboardStore` interface adds new methods
 - `failures.go`: `GetFailureAnalysis()` remains for backward compat, new methods added alongside
@@ -241,6 +305,10 @@ Chart.js v4 already loaded via CDN. CSP already allows `cdn.jsdelivr.net`.
 ---
 
 ## Implementation Order
+
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
 
 1. Migration 025 (DB schema)
 2. Splitter (`splitter.go`)
@@ -253,6 +321,10 @@ Chart.js v4 already loaded via CDN. CSP already allows `cdn.jsdelivr.net`.
 9. Build, deploy, verify
 
 ## Constraints
+
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
 
 - No new Go dependencies (splitting/parsing done with stdlib + existing regex)
 - New DB columns all nullable or have defaults (no migration risk)

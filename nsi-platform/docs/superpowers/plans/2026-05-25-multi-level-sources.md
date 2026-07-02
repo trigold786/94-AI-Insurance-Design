@@ -1,5 +1,9 @@
 # Multi-Level Policy Sources Implementation Plan
 
+| **版本号** | V1.0.0 |
+| **状态** | 已生效 |
+| **发布日期** | 2026-06-15 |
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Implement PRD-defined HIGH/MEDIUM/LOW three-tier policy source system with RSS crawler, manual import, and seed data.
@@ -11,6 +15,10 @@
 ---
 
 ### Task 1: RSS Crawler Implementation
+
+| **版本号** | V1.0.0 |
+| **状态** | 已生效 |
+| **发布日期** | 2026-06-15 |
 
 **Files:**
 - Create: `nsi-platform/services/policy-crawler/internal/crawler/rss_crawler.go`
@@ -32,6 +40,10 @@ Create `rss_crawler.go` implementing `Source` interface with RSS/Atom XML parsin
 
 ### Task 2: Manual Crawler Implementation
 
+| **版本号** | V1.0.0 |
+| **状态** | 已生效 |
+| **发布日期** | 2026-06-15 |
+
 **Files:**
 - Create: `nsi-platform/services/policy-crawler/internal/crawler/manual_crawler.go`
 
@@ -44,6 +56,10 @@ Create `rss_crawler.go` implementing `Source` interface with RSS/Atom XML parsin
 ---
 
 ### Task 3: Manager Registration + Admin Import Handler
+
+| **版本号** | V1.0.0 |
+| **状态** | 已生效 |
+| **发布日期** | 2026-06-15 |
 
 **Files:**
 - Modify: `nsi-platform/services/policy-crawler/internal/crawler/manager.go`
@@ -64,6 +80,10 @@ Create `rss_crawler.go` implementing `Source` interface with RSS/Atom XML parsin
 
 ### Task 4: Seed Data Migration
 
+| **版本号** | V1.0.0 |
+| **状态** | 已生效 |
+| **发布日期** | 2026-06-15 |
+
 **Files:**
 - Create: `nsi-platform/services/policy-crawler/migrations/013_multi_level_sources.sql`
 
@@ -74,6 +94,10 @@ Create `rss_crawler.go` implementing `Source` interface with RSS/Atom XML parsin
 ---
 
 ### Task 5: Final Verification
+
+| **版本号** | V1.0.0 |
+| **状态** | 已生效 |
+| **发布日期** | 2026-06-15 |
 
 - [ ] **Step 1: go build ./... all services**
 

@@ -1,5 +1,9 @@
 # Crawler Gateway Config Integration Plan
 
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Replace crawler's local LLM/ASR/Embedding config reads with calls to llm-gateway's unified model_configs API.
@@ -11,6 +15,10 @@
 ---
 
 ### Task 1: Add internal model-config endpoint to llm-gateway
+
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
 
 **Files:**
 - Modify: `services/llm-gateway/cmd/main.go:182` (add new route)
@@ -57,7 +65,7 @@ In `cmd/main.go`, add this route after line 182 (after the existing `/admin/mode
 mux.HandleFunc("/internal/model-configs/", adminHandler.GetModelConfigInternal)
 ```
 
-This route has NO `BasicAuth` wrapper â€” it's unauthenticated for Docker-internal use only.
+This route has NO `BasicAuth` wrapper â€?it's unauthenticated for Docker-internal use only.
 
 - [ ] **Step 3: Build and deploy**
 
@@ -88,6 +96,10 @@ git commit -m "feat(llm-gateway): add internal model-configs endpoint for servic
 ---
 
 ### Task 2: Create GatewayConfigClient in policy-crawler
+
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
 
 **Files:**
 - Create: `services/policy-crawler/internal/config/gateway_client.go`
@@ -313,6 +325,10 @@ git commit -m "feat(crawler): add GatewayConfigClient for llm-gateway config rea
 
 ### Task 3: Wire GatewayConfigClient into crawler main.go
 
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
+
 **Files:**
 - Modify: `services/policy-crawler/cmd/main.go`
 
@@ -382,6 +398,10 @@ git commit -m "feat(crawler): use GatewayConfigClient for embedding and ASR conf
 ---
 
 ### Task 4: Replace LLM config reads in extraction handlers
+
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
 
 **Files:**
 - Modify: `services/policy-crawler/internal/admin/admin_llm.go:157-198` (LLMExtractRunHandler)
@@ -458,11 +478,11 @@ Since `RunExtraction` is called via the `LLMStore` interface by `LLMStatusHandle
 1. Add a new method to the store that accepts a gateway client
 2. Keep the existing method but make the handler call through the gateway
 
-**Simpler approach:** Keep `RunExtraction` as-is (it still reads from local DB as fallback), but the primary extraction path (`LLMExtractRunHandler`) now uses the gateway client. The `RunExtraction` method is not called from any active path â€” it's exposed via `LLMStore` interface but only used by the now-secondary `LLMStatusHandler`.
+**Simpler approach:** Keep `RunExtraction` as-is (it still reads from local DB as fallback), but the primary extraction path (`LLMExtractRunHandler`) now uses the gateway client. The `RunExtraction` method is not called from any active path â€?it's exposed via `LLMStore` interface but only used by the now-secondary `LLMStatusHandler`.
 
-Actually, let's verify â€” check if `RunExtraction` is called anywhere:
+Actually, let's verify â€?check if `RunExtraction` is called anywhere:
 
-Search for callers of `RunExtraction` â€” if it's only used via `LLMStore` interface and only called from tests or inactive handlers, we can skip modifying it for now. The primary extraction path is `LLMExtractRunHandler`.
+Search for callers of `RunExtraction` â€?if it's only used via `LLMStore` interface and only called from tests or inactive handlers, we can skip modifying it for now. The primary extraction path is `LLMExtractRunHandler`.
 
 For this step, do NOT modify `store.go:RunExtraction`. The change in Step 2 already covers the primary extraction path.
 
@@ -496,6 +516,10 @@ git commit -m "feat(crawler): use GatewayConfigClient for LLM extraction config"
 
 ### Task 5: Update crawler admin page to link to llm-gateway for model config
 
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
+
 **Files:**
 - Modify: `services/policy-crawler/internal/admin/admin_page.go` (replace LLM/ASR config panels)
 - Modify: `services/policy-crawler/cmd/main.go` (remove or redirect old LLM/ASR config routes)
@@ -514,12 +538,10 @@ The exact replacement depends on the current HTML structure. In the `loadExtract
 <div class="card">
   <div class="card-header">æ¨¡å‹é…ç½®</div>
   <p style="margin:8px 0;color:#6B7280;font-size:13px">
-    LLMã€Embedding å’Œ ASR æ¨¡å‹é…ç½®å·²ç»Ÿä¸€è¿ç§»åˆ° LLM Gateway ç®¡ç†åå°ã€‚
-  </p>
+    LLMã€Embedding å’?ASR æ¨¡å‹é…ç½®å·²ç»Ÿä¸€è¿ç§»åˆ?LLM Gateway ç®¡ç†åå°ã€?  </p>
   <a href="http://localhost:39404/admin/#model-configs" target="_blank" 
      style="display:inline-block;padding:8px 16px;background:#1A56DB;color:#fff;border-radius:6px;text-decoration:none;font-size:13px">
-    å‰å¾€ LLM Gateway é…ç½®æ¨¡å‹ â†’
-  </a>
+    å‰å¾€ LLM Gateway é…ç½®æ¨¡å‹ â†?  </a>
 </div>
 ```
 
@@ -542,7 +564,7 @@ Keep:
 - `/admin/llm/status` (shows status)
 - `/admin/llm/pending` (shows pending count)
 - `/admin/llm/progress` (shows progress)
-- `/admin/asr/test` (tests ASR â€” but it needs DB access, may need updating later)
+- `/admin/asr/test` (tests ASR â€?but it needs DB access, may need updating later)
 
 - [ ] **Step 3: Build and verify**
 
@@ -565,6 +587,10 @@ git commit -m "feat(crawler): redirect model config to llm-gateway admin UI"
 ---
 
 ### Task 6: Build, deploy, and end-to-end test
+
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
 
 **Files:** None (deployment only)
 

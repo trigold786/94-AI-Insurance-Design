@@ -1,10 +1,18 @@
 # Crawler Config Integration with llm-gateway
 
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúÐ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
+
 **Date:** 2026-05-28
 **Status:** Approved
 **Approach:** Config-only (Approach A - Replace entirely)
 
 ## Problem
+
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúÐ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
 
 The policy-crawler service maintains its own `llm_configs` and `asr_configs` tables in the `nsi_crawler` database, separate from the unified `model_configs` table in `nsi_llm` (managed by llm-gateway). This creates:
 - Dual config management (admin must configure in two places)
@@ -13,9 +21,17 @@ The policy-crawler service maintains its own `llm_configs` and `asr_configs` tab
 
 ## Decision
 
-Replace all crawler config reads with calls to llm-gateway's unified `model_configs` API. The crawler will continue to call LLM/ASR/Embedding provider APIs directly â€” only the config source changes.
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúÐ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
+
+Replace all crawler config reads with calls to llm-gateway's unified `model_configs` API. The crawler will continue to call LLM/ASR/Embedding provider APIs directly â€?only the config source changes.
 
 ## Architecture
+
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúÐ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
 
 ```
 llm-gateway (model_configs table, :39404)
@@ -35,13 +51,25 @@ llm.Client / ASRProvider / EmbeddingProvider
 
 ## Components
 
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúÐ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
+
 ### 1. New internal endpoint in llm-gateway
+
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúÐ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
 
 **File:** `services/llm-gateway/cmd/main.go`
 
 Add unauthenticated route `GET /internal/model-configs/{function_key}` that returns the full `ModelConfig` JSON (including unmasked `api_key`). This route is only accessible within the Docker network (no external exposure).
 
 ### 2. GatewayConfigClient in policy-crawler
+
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúÐ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
 
 **File:** `services/policy-crawler/internal/config/gateway_client.go` (new)
 
@@ -54,6 +82,10 @@ HTTP client that:
   - `GetASRConfig(ctx) -> ASRConfig` (maps `asr` -> full ASRConfig with extra_params)
 
 ### Config mapping
+
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúÐ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
 
 **llm_extract -> llm.Config:**
 | ModelConfig field | llm.Config field |
@@ -90,7 +122,15 @@ HTTP client that:
 
 ## Changes by file
 
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúÐ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
+
 ### llm-gateway
+
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúÐ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
 
 | File | Change |
 |---|---|
@@ -98,6 +138,10 @@ HTTP client that:
 | `internal/admin/admin.go` | Add `GetModelConfigInternal` handler (no auth, full API key) |
 
 ### policy-crawler
+
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúÐ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
 
 | File | Change |
 |---|---|
@@ -109,6 +153,10 @@ HTTP client that:
 
 ## What stays unchanged
 
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúÐ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
+
 - `llm.Client`, `ASRProvider`, `EmbeddingProvider` - call provider APIs directly
 - LLM extraction logic, ASR transcription logic, embedding logic
 - `llm_configs` / `asr_configs` tables - kept but no longer read by code
@@ -116,9 +164,17 @@ HTTP client that:
 
 ## Auth approach
 
-Internal endpoint `/internal/model-configs/{function_key}` is unauthenticated. Security relies on Docker network isolation â€” only containers within the same Docker network can reach llm-gateway's port 39404. No admin credentials needed in crawler config.
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúÐ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
+
+Internal endpoint `/internal/model-configs/{function_key}` is unauthenticated. Security relies on Docker network isolation â€?only containers within the same Docker network can reach llm-gateway's port 39404. No admin credentials needed in crawler config.
 
 ## Risks
+
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúÐ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
 
 - **llm-gateway down:** Crawler cannot read config, extraction/ASR fails. Acceptable because crawler already depends on llm-gateway for LLM calls via api-server.
 - **Cache staleness:** 60s TTL means config changes take up to 60s to propagate. Acceptable for config changes that are infrequent.

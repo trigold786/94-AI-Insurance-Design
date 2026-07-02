@@ -1,16 +1,24 @@
 # Android Jetpack Compose MVP 实现计划
 
+| **�汾��** | V1.0.0 |
+| **״̬** | ����Ч |
+| **��������** | 2026-06-15 |
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Build complete Android Jetpack Compose MVP with 7 screens (P1-P7) + ViewModel + API integration
 
-**Architecture:** Jetpack Compose with Navigation Compose, MVVM (ViewModel + StateFlow), NSI SDK for backend calls. Navigation flows login → home → city-picker → profile → loading → preview → plan. Data flows via shared ViewModel.
+**Architecture:** Jetpack Compose with Navigation Compose, MVVM (ViewModel + StateFlow), NSI SDK for backend calls. Navigation flows login �?home �?city-picker �?profile �?loading �?preview �?plan. Data flows via shared ViewModel.
 
 **Tech Stack:** Kotlin 1.9+, Jetpack Compose, Navigation Compose, kotlinx.serialization, java.net.http.HttpClient
 
 ---
 
 ### Task 1: Project Scaffold + Models + ViewModel
+
+| **�汾��** | V1.0.0 |
+| **״̬** | ����Ч |
+| **��������** | 2026-06-15 |
 
 **Files:**
 - Create: `frontend/android/app/src/main/java/com/nsi/app/MainActivity.kt`
@@ -279,6 +287,10 @@ class MainActivity : ComponentActivity() {
 
 ### Task 2: P1 Login Screen
 
+| **�汾��** | V1.0.0 |
+| **״̬** | ����Ч |
+| **��������** | 2026-06-15 |
+
 **Files:**
 - Create: `frontend/android/app/src/main/java/com/nsi/app/ui/login/LoginScreen.kt`
 
@@ -341,7 +353,7 @@ fun LoginScreen(navController: NavController, viewModel: AppViewModel) {
             Spacer(modifier = Modifier.height(16.dp))
             Text("AI社保智筹", fontSize = 36.sp, fontWeight = FontWeight.Bold, color = AppColors.Primary)
             Spacer(modifier = Modifier.height(8.dp))
-            Text("AI驱动的社保规划助手", fontSize = 18.sp, color = AppColors.TextSecondary)
+            Text("AI驱动的社保规划助�?, fontSize = 18.sp, color = AppColors.TextSecondary)
         }
 
         Spacer(modifier = Modifier.height(60.dp))
@@ -357,13 +369,13 @@ fun LoginScreen(navController: NavController, viewModel: AppViewModel) {
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Checkbox(checked = agreed, onCheckedChange = { agreed = it })
-                Text("我已阅读并同意", fontSize = 14.sp, color = AppColors.TextSecondary)
+                Text("我已阅读并同�?, fontSize = 14.sp, color = AppColors.TextSecondary)
                 TextButton(onClick = { showPrivacy = true }) {
-                    Text("《隐私政策》", fontSize = 14.sp, color = AppColors.Primary)
+                    Text("《隐私政策�?, fontSize = 14.sp, color = AppColors.Primary)
                 }
-                Text("和", fontSize = 14.sp, color = AppColors.TextSecondary)
+                Text("�?, fontSize = 14.sp, color = AppColors.TextSecondary)
                 TextButton(onClick = { showTerms = true }) {
-                    Text("《用户协议》", fontSize = 14.sp, color = AppColors.Primary)
+                    Text("《用户协议�?, fontSize = 14.sp, color = AppColors.Primary)
                 }
             }
         }
@@ -387,7 +399,7 @@ fun LoginScreen(navController: NavController, viewModel: AppViewModel) {
                 containerColor = if (agreed) AppColors.Primary else AppColors.TextMuted
             ),
         ) {
-            Text(if (loading) "登录中..." else "微信一键登录", fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
+            Text(if (loading) "登录�?.." else "微信一键登�?, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
         }
 
         Spacer(modifier = Modifier.weight(1f))
@@ -418,6 +430,10 @@ fun LoginScreen(navController: NavController, viewModel: AppViewModel) {
 ---
 
 ### Task 3: P2 Home Screen + P3 City Picker
+
+| **�汾��** | V1.0.0 |
+| **״̬** | ����Ч |
+| **��������** | 2026-06-15 |
 
 **Files:**
 - Create: `frontend/android/app/src/main/java/com/nsi/app/ui/home/HomeScreen.kt`
@@ -490,7 +506,7 @@ fun HomeScreen(navController: NavController, viewModel: AppViewModel) {
             Text("📍", fontSize = 18.sp)
             Spacer(modifier = Modifier.width(4.dp))
             Text(uiState.currentCity, fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = AppColors.TextPrimary)
-            Text(" ▼", fontSize = 14.sp, color = AppColors.TextMuted)
+            Text(" �?, fontSize = 14.sp, color = AppColors.TextMuted)
         }
 
         // Hero
@@ -503,9 +519,9 @@ fun HomeScreen(navController: NavController, viewModel: AppViewModel) {
                 modifier = Modifier.padding(40.dp).fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Text("社保规划，智能匹配", fontSize = 26.sp, fontWeight = FontWeight.Bold, color = AppColors.White)
+                Text("社保规划，智能匹�?, fontSize = 26.sp, fontWeight = FontWeight.Bold, color = AppColors.White)
                 Spacer(modifier = Modifier.height(12.dp))
-                Text("AI 为您匹配最优社保方案", fontSize = 18.sp, color = AppColors.White.copy(alpha = 0.8f))
+                Text("AI 为您匹配最优社保方�?, fontSize = 18.sp, color = AppColors.White.copy(alpha = 0.8f))
                 Spacer(modifier = Modifier.height(24.dp))
                 Button(
                     onClick = { navController.navigate(Routes.PROFILE) },
@@ -513,7 +529,7 @@ fun HomeScreen(navController: NavController, viewModel: AppViewModel) {
                     shape = RoundedCornerShape(48.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = AppColors.White.copy(alpha = 0.2f)),
                 ) {
-                    Text("开始社保筹划", fontWeight = FontWeight.SemiBold)
+                    Text("开始社保筹�?, fontWeight = FontWeight.SemiBold)
                 }
             }
         }
@@ -597,7 +613,7 @@ fun CityPickerScreen(navController: NavController, viewModel: AppViewModel) {
                         )
                         Spacer(modifier = Modifier.weight(1f))
                         if (uiState.currentCityCode == code) {
-                            Text("✓", color = AppColors.Primary, fontSize = 20.sp)
+                            Text("�?, color = AppColors.Primary, fontSize = 20.sp)
                         }
                     }
                 }
@@ -611,6 +627,10 @@ fun CityPickerScreen(navController: NavController, viewModel: AppViewModel) {
 ---
 
 ### Task 4: P4 Profile Screen (Multi-Step)
+
+| **�汾��** | V1.0.0 |
+| **״̬** | ����Ч |
+| **��������** | 2026-06-15 |
 
 **Files:**
 - Create: `frontend/android/app/src/main/java/com/nsi/app/ui/profile/ProfileScreen.kt`
@@ -662,7 +682,7 @@ fun ProfileScreen(navController: NavController, viewModel: AppViewModel) {
     var submitting by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf("") }
 
-    val genders = listOf("male" to "男", "female" to "女")
+    val genders = listOf("male" to "�?, "female" to "�?)
     val employmentStatuses = listOf(
         "employed" to "企业就业", "flexible" to "灵活就业",
         "self_employed" to "自雇", "unemployed" to "失业",
@@ -718,24 +738,24 @@ fun ProfileScreen(navController: NavController, viewModel: AppViewModel) {
                 Spacer(modifier = Modifier.height(20.dp))
                 genderOptions(genders, gender) { gender = it }
                 OutlinedTextField(value = age, onValueChange = { age = it }, label = { Text("年龄(16-70)") }, singleLine = true)
-                OutlinedTextField(value = household, onValueChange = { household = it }, label = { Text("户籍地") }, singleLine = true)
+                OutlinedTextField(value = household, onValueChange = { household = it }, label = { Text("户籍�?) }, singleLine = true)
                 Spacer(modifier = Modifier.height(20.dp))
                 Button(onClick = { currentStep = 2 }, modifier = Modifier.fillMaxWidth().height(48.dp), shape = RoundedCornerShape(48.dp)) {
-                    Text("下一步")
+                    Text("下一�?)
                 }
             }
             2 -> {
                 Text("就业信息", fontSize = 24.sp, fontWeight = FontWeight.Bold)
                 Spacer(modifier = Modifier.height(20.dp))
                 employmentOptions(employmentStatuses, employment) { employment = it }
-                OutlinedTextField(value = years, onValueChange = { years = it }, label = { Text("累计社保年限(年)") }, singleLine = true)
+                OutlinedTextField(value = years, onValueChange = { years = it }, label = { Text("累计社保年限(�?") }, singleLine = true)
                 Spacer(modifier = Modifier.height(20.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     OutlinedButton(onClick = { currentStep = 1 }, modifier = Modifier.weight(1f).height(48.dp), shape = RoundedCornerShape(48.dp)) {
-                        Text("上一步")
+                        Text("上一�?)
                     }
                     Button(onClick = { currentStep = 3 }, modifier = Modifier.weight(1f).height(48.dp), shape = RoundedCornerShape(48.dp)) {
-                        Text("下一步")
+                        Text("下一�?)
                     }
                 }
             }
@@ -748,20 +768,20 @@ fun ProfileScreen(navController: NavController, viewModel: AppViewModel) {
                     Switch(checked = hasChildren, onCheckedChange = { hasChildren = it })
                 }
                 OutlinedTextField(value = budget, onValueChange = { budget = it }, label = { Text("月预算（元）") }, singleLine = true)
-                OutlinedTextField(value = balance, onValueChange = { balance = it }, label = { Text("当前账户余额（元）") }, singleLine = true)
+                OutlinedTextField(value = balance, onValueChange = { balance = it }, label = { Text("当前账户余额（元�?) }, singleLine = true)
                 if (errorMessage.isNotEmpty()) {
                     Text(errorMessage, color = AppColors.Error, fontSize = 14.sp)
                 }
                 Spacer(modifier = Modifier.height(20.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     OutlinedButton(onClick = { currentStep = 2 }, modifier = Modifier.weight(1f).height(48.dp), shape = RoundedCornerShape(48.dp)) {
-                        Text("上一步")
+                        Text("上一�?)
                     }
                     Button(
                         onClick = {
                             val ageInt = age.toIntOrNull()
                             if (ageInt == null || ageInt !in 16..70) {
-                                errorMessage = "年龄必须在16-70之间"
+                                errorMessage = "年龄必须�?6-70之间"
                                 return@Button
                             }
                             val budgetDouble = budget.toDoubleOrNull()
@@ -810,7 +830,7 @@ fun ProfileScreen(navController: NavController, viewModel: AppViewModel) {
                         modifier = Modifier.weight(1f).height(48.dp),
                         shape = RoundedCornerShape(48.dp),
                     ) {
-                        Text(if (submitting) "提交中..." else "生成方案")
+                        Text(if (submitting) "提交�?.." else "生成方案")
                     }
                 }
             }
@@ -840,7 +860,7 @@ private fun employmentOptions(options: List<Pair<String, String>>, selected: Str
             value = options.find { it.first == selected }?.second ?: "请选择",
             onValueChange = {},
             readOnly = true,
-            label = { Text("就业状态") },
+            label = { Text("就业状�?) },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier.menuAnchor(),
         )
@@ -859,6 +879,10 @@ private fun employmentOptions(options: List<Pair<String, String>>, selected: Str
 ---
 
 ### Task 5: P5 Loading + P6 Preview Screens
+
+| **�汾��** | V1.0.0 |
+| **״̬** | ����Ч |
+| **��������** | 2026-06-15 |
 
 **Files:**
 - Create: `frontend/android/app/src/main/java/com/nsi/app/ui/loading/LoadingScreen.kt`
@@ -896,7 +920,7 @@ fun LoadingScreen(navController: NavController, viewModel: AppViewModel) {
 
     LaunchedEffect(Unit) {
         val input = uiState.planInput ?: return@LaunchedEffect
-        progressText = "正在计算最优方案..."
+        progressText = "正在计算最优方�?.."
 
         scope.launch {
             try {
@@ -933,7 +957,7 @@ fun LoadingScreen(navController: NavController, viewModel: AppViewModel) {
     ) {
         CircularProgressIndicator(color = AppColors.Primary, strokeWidth = 6.dp, modifier = Modifier.size(64.dp))
         Spacer(modifier = Modifier.height(24.dp))
-        Text("AI 正在为您匹配最优政策...", fontSize = 18.sp)
+        Text("AI 正在为您匹配最优政�?..", fontSize = 18.sp)
         Spacer(modifier = Modifier.height(16.dp))
         Text(progressText, fontSize = 14.sp, color = AppColors.TextSecondary)
     }
@@ -973,7 +997,7 @@ fun PreviewScreen(navController: NavController, viewModel: AppViewModel) {
     ) {
         Spacer(modifier = Modifier.height(40.dp))
         Text("您的社保方案", fontSize = 28.sp, fontWeight = FontWeight.Bold)
-        Text("以下是 AI 为您推荐的社保方案预览", fontSize = 16.sp, color = AppColors.TextSecondary)
+        Text("以下�?AI 为您推荐的社保方案预�?, fontSize = 16.sp, color = AppColors.TextSecondary)
 
         Spacer(modifier = Modifier.height(24.dp))
 
@@ -981,7 +1005,7 @@ fun PreviewScreen(navController: NavController, viewModel: AppViewModel) {
         Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
             Column(modifier = Modifier.padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Text("预计年补贴额", fontSize = 16.sp, color = AppColors.TextSecondary)
-                Text("约 ¥XX,XXX/年", fontSize = 32.sp, fontWeight = FontWeight.Bold, color = AppColors.Primary, modifier = Modifier.blur(12.dp))
+                Text("�?¥XX,XXX/�?, fontSize = 32.sp, fontWeight = FontWeight.Bold, color = AppColors.Primary, modifier = Modifier.blur(12.dp))
             }
         }
 
@@ -990,7 +1014,7 @@ fun PreviewScreen(navController: NavController, viewModel: AppViewModel) {
         Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
             Column(modifier = Modifier.padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Text("月节省额", fontSize = 16.sp, color = AppColors.TextSecondary)
-                Text("约 ¥XXX/月", fontSize = 32.sp, fontWeight = FontWeight.Bold, color = AppColors.Primary, modifier = Modifier.blur(12.dp))
+                Text("�?¥XXX/�?, fontSize = 32.sp, fontWeight = FontWeight.Bold, color = AppColors.Primary, modifier = Modifier.blur(12.dp))
             }
         }
 
@@ -1015,7 +1039,7 @@ fun PreviewScreen(navController: NavController, viewModel: AppViewModel) {
         Spacer(modifier = Modifier.height(16.dp))
 
         Text(
-            "解锁后可查看方案对比、年度现金流和行动清单",
+            "解锁后可查看方案对比、年度现金流和行动清�?,
             fontSize = 13.sp,
             color = AppColors.TextMuted,
             textAlign = TextAlign.Center,
@@ -1027,6 +1051,10 @@ fun PreviewScreen(navController: NavController, viewModel: AppViewModel) {
 ---
 
 ### Task 6: P7 Plan Detail Screen
+
+| **�汾��** | V1.0.0 |
+| **״̬** | ����Ч |
+| **��������** | 2026-06-15 |
 
 **Files:**
 - Create: `frontend/android/app/src/main/java/com/nsi/app/ui/plan/PlanDetailScreen.kt`
@@ -1114,8 +1142,8 @@ fun PlanDetailScreen(navController: NavController, viewModel: AppViewModel, plan
                             Text(s.name, fontWeight = FontWeight.SemiBold, color = AppColors.Primary)
                             Spacer(modifier = Modifier.height(8.dp))
                             Text("预计养老金", fontSize = 13.sp, color = AppColors.TextSecondary)
-                            Text("${s.projectedPension.toInt()}元/月", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = AppColors.Primary)
-                            Text("月缴费: ${s.monthlyCost.toInt()}元", fontSize = 13.sp, color = AppColors.TextSecondary)
+                            Text("${s.projectedPension.toInt()}�?�?, fontSize = 24.sp, fontWeight = FontWeight.Bold, color = AppColors.Primary)
+                            Text("月缴�? ${s.monthlyCost.toInt()}�?, fontSize = 13.sp, color = AppColors.TextSecondary)
                         }
                     }
                 }
@@ -1128,10 +1156,10 @@ fun PlanDetailScreen(navController: NavController, viewModel: AppViewModel, plan
                 val s = schemes[currentIndex]
                 Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
                     Column(modifier = Modifier.padding(16.dp)) {
-                        detailRow("缴费基数", "${s.baseSalary}元")
-                        detailRow("月缴费", "${s.monthlyCost.toInt()}元")
-                        detailRow("企业年补贴", "${s.annualSubsidy.toInt()}元/年", highlight = true)
-                        detailRow("预计养老金", "${s.projectedPension.toInt()}元/月", highlight = true)
+                        detailRow("缴费基数", "${s.baseSalary}�?)
+                        detailRow("月缴�?, "${s.monthlyCost.toInt()}�?)
+                        detailRow("企业年补�?, "${s.annualSubsidy.toInt()}�?�?, highlight = true)
+                        detailRow("预计养老金", "${s.projectedPension.toInt()}�?�?, highlight = true)
                     }
                 }
             }
@@ -1143,7 +1171,7 @@ fun PlanDetailScreen(navController: NavController, viewModel: AppViewModel, plan
                 modifier = Modifier.fillMaxWidth().height(48.dp),
                 shape = RoundedCornerShape(48.dp),
             ) {
-                Text("保存为 PDF")
+                Text("保存�?PDF")
             }
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -1176,6 +1204,10 @@ private fun detailRow(label: String, value: String, highlight: Boolean = false) 
 
 ### Task 7: Update NSIClient SDK
 
+| **�汾��** | V1.0.0 |
+| **״̬** | ����Ч |
+| **��������** | 2026-06-15 |
+
 **Files:**
 - Modify: `frontend/android/nsi-sdk/Client.kt`
 
@@ -1206,6 +1238,10 @@ data class ResponseWrapper<T>(val code: Int, val data: T)
 
 ### Task 8: Final Verification
 
+| **�汾��** | V1.0.0 |
+| **״̬** | ����Ч |
+| **��������** | 2026-06-15 |
+
 - [ ] **Step 1: Verify all files exist**
 
 Run: `Get-ChildItem -Recurse -LiteralPath "nsi-platform/frontend/android" -Filter "*.kt"`
@@ -1214,11 +1250,8 @@ Expected: Client.kt + MainActivity.kt + NSIApp.kt + AppState.kt + Color.kt + The
 
 - [ ] **Step 2: Verify navigation flow**
 
-Trace: LoginScreen → HOME → CityPickerScreen ↔ HOME → PROFILE → LOADING → PREVIEW → PLAN
+Trace: LoginScreen �?HOME �?CityPickerScreen �?HOME �?PROFILE �?LOADING �?PREVIEW �?PLAN
 
 - [ ] **Step 3: Verify API coverage**
 
-- `updateProfile` — ProfileScreen ✓
-- `queryPolicies` — HomeScreen ✓
-- `generatePlan` — LoadingScreen ✓
-- `getPlanDetail` — PlanDetailScreen ✓ (need to add to Client.kt)
+- `updateProfile` �?ProfileScreen �?- `queryPolicies` �?HomeScreen �?- `generatePlan` �?LoadingScreen �?- `getPlanDetail` �?PlanDetailScreen �?(need to add to Client.kt)

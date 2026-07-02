@@ -1,10 +1,14 @@
 # Social Media Relevance Filtering & Video Extraction Implementation Plan
 
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Implement two-level pipeline for Douyin/WeChat crawlers with admin-configurable relevance filtering and async video content extraction (subtitle-first, ASR-fallback).
 
-**Architecture:** Level 1 (fast discovery + keyword pre-filter in Fetch()) â†’ Level 2 (async VideoExtractWorker: yt-dlp subtitle â†’ ASR fallback â†’ enriched content). Relevance rules stored in DB, managed via admin UI. ASR config as separate unit. LLM primary+backup.
+**Architecture:** Level 1 (fast discovery + keyword pre-filter in Fetch()) â†?Level 2 (async VideoExtractWorker: yt-dlp subtitle â†?ASR fallback â†?enriched content). Relevance rules stored in DB, managed via admin UI. ASR config as separate unit. LLM primary+backup.
 
 **Tech Stack:** Go 1.22, PostgreSQL, yt-dlp (CLI), Volcano Engine ASR API, Chart.js (admin UI)
 
@@ -12,30 +16,38 @@
 
 ## File Structure
 
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
+
 **New files:**
-- `services/policy-crawler/migrations/023_relevance_video.sql` â€” relevance_rules, relevance_thresholds, video_extract_status, seed data
-- `services/policy-crawler/migrations/024_asr_llm_backup.sql` â€” asr_configs table, LLM backup columns
-- `services/policy-crawler/internal/crawler/relevance.go` â€” RelevanceFilter, Rule, Score()
-- `services/policy-crawler/internal/crawler/video_extract.go` â€” VideoExtractWorker, task queue, pipeline
-- `services/policy-crawler/internal/crawler/asr.go` â€” ASRProvider interface + volcengine impl
-- `services/policy-crawler/internal/admin/admin_relevance.go` â€” relevance rules admin API
-- `services/policy-crawler/internal/admin/admin_asr.go` â€” ASR config admin API
+- `services/policy-crawler/migrations/023_relevance_video.sql` â€?relevance_rules, relevance_thresholds, video_extract_status, seed data
+- `services/policy-crawler/migrations/024_asr_llm_backup.sql` â€?asr_configs table, LLM backup columns
+- `services/policy-crawler/internal/crawler/relevance.go` â€?RelevanceFilter, Rule, Score()
+- `services/policy-crawler/internal/crawler/video_extract.go` â€?VideoExtractWorker, task queue, pipeline
+- `services/policy-crawler/internal/crawler/asr.go` â€?ASRProvider interface + volcengine impl
+- `services/policy-crawler/internal/admin/admin_relevance.go` â€?relevance rules admin API
+- `services/policy-crawler/internal/admin/admin_asr.go` â€?ASR config admin API
 
 **Modified files:**
-- `services/policy-crawler/internal/crawler/crawler.go` â€” CrawlResult: add VideoURL, NeedsVideoExtract, ContentType
-- `services/policy-crawler/internal/crawler/douyin_crawler.go` â€” strict author discovery, relevance pre-filter, set NeedsVideoExtract
-- `services/policy-crawler/internal/crawler/wechat_crawler.go` â€” mixed mode, __biz discovery, anti-bot mitigation
-- `services/policy-crawler/internal/crawler/manager.go` â€” VideoExtractQueue init, recovery, crawlAndProcess dispatch
-- `services/policy-crawler/internal/crawler/store.go` â€” SaveRawTextReturningID, video_extract_status CRUD, GetPendingVideoExtracts, GetUnprocessedRawTexts update
-- `services/policy-crawler/internal/admin/admin_llm.go` â€” LLMConfig: add backup fields
-- `services/policy-crawler/internal/admin/admin_page.go` â€” new "ç›¸å…³æ€§è§„åˆ™" tab, ASR section, test panel
-- `services/policy-crawler/internal/llm/llm.go` â€” Client: add backup config, fallback logic
-- `services/policy-crawler/cmd/main.go` â€” init worker, routes, recovery
-- `services/policy-crawler/Dockerfile` â€” add python3, ffmpeg, yt-dlp
+- `services/policy-crawler/internal/crawler/crawler.go` â€?CrawlResult: add VideoURL, NeedsVideoExtract, ContentType
+- `services/policy-crawler/internal/crawler/douyin_crawler.go` â€?strict author discovery, relevance pre-filter, set NeedsVideoExtract
+- `services/policy-crawler/internal/crawler/wechat_crawler.go` â€?mixed mode, __biz discovery, anti-bot mitigation
+- `services/policy-crawler/internal/crawler/manager.go` â€?VideoExtractQueue init, recovery, crawlAndProcess dispatch
+- `services/policy-crawler/internal/crawler/store.go` â€?SaveRawTextReturningID, video_extract_status CRUD, GetPendingVideoExtracts, GetUnprocessedRawTexts update
+- `services/policy-crawler/internal/admin/admin_llm.go` â€?LLMConfig: add backup fields
+- `services/policy-crawler/internal/admin/admin_page.go` â€?new "ç›¸å…³æ€§è§„åˆ? tab, ASR section, test panel
+- `services/policy-crawler/internal/llm/llm.go` â€?Client: add backup config, fallback logic
+- `services/policy-crawler/cmd/main.go` â€?init worker, routes, recovery
+- `services/policy-crawler/Dockerfile` â€?add python3, ffmpeg, yt-dlp
 
 ---
 
 ### Task 1: Migrations 023 + 024
+
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
 
 **Files:**
 - Create: `services/policy-crawler/migrations/023_relevance_video.sql`
@@ -69,21 +81,21 @@ CREATE INDEX idx_raw_texts_vextract ON policy_raw_texts(video_extract_status)
     WHERE video_extract_status IN ('pending', 'processing');
 
 INSERT INTO relevance_rules (category, keyword, weight, scope) VALUES
-('é™©ç§','ç¤¾ä¿',2,'all'),('é™©ç§','å…»è€',2,'all'),('é™©ç§','å…»è€é™©',2,'all'),('é™©ç§','å…»è€é‡‘',2,'all'),
+('é™©ç§','ç¤¾ä¿',2,'all'),('é™©ç§','å…»è€?,2,'all'),('é™©ç§','å…»è€é™©',2,'all'),('é™©ç§','å…»è€é‡‘',2,'all'),
 ('é™©ç§','åŒ»ç–—',2,'all'),('é™©ç§','åŒ»ä¿',2,'all'),('é™©ç§','å¤±ä¸š',2,'all'),('é™©ç§','å·¥ä¼¤',2,'all'),
-('é™©ç§','ç”Ÿè‚²',2,'all'),('é™©ç§','å…¬ç§¯é‡‘',2,'all'),
+('é™©ç§','ç”Ÿè‚²',2,'all'),('é™©ç§','å…¬ç§¯é‡?,2,'all'),
 ('æ”¿ç­–åŠ¨è¯','ç¼´è´¹',2,'all'),('æ”¿ç­–åŠ¨è¯','è¡¥ç¼´',2,'all'),('æ”¿ç­–åŠ¨è¯','å¾…é‡',2,'all'),
-('æ”¿ç­–åŠ¨è¯','é¢†å–',2,'all'),('æ”¿ç­–åŠ¨è¯','åŠç†',2,'all'),('æ”¿ç­–åŠ¨è¯','é€€ä¼‘',2,'all'),
-('æ”¿ç­–åŠ¨è¯','å»¶è¿Ÿé€€ä¼‘',2,'all'),('æ”¿ç­–åŠ¨è¯','é€€ä¼‘å¹´é¾„',2,'all'),('æ”¿ç­–åŠ¨è¯','å‚ä¿',2,'all'),
-('æ”¿ç­–åŠ¨è¯','å‚ä¿äºº',2,'all'),('æ”¿ç­–åŠ¨è¯','ç¼´è´¹å¹´é™',2,'all'),
+('æ”¿ç­–åŠ¨è¯','é¢†å–',2,'all'),('æ”¿ç­–åŠ¨è¯','åŠç†',2,'all'),('æ”¿ç­–åŠ¨è¯','é€€ä¼?,2,'all'),
+('æ”¿ç­–åŠ¨è¯','å»¶è¿Ÿé€€ä¼?,2,'all'),('æ”¿ç­–åŠ¨è¯','é€€ä¼‘å¹´é¾?,2,'all'),('æ”¿ç­–åŠ¨è¯','å‚ä¿',2,'all'),
+('æ”¿ç­–åŠ¨è¯','å‚ä¿äº?,2,'all'),('æ”¿ç­–åŠ¨è¯','ç¼´è´¹å¹´é™',2,'all'),
 ('é‡‘é¢æ—¶é—´','è¡¥è´´',1,'all'),('é‡‘é¢æ—¶é—´','æŠ¥é”€',1,'all'),('é‡‘é¢æ—¶é—´','åŸºæ•°',1,'all'),
 ('é‡‘é¢æ—¶é—´','æ¯”ä¾‹',1,'all'),('é‡‘é¢æ—¶é—´','æ ‡å‡†',1,'all'),('é‡‘é¢æ—¶é—´','é‡‘é¢',1,'all'),
 ('é‡‘é¢æ—¶é—´','è°ƒæ•´',1,'all'),('é‡‘é¢æ—¶é—´','ä¸Šæ¶¨',1,'all'),
-('äººç¾¤','èŒå·¥',1,'all'),('äººç¾¤','çµæ´»å°±ä¸š',1,'all'),('äººç¾¤','é€€ä¼‘äººå‘˜',1,'all'),
-('äººç¾¤','å±…æ°‘',1,'all'),('äººç¾¤','å¤–å›½äºº',1,'all'),('äººç¾¤','ä¸ªä½“æˆ·',1,'all'),
+('äººç¾¤','èŒå·¥',1,'all'),('äººç¾¤','çµæ´»å°±ä¸š',1,'all'),('äººç¾¤','é€€ä¼‘äººå‘?,1,'all'),
+('äººç¾¤','å±…æ°‘',1,'all'),('äººç¾¤','å¤–å›½äº?,1,'all'),('äººç¾¤','ä¸ªä½“æˆ?,1,'all'),
 ('æ”¿ç­–æ–‡æ¡£','æ”¿ç­–',1,'all'),('æ”¿ç­–æ–‡æ¡£','é€šçŸ¥',1,'all'),('æ”¿ç­–æ–‡æ¡£','å…¬å‘Š',1,'all'),
 ('æ”¿ç­–æ–‡æ¡£','åŠæ³•',1,'all'),('æ”¿ç­–æ–‡æ¡£','è§„å®š',1,'all'),('æ”¿ç­–æ–‡æ¡£','æ–¹æ¡ˆ',1,'all'),
-('æ”¿ç­–æ–‡æ¡£','æ„è§',1,'all'),('æ”¿ç­–æ–‡æ¡£','æ„è§ç¨¿',1,'all');
+('æ”¿ç­–æ–‡æ¡£','æ„è§',1,'all'),('æ”¿ç­–æ–‡æ¡£','æ„è§ç¨?,1,'all');
 ```
 
 - [ ] **Step 2: Create migration 024**
@@ -125,6 +137,10 @@ git commit -m "feat: migrations for relevance rules, video extract status, ASR c
 
 ### Task 2: CrawlResult Extension
 
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
+
 **Files:**
 - Modify: `services/policy-crawler/internal/crawler/crawler.go`
 
@@ -164,6 +180,10 @@ git commit -m "feat: add VideoURL, NeedsVideoExtract, ContentType to CrawlResult
 
 ### Task 3: Relevance Filter Engine
 
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
+
 **Files:**
 - Create: `services/policy-crawler/internal/crawler/relevance.go`
 - Create: `services/policy-crawler/internal/crawler/relevance_test.go`
@@ -180,7 +200,7 @@ import "testing"
 func TestRelevanceScoreBasic(t *testing.T) {
 	filter := NewRelevanceFilter([]Rule{
 		{Keyword: "ç¤¾ä¿", Weight: 2, Scope: "all"},
-		{Keyword: "å…»è€", Weight: 2, Scope: "all"},
+		{Keyword: "å…»è€?, Weight: 2, Scope: "all"},
 		{Keyword: "è¡¥è´´", Weight: 1, Scope: "all"},
 		{Keyword: "èŒå·¥", Weight: 1, Scope: "all"},
 	})
@@ -196,9 +216,9 @@ func TestRelevanceScoreBasic(t *testing.T) {
 func TestRelevanceScoreIrrelevant(t *testing.T) {
 	filter := NewRelevanceFilter([]Rule{
 		{Keyword: "ç¤¾ä¿", Weight: 2, Scope: "all"},
-		{Keyword: "å…»è€", Weight: 2, Scope: "all"},
+		{Keyword: "å…»è€?, Weight: 2, Scope: "all"},
 	})
-	score, _ := filter.Score("ç•ªèŒ„ç•…å¬å…è´¹çœ‹åç»­æ¸©æš–åŒ»ç”Ÿå°è¯´", "DOUYIN-test", "douyin")
+	score, _ := filter.Score("ç•ªèŒ„ç•…å¬å…è´¹çœ‹åç»­æ¸©æš–åŒ»ç”Ÿå°è¯?, "DOUYIN-test", "douyin")
 	if score != 0 {
 		t.Errorf("expected score 0 for irrelevant text, got %d", score)
 	}
@@ -207,7 +227,7 @@ func TestRelevanceScoreIrrelevant(t *testing.T) {
 func TestRelevanceScoreScope(t *testing.T) {
 	filter := NewRelevanceFilter([]Rule{
 		{Keyword: "ç¤¾ä¿", Weight: 2, Scope: "douyin"},
-		{Keyword: "å…»è€", Weight: 2, Scope: "wechat"},
+		{Keyword: "å…»è€?, Weight: 2, Scope: "wechat"},
 	})
 	score1, _ := filter.Score("ç¤¾ä¿ç¼´è´¹", "SRC", "douyin")
 	if score1 != 2 {
@@ -217,7 +237,7 @@ func TestRelevanceScoreScope(t *testing.T) {
 	if score2 != 0 {
 		t.Errorf("expected 0 for wechat scope miss, got %d", score2)
 	}
-	score3, _ := filter.Score("å…»è€", "SRC", "wechat")
+	score3, _ := filter.Score("å…»è€?, "SRC", "wechat")
 	if score3 != 2 {
 		t.Errorf("expected 2 for wechat scope match, got %d", score3)
 	}
@@ -228,11 +248,11 @@ func TestRelevanceExtraKeywords(t *testing.T) {
 		{Keyword: "ç¤¾ä¿", Weight: 2, Scope: "all"},
 	})
 	filter.SetExtraKeywords("SRC1", []string{"é—µè¡Œ", "æµ¦ä¸œ"})
-	score, _ := filter.Score("é—µè¡ŒåŒºç¤¾ä¿ä¸­å¿ƒ", "SRC1", "douyin")
+	score, _ := filter.Score("é—µè¡ŒåŒºç¤¾ä¿ä¸­å¿?, "SRC1", "douyin")
 	if score < 3 {
 		t.Errorf("expected score >= 3 (ç¤¾ä¿+é—µè¡Œ), got %d", score)
 	}
-	score2, _ := filter.Score("é—µè¡ŒåŒºç¤¾ä¿ä¸­å¿ƒ", "SRC2", "douyin")
+	score2, _ := filter.Score("é—µè¡ŒåŒºç¤¾ä¿ä¸­å¿?, "SRC2", "douyin")
 	if score2 != 2 {
 		t.Errorf("expected score 2 (only ç¤¾ä¿, no extra for SRC2), got %d", score2)
 	}
@@ -458,6 +478,10 @@ git commit -m "feat: RelevanceFilter with weighted keyword scoring, scope, extra
 
 ### Task 4: Store Updates for Video Extract
 
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
+
 **Files:**
 - Modify: `services/policy-crawler/internal/crawler/store.go`
 
@@ -550,6 +574,10 @@ git commit -m "feat: SaveRawTextReturningID, video_extract_status CRUD, pending 
 ---
 
 ### Task 5: ASR Provider
+
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
 
 **Files:**
 - Create: `services/policy-crawler/internal/crawler/asr.go`
@@ -683,6 +711,10 @@ git commit -m "feat: ASR provider with Volcano Engine implementation"
 
 ### Task 6: Video Extract Worker
 
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
+
 **Files:**
 - Create: `services/policy-crawler/internal/crawler/video_extract.go`
 
@@ -768,14 +800,14 @@ func (w *VideoExtractWorker) process(task VideoExtractTask) {
 		return
 	}
 
-	enriched := fmt.Sprintf("ã€æ ‡é¢˜ã€‘%s\nã€è§†é¢‘è½¬å½•ã€‘%s", task.Title, transcript)
+	enriched := fmt.Sprintf("ã€æ ‡é¢˜ã€?s\nã€è§†é¢‘è½¬å½•ã€?s", task.Title, transcript)
 	if task.RetryCount == 0 {
 		desc := ""
 		if parts := strings.SplitN(task.Title, "\n", 2); len(parts) == 2 {
 			desc = parts[1]
 		}
 		if desc != "" {
-			enriched = fmt.Sprintf("ã€æ ‡é¢˜ã€‘%s\nã€æè¿°ã€‘%s\nã€è§†é¢‘è½¬å½•ã€‘%s", parts[0], desc, transcript)
+			enriched = fmt.Sprintf("ã€æ ‡é¢˜ã€?s\nã€æè¿°ã€?s\nã€è§†é¢‘è½¬å½•ã€?s", parts[0], desc, transcript)
 		}
 	}
 
@@ -911,6 +943,10 @@ git commit -m "feat: VideoExtractWorker with subtitle-first, ASR-fallback pipeli
 ---
 
 ### Task 7: Douyin Crawler Redesign
+
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
 
 **Files:**
 - Modify: `services/policy-crawler/internal/crawler/douyin_crawler.go`
@@ -1073,7 +1109,7 @@ case "douyin":
 - [ ] **Step 5: Verify compilation**
 
 Run: `go build ./...` in `services/policy-crawler`
-Expected: compiles (may need `m.filter` field on CrawlerManager â€” add `filter *RelevanceFilter` to struct, initialized to nil for now, will be wired in Task 9)
+Expected: compiles (may need `m.filter` field on CrawlerManager â€?add `filter *RelevanceFilter` to struct, initialized to nil for now, will be wired in Task 9)
 
 - [ ] **Step 6: Commit**
 
@@ -1085,6 +1121,10 @@ git commit -m "feat: douyin crawler strict author filter, relevance pre-filter, 
 ---
 
 ### Task 8: WeChat Mixed Mode + Anti-Bot
+
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
 
 **Files:**
 - Modify: `services/policy-crawler/internal/crawler/wechat_crawler.go`
@@ -1161,6 +1201,10 @@ git commit -m "feat: wechat mixed mode, __biz discovery, anti-bot detection, rel
 ---
 
 ### Task 9: Manager Pipeline Integration
+
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
 
 **Files:**
 - Modify: `services/policy-crawler/internal/crawler/manager.go`
@@ -1361,6 +1405,10 @@ git commit -m "feat: manager pipeline integration with video extract worker + re
 
 ### Task 10: LLM Backup Config
 
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
+
 **Files:**
 - Modify: `services/policy-crawler/internal/admin/admin_llm.go`
 - Modify: `services/policy-crawler/internal/crawler/store.go` (SaveLLMConfig/GetLLMConfig SQL)
@@ -1461,20 +1509,24 @@ git commit -m "feat: LLM backup config with primary/fallback"
 
 ### Task 11: Admin Relevance Rules API
 
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
+
 **Files:**
 - Create: `services/policy-crawler/internal/admin/admin_relevance.go`
 
 - [ ] **Step 1: Implement handlers**
 
 Create `admin_relevance.go` with handlers for:
-- `RelevanceRulesListHandler(store)` â€” GET, list rules with optional category/scope filter
-- `RelevanceRulesCreateHandler(store)` â€” POST, create rule
-- `RelevanceRulesUpdateHandler(store)` â€” PUT, update rule (weight, enabled, scope)
-- `RelevanceRulesDeleteHandler(store)` â€” DELETE, delete rule
-- `RelevanceThresholdGetHandler(store)` â€” GET `/admin/relevance/thresholds/{source_id}`
-- `RelevanceThresholdSetHandler(store)` â€” PUT `/admin/relevance/thresholds/{source_id}`
-- `RelevanceTestHandler(filter)` â€” POST, test text score
-- `RelevanceBulkImportHandler(store)` â€” POST, bulk import rules
+- `RelevanceRulesListHandler(store)` â€?GET, list rules with optional category/scope filter
+- `RelevanceRulesCreateHandler(store)` â€?POST, create rule
+- `RelevanceRulesUpdateHandler(store)` â€?PUT, update rule (weight, enabled, scope)
+- `RelevanceRulesDeleteHandler(store)` â€?DELETE, delete rule
+- `RelevanceThresholdGetHandler(store)` â€?GET `/admin/relevance/thresholds/{source_id}`
+- `RelevanceThresholdSetHandler(store)` â€?PUT `/admin/relevance/thresholds/{source_id}`
+- `RelevanceTestHandler(filter)` â€?POST, test text score
+- `RelevanceBulkImportHandler(store)` â€?POST, bulk import rules
 
 All using `*sql.DB` as the store interface (or a thin interface wrapping the DB).
 
@@ -1506,14 +1558,18 @@ git commit -m "feat: admin relevance rules API (CRUD + test + bulk import)"
 
 ### Task 12: Admin ASR Config API
 
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
+
 **Files:**
 - Create: `services/policy-crawler/internal/admin/admin_asr.go`
 
 - [ ] **Step 1: Implement handlers**
 
 Create `admin_asr.go` with:
-- `ASRConfigGetHandler(db)` â€” GET current config
-- `ASRConfigSaveHandler(db)` â€” POST update config
+- `ASRConfigGetHandler(db)` â€?GET current config
+- `ASRConfigSaveHandler(db)` â€?POST update config
 
 - [ ] **Step 2: Register routes in main.go**
 
@@ -1528,18 +1584,22 @@ git commit -m "feat: admin ASR config API"
 
 ---
 
-### Task 13: Admin UI â€” Relevance Rules + ASR + LLM Backup
+### Task 13: Admin UI â€?Relevance Rules + ASR + LLM Backup
+
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
 
 **Files:**
 - Modify: `services/policy-crawler/internal/admin/admin_page.go`
 
-- [ ] **Step 1: Add "ç›¸å…³æ€§è§„åˆ™" tab**
+- [ ] **Step 1: Add "ç›¸å…³æ€§è§„åˆ? tab**
 
 Add a new tab to the admin navigation that renders:
 1. Rules table grouped by category
 2. Add rule form (keyword + category + weight + scope)
 3. Bulk import (textarea for JSON array)
-4. Test panel (input text â†’ show score + matched keywords)
+4. Test panel (input text â†?show score + matched keywords)
 5. Per-source threshold config section
 
 - [ ] **Step 2: Update LLM config section for backup fields**
@@ -1560,6 +1620,10 @@ git commit -m "feat: admin UI for relevance rules, ASR config, LLM backup"
 ---
 
 ### Task 14: Dockerfile + Build + Deploy
+
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
 
 **Files:**
 - Modify: `services/policy-crawler/Dockerfile`
@@ -1609,6 +1673,10 @@ git commit -m "feat: Dockerfile with yt-dlp, ffmpeg for video extraction"
 ---
 
 ### Task 15: End-to-End Verification
+
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
 
 - [ ] **Step 1: Verify migrations applied**
 

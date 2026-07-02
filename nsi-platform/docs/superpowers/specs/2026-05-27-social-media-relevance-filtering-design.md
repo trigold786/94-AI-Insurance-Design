@@ -1,10 +1,18 @@
 # Social Media Relevance Filtering & Video Content Extraction
 
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
+
 **Date**: 2026-05-27
 **Status**: Draft
 **Sub-projects**: This is part of the Crawler Enhancement roadmap (Sub-project 1.5, between Sub-project 1 and 2)
 
 ## Problem Statement
+
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
 
 Social media crawlers (Douyin + WeChat) have **zero relevance filtering** and produce content too short for LLM extraction:
 
@@ -18,12 +26,16 @@ Social media crawlers (Douyin + WeChat) have **zero relevance filtering** and pr
 | Irrelevant content | ~80% (football, novels, cars, diapers) | Anti-bot pages |
 
 Root causes:
-1. Douyin user pages return platform recommendations mixed with creator's own videos â€” no author filtering at discovery
+1. Douyin user pages return platform recommendations mixed with creator's own videos â€?no author filtering at discovery
 2. No keyword/topic relevance check on any social media content
-3. Only title + meta description extracted from Douyin (~160 bytes) â€” no audio/subtitle extraction
+3. Only title + meta description extracted from Douyin (~160 bytes) â€?no audio/subtitle extraction
 4. WeChat articles return anti-bot JavaScript pages, not real content
 
 ## Design Goals
+
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
 
 1. **Douyin**: Only crawl the specific creator's own videos, filter by relevance, extract video audio/subtitles
 2. **WeChat**: Fix anti-bot issues, implement mixed discovery mode (search + account-based)
@@ -33,39 +45,46 @@ Root causes:
 
 ## Architecture: Two-Level Pipeline
 
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
+
 ```
 Level 1: Fast Discovery + Pre-filter (in Crawler.Fetch())
-  â”œâ”€ Douyin: strict author filter â†’ keyword pre-filter on title+desc â†’ return lightweight metadata
-  â””â”€ WeChat: search + account discovery â†’ fetch full article â†’ keyword filter â†’ return full text
-           â”‚
-           â–¼
-Manager.crawlAndProcess()
+  â”œâ”€ Douyin: strict author filter â†?keyword pre-filter on title+desc â†?return lightweight metadata
+  â””â”€ WeChat: search + account discovery â†?fetch full article â†?keyword filter â†?return full text
+           â”?           â–?Manager.crawlAndProcess()
   â”œâ”€ SaveRawText (lightweight for Douyin, full for WeChat)
   â”œâ”€ WeChat: direct to LLM extraction
   â””â”€ Douyin + videoURL: mark video_extract_status='pending', enqueue to VideoExtractQueue
-           â”‚
-           â–¼
-Level 2: Async Video Deep Extract (VideoExtractWorker)
+           â”?           â–?Level 2: Async Video Deep Extract (VideoExtractWorker)
   â”œâ”€ yt-dlp: extract subtitles (priority)
-  â”œâ”€ No subtitle â†’ download audio â†’ ASR â†’ transcript
-  â”œâ”€ Merge: title + desc + transcript â†’ enriched text (~2000+ bytes)
-  â”œâ”€ RelevanceFilter.Score(enriched) â†’ Level 2 threshold
-  â”‚   â”œâ”€ Pass â†’ UpdateRawText, mark video_extract_status='done'
-  â”‚   â””â”€ Fail â†’ mark video_extract_status='discarded', extracted=true
+  â”œâ”€ No subtitle â†?download audio â†?ASR â†?transcript
+  â”œâ”€ Merge: title + desc + transcript â†?enriched text (~2000+ bytes)
+  â”œâ”€ RelevanceFilter.Score(enriched) â†?Level 2 threshold
+  â”?  â”œâ”€ Pass â†?UpdateRawText, mark video_extract_status='done'
+  â”?  â””â”€ Fail â†?mark video_extract_status='discarded', extracted=true
   â””â”€ Ready for LLM extraction pipeline
 ```
 
 ## Component 1: Relevance Filter Engine
 
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
+
 ### Storage
+
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
 
 **`relevance_rules` table** (migration 023):
 
 ```sql
 CREATE TABLE relevance_rules (
     id SERIAL PRIMARY KEY,
-    category TEXT NOT NULL,           -- é™©ç§/æ”¿ç­–åŠ¨è¯/é‡‘é¢æ—¶é—´/äººç¾¤/æ”¿ç­–æ–‡æ¡£/è‡ªå®šä¹‰
-    keyword TEXT NOT NULL,
+    category TEXT NOT NULL,           -- é™©ç§/æ”¿ç­–åŠ¨è¯/é‡‘é¢æ—¶é—´/äººç¾¤/æ”¿ç­–æ–‡æ¡£/è‡ªå®šä¹?    keyword TEXT NOT NULL,
     weight INT NOT NULL DEFAULT 1,    -- 1=medium, 2=high
     scope TEXT NOT NULL DEFAULT 'all', -- all/douyin/wechat/govsite
     enabled BOOLEAN DEFAULT true,
@@ -91,19 +110,19 @@ CREATE TABLE relevance_thresholds (
 | category | keyword | weight | scope |
 |----------|---------|--------|-------|
 | é™©ç§ | ç¤¾ä¿ | 2 | all |
-| é™©ç§ | å…»è€ | 2 | all |
+| é™©ç§ | å…»è€?| 2 | all |
 | é™©ç§ | åŒ»ç–— | 2 | all |
 | é™©ç§ | å¤±ä¸š | 2 | all |
 | é™©ç§ | å·¥ä¼¤ | 2 | all |
 | é™©ç§ | ç”Ÿè‚² | 2 | all |
-| é™©ç§ | å…¬ç§¯é‡‘ | 2 | all |
+| é™©ç§ | å…¬ç§¯é‡?| 2 | all |
 | æ”¿ç­–åŠ¨è¯ | ç¼´è´¹ | 2 | all |
 | æ”¿ç­–åŠ¨è¯ | è¡¥ç¼´ | 2 | all |
 | æ”¿ç­–åŠ¨è¯ | å¾…é‡ | 2 | all |
 | æ”¿ç­–åŠ¨è¯ | é¢†å– | 2 | all |
 | æ”¿ç­–åŠ¨è¯ | åŠç† | 2 | all |
-| æ”¿ç­–åŠ¨è¯ | é€€ä¼‘ | 2 | all |
-| æ”¿ç­–åŠ¨è¯ | å»¶è¿Ÿé€€ä¼‘ | 2 | all |
+| æ”¿ç­–åŠ¨è¯ | é€€ä¼?| 2 | all |
+| æ”¿ç­–åŠ¨è¯ | å»¶è¿Ÿé€€ä¼?| 2 | all |
 | é‡‘é¢æ—¶é—´ | è¡¥è´´ | 1 | all |
 | é‡‘é¢æ—¶é—´ | æŠ¥é”€ | 1 | all |
 | é‡‘é¢æ—¶é—´ | åŸºæ•° | 1 | all |
@@ -111,7 +130,7 @@ CREATE TABLE relevance_thresholds (
 | é‡‘é¢æ—¶é—´ | æ ‡å‡† | 1 | all |
 | äººç¾¤ | èŒå·¥ | 1 | all |
 | äººç¾¤ | çµæ´»å°±ä¸š | 1 | all |
-| äººç¾¤ | é€€ä¼‘äººå‘˜ | 1 | all |
+| äººç¾¤ | é€€ä¼‘äººå‘?| 1 | all |
 | äººç¾¤ | å±…æ°‘ | 1 | all |
 | æ”¿ç­–æ–‡æ¡£ | æ”¿ç­– | 1 | all |
 | æ”¿ç­–æ–‡æ¡£ | é€šçŸ¥ | 1 | all |
@@ -120,13 +139,17 @@ CREATE TABLE relevance_thresholds (
 
 ### Go API
 
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
+
 ```go
 type RelevanceFilter struct {
     rules    []Rule
-    byScope  map[string][]Rule  // scope â†’ rules
-    extra    map[string][]Rule  // sourceID â†’ extra rules
-    l1Min    map[string]int     // sourceID â†’ level1 threshold
-    l2Min    map[string]int     // sourceID â†’ level2 threshold
+    byScope  map[string][]Rule  // scope â†?rules
+    extra    map[string][]Rule  // sourceID â†?extra rules
+    l1Min    map[string]int     // sourceID â†?level1 threshold
+    l2Min    map[string]int     // sourceID â†?level2 threshold
 }
 
 type Rule struct {
@@ -147,6 +170,10 @@ func (f *RelevanceFilter) Reload() error  // hot reload
 
 ### Admin API
 
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
+
 | Endpoint | Method | Purpose |
 |----------|--------|---------|
 | `/admin/relevance/rules` | GET | List rules (filter by category, scope) |
@@ -159,22 +186,34 @@ func (f *RelevanceFilter) Reload() error  // hot reload
 
 ### Admin UI
 
-New "ç›¸å…³æ€§è§„åˆ™" tab in admin dashboard:
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
+
+New "ç›¸å…³æ€§è§„åˆ? tab in admin dashboard:
 1. Rules table grouped by category, inline edit weight/enable/disable
 2. Add rule form: keyword + category dropdown + weight + scope
 3. Bulk import (paste JSON/CSV)
 4. Per-source threshold config in source edit modal
-5. Test panel: input text â†’ show matched keywords and score in real-time
+5. Test panel: input text â†?show matched keywords and score in real-time
 
 ## Component 2: Douyin Crawler Redesign
 
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
+
 ### Discovery: Strict Author Filtering
+
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
 
 Current problem: `discoverVideosFromUserPage()` scrapes the user page HTML and finds ALL `/video/` links including platform recommendations.
 
 New approach:
 1. Use Douyin's internal API endpoint `/aweme/v1/web/aweme/post/` which returns only the creator's own videos (paginated)
-2. Fallback: Chrome-render the user page, but only parse the "ä½œå“" (works) section â€” ignore the "æ¨è" (recommended) section
+2. Fallback: Chrome-render the user page, but only parse the "ä½œå“" (works) section â€?ignore the "æ¨è" (recommended) section
 3. For each discovered video URL, verify author nickname matches the SourceID embedded name before adding to results
 
 ```go
@@ -193,7 +232,7 @@ API endpoint approach:
 - URL: `https://www.douyin.com/aweme/v1/web/aweme/post/?sec_user_id=<UID>&count=20&max_cursor=0`
 - Requires: `User-Agent`, `Cookie` (optional but helps), `Referer` headers
 - Response: JSON with `aweme_list` containing video URLs and metadata
-- Extract `aweme_id` â†’ construct URL: `https://www.douyin.com/video/<aweme_id>`
+- Extract `aweme_id` â†?construct URL: `https://www.douyin.com/video/<aweme_id>`
 
 Chrome works section parsing:
 - Render user page with `?showTab=works` parameter
@@ -202,13 +241,21 @@ Chrome works section parsing:
 
 ### Level 1: Pre-filter
 
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
+
 After discovery, for each video:
 1. Fetch video page (Chrome or HTTP) to get title + description
 2. `RelevanceFilter.Score(title + " " + description, sourceID, "level1")`
-3. If score < threshold â†’ skip, log reason
-4. If passes â†’ return `CrawlResult{NeedsVideoExtract: true, VideoURL: videoURL}`
+3. If score < threshold â†?skip, log reason
+4. If passes â†?return `CrawlResult{NeedsVideoExtract: true, VideoURL: videoURL}`
 
 ### CrawlResult Extension
+
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
 
 ```go
 type CrawlResult struct {
@@ -228,7 +275,15 @@ type CrawlResult struct {
 
 ## Component 3: Video Content Extractor
 
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
+
 ### Docker Image Update
+
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
 
 Dockerfile additions:
 ```dockerfile
@@ -237,6 +292,10 @@ RUN pip3 install --no-cache-dir yt-dlp
 ```
 
 ### VideoExtractWorker
+
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
 
 ```go
 type VideoExtractWorker struct {
@@ -260,23 +319,27 @@ type VideoExtractTask struct {
 Pipeline per task:
 1. Set `video_extract_status = 'processing'` on raw_text row
 2. Try yt-dlp subtitle extraction: `yt-dlp --write-sub --sub-lang zh --skip-download --output <tmp> <videoURL>`
-3. If subtitle found â†’ read .vtt/.srt file â†’ clean â†’ transcript
+3. If subtitle found â†?read .vtt/.srt file â†?clean â†?transcript
 4. If no subtitle:
    a. Download audio: `yt-dlp -x --audio-format mp3 --output <tmp> <videoURL>`
    b. Call ASR API with audio file
    c. transcript = ASR response text
 5. Enriched content = format:
    ```
-   ã€æ ‡é¢˜ã€‘<title>
-   ã€æè¿°ã€‘<description>
-   ã€è§†é¢‘è½¬å½•ã€‘<transcript>
+   ã€æ ‡é¢˜ã€?title>
+   ã€æè¿°ã€?description>
+   ã€è§†é¢‘è½¬å½•ã€?transcript>
    ```
 6. `RelevanceFilter.Score(enriched, sourceID, "level2")`
-   - Pass â†’ `UPDATE policy_raw_texts SET content = enriched, video_extract_status = 'done' WHERE id = rawTextID`
-   - Fail â†’ `UPDATE policy_raw_texts SET video_extract_status = 'discarded', extracted = true WHERE id = rawTextID`
-7. On error: increment retry_count, if < 3 â†’ re-enqueue with delay; else â†’ mark `video_extract_status = 'failed'`
+   - Pass â†?`UPDATE policy_raw_texts SET content = enriched, video_extract_status = 'done' WHERE id = rawTextID`
+   - Fail â†?`UPDATE policy_raw_texts SET video_extract_status = 'discarded', extracted = true WHERE id = rawTextID`
+7. On error: increment retry_count, if < 3 â†?re-enqueue with delay; else â†?mark `video_extract_status = 'failed'`
 
 ### Concurrency & Rate Limiting
+
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
 
 - Worker count: configurable via env `VIDEO_EXTRACT_WORKERS` (default 2)
 - Queue buffer: 100 tasks
@@ -285,6 +348,10 @@ Pipeline per task:
 - Temporary files: stored in `/tmp/video-extract/`, cleaned after processing
 
 ### Recovery on Restart
+
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
 
 On startup:
 ```sql
@@ -296,7 +363,15 @@ Re-enqueue all as `VideoExtractTask` (content is the lightweight title+desc).
 
 ## Component 4: Database Changes
 
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
+
 ### Migration 023: Relevance + Video Extract
+
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
 
 ```sql
 -- Relevance rules
@@ -329,7 +404,7 @@ CREATE INDEX idx_raw_texts_vextract ON policy_raw_texts(video_extract_status)
 -- Seed default rules
 INSERT INTO relevance_rules (category, keyword, weight, scope) VALUES
 ('é™©ç§', 'ç¤¾ä¿', 2, 'all'),
-('é™©ç§', 'å…»è€', 2, 'all'),
+('é™©ç§', 'å…»è€?, 2, 'all'),
 ('é™©ç§', 'å…»è€é™©', 2, 'all'),
 ('é™©ç§', 'å…»è€é‡‘', 2, 'all'),
 ('é™©ç§', 'åŒ»ç–—', 2, 'all'),
@@ -337,17 +412,17 @@ INSERT INTO relevance_rules (category, keyword, weight, scope) VALUES
 ('é™©ç§', 'å¤±ä¸š', 2, 'all'),
 ('é™©ç§', 'å·¥ä¼¤', 2, 'all'),
 ('é™©ç§', 'ç”Ÿè‚²', 2, 'all'),
-('é™©ç§', 'å…¬ç§¯é‡‘', 2, 'all'),
+('é™©ç§', 'å…¬ç§¯é‡?, 2, 'all'),
 ('æ”¿ç­–åŠ¨è¯', 'ç¼´è´¹', 2, 'all'),
 ('æ”¿ç­–åŠ¨è¯', 'è¡¥ç¼´', 2, 'all'),
 ('æ”¿ç­–åŠ¨è¯', 'å¾…é‡', 2, 'all'),
 ('æ”¿ç­–åŠ¨è¯', 'é¢†å–', 2, 'all'),
 ('æ”¿ç­–åŠ¨è¯', 'åŠç†', 2, 'all'),
-('æ”¿ç­–åŠ¨è¯', 'é€€ä¼‘', 2, 'all'),
-('æ”¿ç­–åŠ¨è¯', 'å»¶è¿Ÿé€€ä¼‘', 2, 'all'),
-('æ”¿ç­–åŠ¨è¯', 'é€€ä¼‘å¹´é¾„', 2, 'all'),
+('æ”¿ç­–åŠ¨è¯', 'é€€ä¼?, 2, 'all'),
+('æ”¿ç­–åŠ¨è¯', 'å»¶è¿Ÿé€€ä¼?, 2, 'all'),
+('æ”¿ç­–åŠ¨è¯', 'é€€ä¼‘å¹´é¾?, 2, 'all'),
 ('æ”¿ç­–åŠ¨è¯', 'å‚ä¿', 2, 'all'),
-('æ”¿ç­–åŠ¨è¯', 'å‚ä¿äºº', 2, 'all'),
+('æ”¿ç­–åŠ¨è¯', 'å‚ä¿äº?, 2, 'all'),
 ('æ”¿ç­–åŠ¨è¯', 'ç¼´è´¹å¹´é™', 2, 'all'),
 ('é‡‘é¢æ—¶é—´', 'è¡¥è´´', 1, 'all'),
 ('é‡‘é¢æ—¶é—´', 'æŠ¥é”€', 1, 'all'),
@@ -359,10 +434,10 @@ INSERT INTO relevance_rules (category, keyword, weight, scope) VALUES
 ('é‡‘é¢æ—¶é—´', 'ä¸Šæ¶¨', 1, 'all'),
 ('äººç¾¤', 'èŒå·¥', 1, 'all'),
 ('äººç¾¤', 'çµæ´»å°±ä¸š', 1, 'all'),
-('äººç¾¤', 'é€€ä¼‘äººå‘˜', 1, 'all'),
+('äººç¾¤', 'é€€ä¼‘äººå‘?, 1, 'all'),
 ('äººç¾¤', 'å±…æ°‘', 1, 'all'),
-('äººç¾¤', 'å¤–å›½äºº', 1, 'all'),
-('äººç¾¤', 'ä¸ªä½“æˆ·', 1, 'all'),
+('äººç¾¤', 'å¤–å›½äº?, 1, 'all'),
+('äººç¾¤', 'ä¸ªä½“æˆ?, 1, 'all'),
 ('æ”¿ç­–æ–‡æ¡£', 'æ”¿ç­–', 1, 'all'),
 ('æ”¿ç­–æ–‡æ¡£', 'é€šçŸ¥', 1, 'all'),
 ('æ”¿ç­–æ–‡æ¡£', 'å…¬å‘Š', 1, 'all'),
@@ -370,10 +445,14 @@ INSERT INTO relevance_rules (category, keyword, weight, scope) VALUES
 ('æ”¿ç­–æ–‡æ¡£', 'è§„å®š', 1, 'all'),
 ('æ”¿ç­–æ–‡æ¡£', 'æ–¹æ¡ˆ', 1, 'all'),
 ('æ”¿ç­–æ–‡æ¡£', 'æ„è§', 1, 'all'),
-('æ”¿ç­–æ–‡æ¡£', 'æ„è§ç¨¿', 1, 'all');
+('æ”¿ç­–æ–‡æ¡£', 'æ„è§ç¨?, 1, 'all');
 ```
 
 ### Migration 024: ASR Config + LLM Backup
+
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
 
 ```sql
 -- ASR configuration (separate config unit)
@@ -399,7 +478,15 @@ ALTER TABLE llm_configs ADD COLUMN IF NOT EXISTS backup_model_name TEXT DEFAULT 
 
 ## Component 5: ASR Provider
 
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
+
 ### Configuration
+
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
 
 Stored in `asr_configs` table, managed via admin UI.
 
@@ -418,18 +505,26 @@ type ASRConfig struct {
 
 ### Volcano Engine ASR Integration
 
-API: ByteDance OpenSpeech (ç«å±±å¼•æ“è¯­éŸ³æŠ€æœ¯)
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
+
+API: ByteDance OpenSpeech (ç«å±±å¼•æ“è¯­éŸ³æŠ€æœ?
 - Endpoint: configurable (default `https://openspeech.bytedance.com/api/v1/auc`)
 - Auth: Bearer token via API key
 - Input: audio file (mp3/wav, mono, 16kHz)
 - Output: transcript text with timestamps
 - Flow:
-  1. Read audio file â†’ base64 encode
+  1. Read audio file â†?base64 encode
   2. POST to endpoint with audio data
   3. Parse response for text segments
   4. Concatenate into single transcript
 
 ### Fallback Chain
+
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
 
 1. Try configured ASR provider
 2. If ASR fails: log error, mark task for retry
@@ -437,11 +532,23 @@ API: ByteDance OpenSpeech (ç«å±±å¼•æ“è¯­éŸ³æŠ€æœ¯)
 
 ## Component 6: LLM Backup Config
 
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
+
 ### Storage
+
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
 
 Added to existing `llm_configs` table as `backup_*` columns.
 
 ### Behavior
+
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
 
 ```go
 func (e *LLMExtractor) callLLM(prompt string) (string, error) {
@@ -465,13 +572,25 @@ func (e *LLMExtractor) callLLM(prompt string) (string, error) {
 
 ## Component 7: WeChat Mixed Mode
 
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
+
 ### Search Engine Discovery (existing, improved)
+
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
 
 Keep current Baidu/Sogou/Bing search, but add:
 - Extract `__biz` parameter from discovered article URLs
 - Deduplicate by `__biz + mid` (article identifier)
 
 ### Account-Based Discovery (new)
+
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
 
 For WeChat sources with article URLs containing `__biz`:
 1. Extract `__biz` from source_url
@@ -481,23 +600,39 @@ For WeChat sources with article URLs containing `__biz`:
 
 ### Anti-Bot Mitigation
 
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
+
 Current problem: Chrome renderer returns anti-bot JavaScript pages.
 
 Improvements:
-1. Increase Chrome render wait time for WeChat articles (15s â†’ 25s)
+1. Increase Chrome render wait time for WeChat articles (15s â†?25s)
 2. Add cookie support: load cookies from file (exported from browser session)
 3. Use `RenderWithVirtualTime` with longer virtual time (simulate human reading)
 4. Fallback: if Chrome fails, try plain HTTP with mobile User-Agent (WeChat mobile web is simpler)
 
 ### Content Extraction Fix
 
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
+
 Current `extractWeChatContent()` looks for `id="js_content"`. Anti-bot pages don't have this.
-- Add check: if `js_content` not found AND page contains "éªŒè¯" / "ç¯å¢ƒå¼‚å¸¸" â†’ mark as anti-bot, skip
+- Add check: if `js_content` not found AND page contains "éªŒè¯" / "ç¯å¢ƒå¼‚å¸¸" â†?mark as anti-bot, skip
 - Log anti-bot detections to help tune rendering parameters
 
 ## Component 8: Manager Pipeline Changes
 
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
+
 ### crawlAndProcess() Update
+
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
 
 ```go
 func (m *CrawlerManager) crawlAndProcess(s Source) {
@@ -529,6 +664,10 @@ func (m *CrawlerManager) crawlAndProcess(s Source) {
 
 ### LLM Extraction Query Update
 
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
+
 Update `GetUnprocessedRawTexts` to also pick up completed video extractions:
 
 ```sql
@@ -540,6 +679,10 @@ WHERE NOT prt.extracted
 This ensures 'failed' and 'discarded' items are excluded from LLM extraction.
 
 ## Component 9: Startup Recovery
+
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
 
 On `CrawlerManager` initialization:
 1. Query for pending/processing video extracts
@@ -564,16 +707,20 @@ func (m *CrawlerManager) recoverPendingVideoExtracts() {
 
 ## File Structure
 
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
+
 New files:
 ```
 services/policy-crawler/internal/
 â”œâ”€â”€ crawler/
-â”‚   â”œâ”€â”€ relevance.go          # RelevanceFilter + Rule types + Score()
-â”‚   â”œâ”€â”€ video_extract.go      # VideoExtractWorker, task queue, pipeline
-â”‚   â””â”€â”€ asr.go                # ASR provider interface + volcengine impl
+â”?  â”œâ”€â”€ relevance.go          # RelevanceFilter + Rule types + Score()
+â”?  â”œâ”€â”€ video_extract.go      # VideoExtractWorker, task queue, pipeline
+â”?  â””â”€â”€ asr.go                # ASR provider interface + volcengine impl
 â”œâ”€â”€ admin/
-â”‚   â”œâ”€â”€ admin_relevance.go    # Relevance rules admin API handlers
-â”‚   â””â”€â”€ admin_asr.go          # ASR config admin API handlers
+â”?  â”œâ”€â”€ admin_relevance.go    # Relevance rules admin API handlers
+â”?  â””â”€â”€ admin_asr.go          # ASR config admin API handlers
 migrations/
 â”œâ”€â”€ 023_relevance_video.sql   # relevance_rules, relevance_thresholds, video_extract_status
 â””â”€â”€ 024_asr_llm_backup.sql   # asr_configs, backup LLM columns
@@ -583,22 +730,26 @@ Modified files:
 ```
 services/policy-crawler/internal/
 â”œâ”€â”€ crawler/
-â”‚   â”œâ”€â”€ crawler.go            # CrawlResult: add VideoURL, NeedsVideoExtract, ContentType
-â”‚   â”œâ”€â”€ douyin_crawler.go     # Redesign discovery (API + works section), add pre-filter
-â”‚   â”œâ”€â”€ wechat_crawler.go     # Mixed mode, anti-bot mitigation, __biz discovery
-â”‚   â”œâ”€â”€ manager.go            # VideoExtractQueue integration, recovery on startup
-â”‚   â””â”€â”€ store.go              # video_extract_status CRUD, GetPendingVideoExtracts
+â”?  â”œâ”€â”€ crawler.go            # CrawlResult: add VideoURL, NeedsVideoExtract, ContentType
+â”?  â”œâ”€â”€ douyin_crawler.go     # Redesign discovery (API + works section), add pre-filter
+â”?  â”œâ”€â”€ wechat_crawler.go     # Mixed mode, anti-bot mitigation, __biz discovery
+â”?  â”œâ”€â”€ manager.go            # VideoExtractQueue integration, recovery on startup
+â”?  â””â”€â”€ store.go              # video_extract_status CRUD, GetPendingVideoExtracts
 â”œâ”€â”€ admin/
-â”‚   â”œâ”€â”€ admin_page.go         # New "ç›¸å…³æ€§è§„åˆ™" tab, ASR config section, test panel
-â”‚   â”œâ”€â”€ admin_dashboard.go    # SourceInfo: no changes needed
-â”‚   â””â”€â”€ admin_llm.go          # LLMConfig: add backup fields, save/load handlers
+â”?  â”œâ”€â”€ admin_page.go         # New "ç›¸å…³æ€§è§„åˆ? tab, ASR config section, test panel
+â”?  â”œâ”€â”€ admin_dashboard.go    # SourceInfo: no changes needed
+â”?  â””â”€â”€ admin_llm.go          # LLMConfig: add backup fields, save/load handlers
 â”œâ”€â”€ extractor/
-â”‚   â””â”€â”€ llm_extractor.go      # Primary/backup fallback logic
+â”?  â””â”€â”€ llm_extractor.go      # Primary/backup fallback logic
 cmd/main.go                   # Init VideoExtractWorker, recovery, routes for new admin APIs
 services/policy-crawler/Dockerfile  # Add yt-dlp, ffmpeg, python3
 ```
 
 ## Success Metrics
+
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
 
 | Metric | Current | Target |
 |--------|---------|--------|

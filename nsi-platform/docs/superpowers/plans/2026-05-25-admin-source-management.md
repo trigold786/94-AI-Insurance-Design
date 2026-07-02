@@ -1,5 +1,9 @@
 # Admin Source Management Implementation Plan
 
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Add full CRUD + operational management (create, edit, delete, crawl trigger, RSS preview, manual import) for multi-level policy sources in the admin panel.
@@ -12,13 +16,17 @@
 
 ## File Structure
 
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
+
 | Action | File | Responsibility |
 |--------|------|----------------|
 | CREATE | `internal/admin/admin_sources.go` | 4 new handlers + interfaces |
 | MODIFY | `internal/admin/admin_dashboard.go` | Extend `SourceUpdateHandler` for full-field edits |
 | MODIFY | `internal/admin/admin_page.go` | Rewrite `loadSources()` JS, add modal HTML + 7 JS functions |
 | MODIFY | `internal/crawler/store.go` | Add `CreateSource()`, `DeleteSource()`, extend `UpdateSource()` |
-| MODIFY | `internal/crawler/rss_crawler.go` | Export `parseFeed` â†’ `ParseFeed` |
+| MODIFY | `internal/crawler/rss_crawler.go` | Export `parseFeed` â†?`ParseFeed` |
 | MODIFY | `cmd/main.go` | Register 4 new routes, pass manager to crawl trigger |
 | CREATE | `internal/admin/admin_sources_test.go` | Handler unit tests |
 
@@ -27,6 +35,10 @@ All paths relative to `services/policy-crawler/`.
 ---
 
 ### Task 1: Export `ParseFeed` from crawler package
+
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
 
 **Files:**
 - Modify: `internal/crawler/rss_crawler.go:102`
@@ -55,7 +67,11 @@ git commit -m "refactor: export ParseFeed for admin RSS preview"
 
 ---
 
-### Task 2: Add store methods â€” CreateSource, DeleteSource, extend UpdateSource
+### Task 2: Add store methods â€?CreateSource, DeleteSource, extend UpdateSource
+
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
 
 **Files:**
 - Modify: `internal/crawler/store.go`
@@ -214,6 +230,10 @@ git commit -m "feat: add CreateSource/DeleteSource, extend UpdateSource for full
 ---
 
 ### Task 3: Add 4 new admin handlers
+
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
 
 **Files:**
 - Create: `internal/admin/admin_sources.go`
@@ -393,6 +413,10 @@ git commit -m "feat: add source create/delete/crawl-trigger/rss-test handlers"
 
 ### Task 4: Register new routes in main.go
 
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
+
 **Files:**
 - Modify: `cmd/main.go:123-131`
 
@@ -423,6 +447,10 @@ git commit -m "feat: register source CRUD and RSS test routes"
 
 ### Task 5: Rewrite admin UI sources tab
 
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
+
 **Files:**
 - Modify: `internal/admin/admin_page.go` (replace `loadSources` function + `toggleSource`, add modal HTML + new JS functions)
 
@@ -441,15 +469,15 @@ function loadSources(){
   fetch('/admin/sources').then(function(r){return r.json()}).then(function(d){
     if(d.code!==0)throw new Error(d.message||'error');
     var h='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">'+
-      '<span style="color:#6B7280;font-size:13px">å…± '+d.data.length+' ä¸ªæ•°æ®æº</span>'+
-      '<button class="btn btn-success" onclick="showSourceForm()">+ æ–°å¢æ•°æ®æº</button></div>'+
-      '<div style="overflow-x:auto"><table><tr><th>å¯ç”¨</th><th>åç§°</th><th>URL</th><th>çº§åˆ«</th><th>ç±»å‹</th><th>åœ°åŒº</th><th>é—´éš”</th><th>æœ€è¿‘çˆ¬å–</th><th>çŠ¶æ€</th><th>æ“ä½œ</th></tr>';
+      '<span style="color:#6B7280;font-size:13px">å…?'+d.data.length+' ä¸ªæ•°æ®æº</span>'+
+      '<button class="btn btn-success" onclick="showSourceForm()">+ æ–°å¢æ•°æ®æº?/button></div>'+
+      '<div style="overflow-x:auto"><table><tr><th>å¯ç”¨</th><th>åç§°</th><th>URL</th><th>çº§åˆ«</th><th>ç±»å‹</th><th>åœ°åŒº</th><th>é—´éš”</th><th>æœ€è¿‘çˆ¬å?/th><th>çŠ¶æ€?/th><th>æ“ä½œ</th></tr>';
     d.data.forEach(function(s){
       var actions='<div style="display:flex;gap:4px;flex-wrap:nowrap">';
-      actions+='<button class="btn btn-outline btn-sm" onclick="showSourceForm(\''+esc(s.source_id)+'\')" title="ç¼–è¾‘">âœ</button>';
-      actions+='<button class="btn btn-danger btn-sm" onclick="deleteSource(\''+esc(s.source_id)+'\',\''+esc(s.source_name)+'\')" title="åˆ é™¤">âœ•</button>';
+      actions+='<button class="btn btn-outline btn-sm" onclick="showSourceForm(\''+esc(s.source_id)+'\')" title="ç¼–è¾‘">âœ?/button>';
+      actions+='<button class="btn btn-danger btn-sm" onclick="deleteSource(\''+esc(s.source_id)+'\',\''+esc(s.source_name)+'\')" title="åˆ é™¤">âœ?/button>';
       if(s.crawl_type!=='manual'){
-        actions+='<button class="btn btn-primary btn-sm" onclick="triggerCrawl(\''+esc(s.source_id)+'\')" title="è§¦å‘çˆ¬å–">â–¶</button>';
+        actions+='<button class="btn btn-primary btn-sm" onclick="triggerCrawl(\''+esc(s.source_id)+'\')" title="è§¦å‘çˆ¬å–">â–?/button>';
       }
       if(s.crawl_type==='rss'){
         actions+='<button class="btn btn-outline btn-sm" onclick="testRSS(\''+esc(s.source_url).replace(/'/g,"\\'")+'\')" title="æµ‹è¯•RSS">ğŸ”</button>';
@@ -472,16 +500,16 @@ function loadSources(){
     h+='</table></div>'+
       '<div id="sourceModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.4);z-index:1000;display:none">'+
       '<div style="background:#fff;border-radius:10px;padding:20px;max-width:500px;margin:60px auto;box-shadow:0 4px 20px rgba(0,0,0,0.15)">'+
-      '<h3 id="sourceModalTitle" style="font-size:16px;margin-bottom:16px">æ–°å¢æ•°æ®æº</h3>'+
+      '<h3 id="sourceModalTitle" style="font-size:16px;margin-bottom:16px">æ–°å¢æ•°æ®æº?/h3>'+
       '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'+
-      '<div><label style="font-size:12px;color:#6B7280;display:block;margin-bottom:4px">æ•°æ®æº ID</label><input id="sf_id" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px"></div>'+
+      '<div><label style="font-size:12px;color:#6B7280;display:block;margin-bottom:4px">æ•°æ®æº?ID</label><input id="sf_id" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px"></div>'+
       '<div><label style="font-size:12px;color:#6B7280;display:block;margin-bottom:4px">åç§°</label><input id="sf_name" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px"></div>'+
       '<div><label style="font-size:12px;color:#6B7280;display:block;margin-bottom:4px">ç±»å‹</label><select id="sf_type" onchange="onTypeChange()" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px">'+
       '<option value="govsite">æ”¿åºœç½‘ç«™</option><option value="file">æ–‡ä»¶</option><option value="rss">RSS</option><option value="manual">æ‰‹åŠ¨</option></select></div>'+
       '<div><label style="font-size:12px;color:#6B7280;display:block;margin-bottom:4px">çº§åˆ«</label><select id="sf_level" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px">'+
       '<option value="HIGH">HIGH</option><option value="MEDIUM">MEDIUM</option><option value="LOW">LOW</option></select></div>'+
       '<div id="sf_url_wrap" style="grid-column:1/3"><label style="font-size:12px;color:#6B7280;display:block;margin-bottom:4px">URL</label><input id="sf_url" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px" placeholder="https://..."></div>'+
-      '<div><label style="font-size:12px;color:#6B7280;display:block;margin-bottom:4px">çˆ¬å–é—´éš”(ç§’)</label><input id="sf_interval" type="number" value="86400" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px"></div>'+
+      '<div><label style="font-size:12px;color:#6B7280;display:block;margin-bottom:4px">çˆ¬å–é—´éš”(ç§?</label><input id="sf_interval" type="number" value="86400" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px"></div>'+
       '<div><label style="font-size:12px;color:#6B7280;display:block;margin-bottom:4px">åœ°åŒºä»£ç </label><input id="sf_region" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px" placeholder="310000"></div>'+
       '</div>'+
       '<div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end">'+
@@ -493,7 +521,7 @@ function loadSources(){
       '<h3 id="importModalTitle" style="font-size:16px;margin-bottom:16px">å¯¼å…¥å†…å®¹</h3>'+
       '<input type="hidden" id="imp_source_id">'+
       '<div style="margin-bottom:10px"><label style="font-size:12px;color:#6B7280;display:block;margin-bottom:4px">æ ‡é¢˜</label><input id="imp_title" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px"></div>'+
-      '<div style="margin-bottom:10px"><label style="font-size:12px;color:#6B7280;display:block;margin-bottom:4px">æ¥æºURL (å¯é€‰)</label><input id="imp_url" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px"></div>'+
+      '<div style="margin-bottom:10px"><label style="font-size:12px;color:#6B7280;display:block;margin-bottom:4px">æ¥æºURL (å¯é€?</label><input id="imp_url" style="width:100%;padding:6px 8px;border:1px solid #D1D5DB;border-radius:4px;font-size:13px"></div>'+
       '<div style="margin-bottom:10px"><label style="font-size:12px;color:#6B7280;display:block;margin-bottom:4px">å†…å®¹</label><textarea id="imp_content" style="width:100%;min-height:180px;border:1px solid #D1D5DB;border-radius:6px;padding:10px;font-size:13px;font-family:monospace;resize:vertical"></textarea></div>'+
       '<div style="display:flex;gap:8px;justify-content:flex-end">'+
       '<button class="btn btn-outline" onclick="closeImportModal()">å–æ¶ˆ</button>'+
@@ -533,7 +561,7 @@ function onTypeChange(){
 function showSourceForm(id){
   editingSourceId=id||'';
   var modal=document.getElementById('sourceModal');
-  document.getElementById('sourceModalTitle').textContent=id?'ç¼–è¾‘æ•°æ®æº':'æ–°å¢æ•°æ®æº';
+  document.getElementById('sourceModalTitle').textContent=id?'ç¼–è¾‘æ•°æ®æº?:'æ–°å¢æ•°æ®æº?;
   var idInput=document.getElementById('sf_id');
   if(id){
     idInput.value=id;idInput.readOnly=true;
@@ -567,7 +595,7 @@ function closeSourceModal(){document.getElementById('sourceModal').style.display
 function saveSource(){
   var id=document.getElementById('sf_id').value.trim();
   var name=document.getElementById('sf_name').value.trim();
-  if(!id||!name){showToast('IDå’Œåç§°ä¸èƒ½ä¸ºç©º','error');return}
+  if(!id||!name){showToast('IDå’Œåç§°ä¸èƒ½ä¸ºç©?,'error');return}
   var payload={
     source_id:id,source_name:name,
     crawl_type:document.getElementById('sf_type').value,
@@ -580,23 +608,23 @@ function saveSource(){
     payload.source_id=editingSourceId;
     fetch('/admin/sources/update',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
     .then(function(r){return r.json()}).then(function(d){
-      if(d.code===0){showToast('å·²ä¿å­˜','success');closeSourceModal();loadSources()}
+      if(d.code===0){showToast('å·²ä¿å­?,'success');closeSourceModal();loadSources()}
       else{showToast('ä¿å­˜å¤±è´¥: '+(d.error||''),'error')}
     }).catch(function(){showToast('è¯·æ±‚å¤±è´¥','error')});
   }else{
     fetch('/admin/sources/create',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
     .then(function(r){return r.json()}).then(function(d){
-      if(d.code===0){showToast('å·²åˆ›å»º','success');closeSourceModal();loadSources()}
+      if(d.code===0){showToast('å·²åˆ›å»?,'success');closeSourceModal();loadSources()}
       else{showToast('åˆ›å»ºå¤±è´¥: '+(d.error||''),'error')}
     }).catch(function(){showToast('è¯·æ±‚å¤±è´¥','error')});
   }
 }
 
 function deleteSource(id,name){
-  if(!confirm('ç¡®å®šè¦åˆ é™¤ "'+name+'" å—ï¼Ÿ'))return;
+  if(!confirm('ç¡®å®šè¦åˆ é™?"'+name+'" å—ï¼Ÿ'))return;
   fetch('/admin/sources/delete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({source_id:id})})
   .then(function(r){return r.json()}).then(function(d){
-    if(d.code===0){showToast('å·²åˆ é™¤','success');loadSources()}
+    if(d.code===0){showToast('å·²åˆ é™?,'success');loadSources()}
     else{showToast('åˆ é™¤å¤±è´¥: '+(d.error||''),'error')}
   }).catch(function(){showToast('è¯·æ±‚å¤±è´¥','error')});
 }
@@ -604,7 +632,7 @@ function deleteSource(id,name){
 function triggerCrawl(id){
   fetch('/admin/sources/crawl',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({source_id:id})})
   .then(function(r){return r.json()}).then(function(d){
-    if(d.code===0)showToast('çˆ¬å–å·²è§¦å‘','success');
+    if(d.code===0)showToast('çˆ¬å–å·²è§¦å?,'success');
     else showToast('è§¦å‘å¤±è´¥: '+(d.error||''),'error');
   }).catch(function(){showToast('è¯·æ±‚å¤±è´¥','error')});
 }
@@ -615,10 +643,10 @@ function testRSS(url){
     if(d.code!==0){showToast('æµ‹è¯•å¤±è´¥: '+(d.error||''),'error');return}
     var items=d.data.items||[];
     var total=d.data.total||0;
-    var h='<p style="font-size:13px;color:#6B7280;margin-bottom:8px">å…± '+total+' æ¡ï¼Œæ˜¾ç¤ºå‰ '+items.length+' æ¡</p>';
+    var h='<p style="font-size:13px;color:#6B7280;margin-bottom:8px">å…?'+total+' æ¡ï¼Œæ˜¾ç¤ºå‰?'+items.length+' æ?/p>';
     items.forEach(function(it){
       h+='<div style="padding:6px 0;border-bottom:1px solid #F3F4F6;font-size:13px">'+
-        '<div style="font-weight:600">'+esc(it.title||'(æ— æ ‡é¢˜)')+'</div>'+
+        '<div style="font-weight:600">'+esc(it.title||'(æ— æ ‡é¢?')+'</div>'+
         '<a href="'+esc(it.link)+'" target="_blank" style="font-size:11px;color:#1A56DB;text-decoration:none">'+esc(it.link)+'</a></div>';
     });
     document.getElementById('rssPreviewContent').innerHTML=h;
@@ -630,7 +658,7 @@ function closeRSSPreview(){document.getElementById('rssPreview').style.display='
 
 function showImportModal(sid,sname){
   document.getElementById('imp_source_id').value=sid;
-  document.getElementById('importModalTitle').textContent='å¯¼å…¥å†…å®¹ â€” '+sname;
+  document.getElementById('importModalTitle').textContent='å¯¼å…¥å†…å®¹ â€?'+sname;
   document.getElementById('imp_title').value='';
   document.getElementById('imp_url').value='';
   document.getElementById('imp_content').value='';
@@ -643,7 +671,7 @@ function doSourceImport(){
   var sid=document.getElementById('imp_source_id').value;
   var title=document.getElementById('imp_title').value.trim();
   var content=document.getElementById('imp_content').value.trim();
-  if(!title||!content){showToast('æ ‡é¢˜å’Œå†…å®¹ä¸èƒ½ä¸ºç©º','error');return}
+  if(!title||!content){showToast('æ ‡é¢˜å’Œå†…å®¹ä¸èƒ½ä¸ºç©?,'error');return}
   fetch('/admin/sources/import',{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({source_id:sid,title:title,content:content,source_url:document.getElementById('imp_url').value})})
   .then(function(r){return r.json()}).then(function(d){
@@ -673,6 +701,10 @@ git commit -m "feat: admin UI source management with CRUD, crawl trigger, RSS pr
 ---
 
 ### Task 6: Add handler unit tests
+
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
 
 **Files:**
 - Create: `internal/admin/admin_sources_test.go`
@@ -818,6 +850,10 @@ git commit -m "test: add unit tests for source CRUD handlers"
 ---
 
 ### Task 7: Full build + test verification
+
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
 
 - [ ] **Step 1: Build all services**
 

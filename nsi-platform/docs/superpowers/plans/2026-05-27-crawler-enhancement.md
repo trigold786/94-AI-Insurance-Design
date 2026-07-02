@@ -1,5 +1,9 @@
 # Crawler Capability Enhancement Implementation Plan
 
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Enhance the policy-crawler with document file parsing, resilient HTTP client (retry + proxy), and crawling ethics configuration.
@@ -12,14 +16,18 @@
 
 ## File Structure
 
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
+
 | File | Responsibility |
 |------|---------------|
 | `migrations/022_crawler_ethics.sql` | Add proxy_url, request_delay_ms, max_concurrent, respect_robots columns |
 | `internal/crawler/crawler.go` | Add 4 new fields to SourceConfig struct |
 | `internal/crawler/store.go` | Update SQL queries to read new fields |
-| `internal/crawler/http_client.go` | NEW â€” ResilientHTTPClient with retry + proxy |
-| `internal/crawler/doc_parser.go` | NEW â€” PDF/DOCX text extraction |
-| `internal/crawler/robots.go` | NEW â€” robots.txt parser and checker |
+| `internal/crawler/http_client.go` | NEW â€?ResilientHTTPClient with retry + proxy |
+| `internal/crawler/doc_parser.go` | NEW â€?PDF/DOCX text extraction |
+| `internal/crawler/robots.go` | NEW â€?robots.txt parser and checker |
 | `internal/crawler/govsite.go` | Use new HTTP client, allow document links, route to doc parser, check robots |
 | `internal/crawler/rss_crawler.go` | Use new HTTP client |
 | `internal/crawler/manager.go` | Enforce request delay between fetches |
@@ -29,6 +37,10 @@
 ---
 
 ### Task 1: Migration + SourceConfig struct update
+
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
 
 **Files:**
 - Create: `migrations/022_crawler_ethics.sql`
@@ -100,6 +112,10 @@ Expected: compiles without errors
 ---
 
 ### Task 2: Resilient HTTP Client
+
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
 
 **Files:**
 - Create: `internal/crawler/http_client.go`
@@ -235,6 +251,10 @@ Run: `go build ./...` (in `services/policy-crawler`)
 
 ### Task 3: Document File Parser
 
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
+
 **Files:**
 - Create: `internal/crawler/doc_parser.go`
 
@@ -366,6 +386,10 @@ Run: `go build ./...`
 ---
 
 ### Task 4: Robots.txt Parser
+
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
 
 **Files:**
 - Create: `internal/crawler/robots.go`
@@ -521,6 +545,10 @@ Run: `go build ./...`
 
 ### Task 5: Integrate into GovSiteCrawler
 
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
+
 **Files:**
 - Modify: `internal/crawler/govsite.go`
 
@@ -562,7 +590,7 @@ type GovSiteCrawler struct {
 
 - [ ] **Step 3: Allow document links in isPolicyLink**
 
-Find the `isPolicyLink` function. It currently has a block that rejects `.pdf/.doc/.docx/.xls/.xlsx`. Change it to **allow** those extensions (remove the exclusion block for document files). The relevant code to find and remove/modify is the section checking `hasExt(link, ".pdf")` etc. â€” replace the rejection with a simple `return true` for document links:
+Find the `isPolicyLink` function. It currently has a block that rejects `.pdf/.doc/.docx/.xls/.xlsx`. Change it to **allow** those extensions (remove the exclusion block for document files). The relevant code to find and remove/modify is the section checking `hasExt(link, ".pdf")` etc. â€?replace the rejection with a simple `return true` for document links:
 
 Find the pattern like:
 ```go
@@ -664,6 +692,10 @@ Run: `go build ./...`
 
 ### Task 6: Integrate into RSS and WeChat crawlers
 
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
+
 **Files:**
 - Modify: `internal/crawler/rss_crawler.go`
 - Modify: `internal/crawler/wechat_crawler.go`
@@ -690,7 +722,7 @@ Update the `Fetch()` method to use `g.rc.Get()` instead of `g.client.Get()` or r
 
 - [ ] **Step 2: Update WeChat crawler similarly**
 
-Same pattern in `wechat_crawler.go` â€” replace HTTP client creation with `ResilientHTTPClient`.
+Same pattern in `wechat_crawler.go` â€?replace HTTP client creation with `ResilientHTTPClient`.
 
 - [ ] **Step 3: Verify compilation**
 
@@ -698,7 +730,11 @@ Run: `go build ./...`
 
 ---
 
-### Task 7: Manager â€” enforce request delay
+### Task 7: Manager â€?enforce request delay
+
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
 
 **Files:**
 - Modify: `internal/crawler/manager.go`
@@ -749,7 +785,11 @@ Run: `go build ./...`
 
 ---
 
-### Task 8: Admin UI â€” new source config fields
+### Task 8: Admin UI â€?new source config fields
+
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
 
 **Files:**
 - Modify: `internal/admin/admin_sources.go`
@@ -769,8 +809,8 @@ In `admin_page.go`, find the source editor form (HTML template). Add input field
 <div class="form-row">
   <div><label>ä»£ç† URL</label><input id="src-proxy" placeholder="http://proxy:port"></div>
   <div><label>è¯·æ±‚é—´éš”(ms)</label><input id="src-delay" type="number" value="1000" min="0"></div>
-  <div><label>æœ€å¤§å¹¶å‘</label><input id="src-concurrent" type="number" value="1" min="1" max="10"></div>
-  <div><label>éµå®ˆRobots.txt</label><select id="src-robots"><option value="true">æ˜¯</option><option value="false">å¦</option></select></div>
+  <div><label>æœ€å¤§å¹¶å?/label><input id="src-concurrent" type="number" value="1" min="1" max="10"></div>
+  <div><label>éµå®ˆRobots.txt</label><select id="src-robots"><option value="true">æ˜?/option><option value="false">å?/option></select></div>
 </div>
 ```
 
@@ -783,6 +823,10 @@ Run: `go build ./...`
 ---
 
 ### Task 9: Build, deploy, and verify
+
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
 
 - [ ] **Step 1: Run migration**
 
@@ -829,6 +873,10 @@ git commit -m "feat(crawler): add document parsing, resilient HTTP client, crawl
 ---
 
 ## Self-Review
+
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
 
 - [x] Spec coverage: Task 1 = migration + config, Task 2 = HTTP client, Task 3 = doc parser, Task 4 = robots, Task 5 = govsite integration, Task 6 = rss/wechat integration, Task 7 = manager delay, Task 8 = admin UI, Task 9 = deploy
 - [x] No placeholders: all code shown in full

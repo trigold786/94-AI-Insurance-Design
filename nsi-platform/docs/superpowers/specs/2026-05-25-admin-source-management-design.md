@@ -1,47 +1,75 @@
 # Admin UI: Multi-Level Source Management
 
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
+
 ## Goal
 
-Enable full CRUD + operational management of all policy source types (govsite, file, rss, manual) in the existing admin panel's "æ•°æ®æºç®¡ç†" tab.
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
+
+Enable full CRUD + operational management of all policy source types (govsite, file, rss, manual) in the existing admin panel's "æ•°æ®æºç®¡ç? tab.
 
 ## Current State
 
-The admin panel (`/admin`) has a "æ•°æ®æºç®¡ç†" tab that displays all sources in a table with enable/disable toggles. It calls:
-- `GET /admin/sources` â€” list all sources
-- `POST /admin/sources/update` â€” toggle `enabled` or change `interval_sec`
-- `POST /admin/sources/import` â€” import content for a source (exists but not wired into sources tab UI)
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
+
+The admin panel (`/admin`) has a "æ•°æ®æºç®¡ç? tab that displays all sources in a table with enable/disable toggles. It calls:
+- `GET /admin/sources` â€?list all sources
+- `POST /admin/sources/update` â€?toggle `enabled` or change `interval_sec`
+- `POST /admin/sources/import` â€?import content for a source (exists but not wired into sources tab UI)
 
 Missing: create, edit all fields, delete, manual trigger, RSS preview.
 
 ## Scope
 
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
+
 ### Backend Changes
+
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
 
 #### New File: `services/policy-crawler/internal/admin/admin_sources.go`
 
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
+
 Handler functions:
 
-1. **`SourceCreateHandler(store SourceCRUDStore)`** â€” `POST /admin/sources/create`
+1. **`SourceCreateHandler(store SourceCRUDStore)`** â€?`POST /admin/sources/create`
    - Request: `{source_id, source_name, source_url, source_level, crawl_type, interval_sec, region_code}`
    - Validates required fields, calls `store.CreateSource()`
    - Returns `{code:0, data: source}`
 
-2. **`SourceDeleteHandler(store SourceCRUDStore)`** â€” `POST /admin/sources/delete`
+2. **`SourceDeleteHandler(store SourceCRUDStore)`** â€?`POST /admin/sources/delete`
    - Request: `{source_id}`
    - Calls `store.DeleteSource()`
    - Returns `{code:0, message: "deleted"}`
 
-3. **`SourceCrawlTriggerHandler(mgr CrawlTrigger)`** â€” `POST /admin/sources/crawl`
+3. **`SourceCrawlTriggerHandler(mgr CrawlTrigger)`** â€?`POST /admin/sources/crawl`
    - Request: `{source_id}`
    - Calls `mgr.CrawlSource(sourceID)` in a goroutine
    - Returns `{code:0, message: "crawl started"}`
 
-4. **`RSSTestHandler()`** â€” `POST /admin/sources/test-rss`
+4. **`RSSTestHandler()`** â€?`POST /admin/sources/test-rss`
    - Request: `{url: string}`
    - Fetches URL, parses as RSS/Atom, returns top 5 items: `{items: [{title, link}]}`
    - Returns `{code:0, data: {items}}` or error if fetch/parse fails
 
 #### Store Interface Extension
+
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
 
 Add to a new `SourceCRUDStore` interface in `admin_sources.go`:
 
@@ -54,12 +82,16 @@ type SourceCRUDStore interface {
 ```
 
 Implement in `crawler/store.go`:
-- `CreateSource(src *admin.SourceInfo)` â€” `INSERT INTO policy_sources`
-- `DeleteSource(sourceID string)` â€” `DELETE FROM policy_sources WHERE source_id = $1`
+- `CreateSource(src *admin.SourceInfo)` â€?`INSERT INTO policy_sources`
+- `DeleteSource(sourceID string)` â€?`DELETE FROM policy_sources WHERE source_id = $1`
 
 #### Existing Handler Extension
 
-`SourceUpdateHandler` in `admin_dashboard.go` â€” extend the request struct to accept:
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
+
+`SourceUpdateHandler` in `admin_dashboard.go` â€?extend the request struct to accept:
 - `source_name *string`
 - `source_url *string`
 - `source_level *string`
@@ -70,21 +102,33 @@ Extend `UpdateSource()` in store to handle these fields.
 
 #### Route Registration
 
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
+
 Add to `cmd/main.go` route setup (after existing admin routes):
 ```
-POST /admin/sources/create  â†’ SourceCreateHandler
-POST /admin/sources/delete  â†’ SourceDeleteHandler
-POST /admin/sources/crawl   â†’ SourceCrawlTriggerHandler
-POST /admin/sources/test-rss â†’ RSSTestHandler
+POST /admin/sources/create  â†?SourceCreateHandler
+POST /admin/sources/delete  â†?SourceDeleteHandler
+POST /admin/sources/crawl   â†?SourceCrawlTriggerHandler
+POST /admin/sources/test-rss â†?RSSTestHandler
 ```
 
 ### Frontend Changes
+
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
 
 All changes in `admin_page.go` inline HTML, replacing the `loadSources()` function.
 
 #### New UI Elements
 
-1. **"+ æ–°å¢æ•°æ®æº" button** at top of sources tab
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
+
+1. **"+ æ–°å¢æ•°æ®æº? button** at top of sources tab
 2. **Source form modal** with fields:
    - source_id (text, required for new, readonly for edit)
    - source_name (text, required)
@@ -95,29 +139,37 @@ All changes in `admin_page.go` inline HTML, replacing the `loadSources()` functi
    - region_code (text)
    - Dynamic: URL and interval fields show/hide based on crawl_type
 3. **Per-row action buttons**:
-   - Edit (pencil icon) â†’ opens same form pre-filled
-   - Delete (trash icon) â†’ confirmation dialog â†’ `POST /admin/sources/delete`
-   - Crawl (play icon, hidden for manual) â†’ `POST /admin/sources/crawl`
-   - Import (upload icon, shown for manual only) â†’ opens import modal with title/url/textarea â†’ `POST /admin/sources/import`
-   - Test RSS (magnifier icon, shown for rss only) â†’ `POST /admin/sources/test-rss` â†’ shows preview
+   - Edit (pencil icon) â†?opens same form pre-filled
+   - Delete (trash icon) â†?confirmation dialog â†?`POST /admin/sources/delete`
+   - Crawl (play icon, hidden for manual) â†?`POST /admin/sources/crawl`
+   - Import (upload icon, shown for manual only) â†?opens import modal with title/url/textarea â†?`POST /admin/sources/import`
+   - Test RSS (magnifier icon, shown for rss only) â†?`POST /admin/sources/test-rss` â†?shows preview
 4. **crawl_type column** shows badges:
-   - govsite â†’ blue "æ”¿åºœç½‘ç«™"
-   - file â†’ gray "æ–‡ä»¶"
-   - rss â†’ green "RSS"
-   - manual â†’ yellow "æ‰‹åŠ¨"
+   - govsite â†?blue "æ”¿åºœç½‘ç«™"
+   - file â†?gray "æ–‡ä»¶"
+   - rss â†?green "RSS"
+   - manual â†?yellow "æ‰‹åŠ¨"
 
 #### JS Functions
 
-- `loadSources()` â€” rewritten to render enhanced table with action buttons
-- `showSourceForm(source?)` â€” opens modal for create/edit
-- `saveSource()` â€” POST create or update
-- `deleteSource(id)` â€” confirm + delete
-- `triggerCrawl(id)` â€” POST crawl trigger
-- `testRSS(url)` â€” POST test-rss, show preview
-- `showImportModal(sourceId, sourceName)` â€” opens import textarea modal
-- `doSourceImport()` â€” calls existing `/admin/sources/import`
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
+
+- `loadSources()` â€?rewritten to render enhanced table with action buttons
+- `showSourceForm(source?)` â€?opens modal for create/edit
+- `saveSource()` â€?POST create or update
+- `deleteSource(id)` â€?confirm + delete
+- `triggerCrawl(id)` â€?POST crawl trigger
+- `testRSS(url)` â€?POST test-rss, show preview
+- `showImportModal(sourceId, sourceName)` â€?opens import textarea modal
+- `doSourceImport()` â€?calls existing `/admin/sources/import`
 
 ### CrawlTrigger Interface
+
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
 
 ```go
 type CrawlTrigger interface {
@@ -129,23 +181,35 @@ type CrawlTrigger interface {
 
 ### RSS Test Implementation
 
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
+
 Reuse `parseFeed()` from `crawler/rss_crawler.go` by extracting it into a shared function or by having the handler import and call it. Since `parseFeed` is unexported in the `crawler` package, options:
-- Export it as `ParseFeed()` â€” simplest
-- Duplicate the parsing logic in admin handler â€” avoids cross-package dependency
+- Export it as `ParseFeed()` â€?simplest
+- Duplicate the parsing logic in admin handler â€?avoids cross-package dependency
 - **Chosen: Export `ParseFeed()`** from `crawler` package. One-line change.
 
 ## Files Modified
 
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
+
 | File | Change |
 |------|--------|
-| `internal/admin/admin_sources.go` | **NEW** â€” 4 handler functions + interfaces |
+| `internal/admin/admin_sources.go` | **NEW** â€?4 handler functions + interfaces |
 | `internal/admin/admin_dashboard.go` | Extend `SourceUpdateHandler` + `DashboardStore` to support full edit |
 | `internal/admin/admin_page.go` | Rewrite `loadSources()` JS, add modal HTML + 7 JS functions |
 | `internal/crawler/store.go` | Add `CreateSource()`, `DeleteSource()`, extend `UpdateSource()` |
-| `internal/crawler/rss_crawler.go` | Export `parseFeed` â†’ `ParseFeed` |
+| `internal/crawler/rss_crawler.go` | Export `parseFeed` â†?`ParseFeed` |
 | `cmd/main.go` | Register 4 new routes, pass CrawlerManager to crawl trigger handler |
 
 ## Non-Goals
+
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
 
 - No new migration needed (policy_sources table already has all columns)
 - No changes to api-server, actuarial-engine, or frontend clients

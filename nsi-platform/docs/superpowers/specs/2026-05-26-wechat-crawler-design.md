@@ -1,37 +1,56 @@
 # WeChat Official Account Crawler Design
 
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
+
 ## Overview
 
-Crawl social insurance policy articles from WeChat official accounts (å…¬ä¼—å·). Uses Bing search for article discovery with Sogou fallback and manual URL as last resort.
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
+
+Crawl social insurance policy articles from WeChat official accounts (å…¬ä¼—å?. Uses Bing search for article discovery with Sogou fallback and manual URL as last resort.
 
 ## Architecture
+
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
 
 ```
 Admin creates wechat-type source
   â”œâ”€ Mode 1: Public account name or keyword
-  â”‚    â†’ Bing search: site:mp.weixin.qq.com + keyword
-  â”‚    â†’ Extract article URLs from search results
-  â”‚    â†’ (Fallback) Sogou WeChat search if Bing blocked
-  â”‚    â†’ Render each article page â†’ extract content
-  â”‚
-  â””â”€ Mode 2: Direct mp.weixin.qq.com URL
-       â†’ Chrome render single article â†’ extract content
+  â”?   â†?Bing search: site:mp.weixin.qq.com + keyword
+  â”?   â†?Extract article URLs from search results
+  â”?   â†?(Fallback) Sogou WeChat search if Bing blocked
+  â”?   â†?Render each article page â†?extract content
+  â”?  â””â”€ Mode 2: Direct mp.weixin.qq.com URL
+       â†?Chrome render single article â†?extract content
 ```
 
 ## URL Format Detection
 
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
+
 SourceURL field supports 3 formats:
-- **Account name/keyword**: `ä¸Šæµ·ç¤¾ä¿` or `keyword:ç¤¾ä¿è¡¥ç¼´æ”¿ç­–` â†’ triggers Bing search discovery
-- **Direct URL**: `mp.weixin.qq.com/s/...` or `https://mp.weixin.qq.com/s/...` â†’ direct render
+- **Account name/keyword**: `ä¸Šæµ·ç¤¾ä¿` or `keyword:ç¤¾ä¿è¡¥ç¼´æ”¿ç­–` â†?triggers Bing search discovery
+- **Direct URL**: `mp.weixin.qq.com/s/...` or `https://mp.weixin.qq.com/s/...` â†?direct render
 - **Multiple URLs**: newline-separated list (same as Douyin)
 
 ## Discovery Flow
+
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
 
 ### Step 1: Bing Search (primary)
 ```
 GET https://cn.bing.com/search?q=site%3Amp.weixin.qq.com+{keyword}
 Chrome RenderWithVirtualTime(url, 15000)
-Parse search result HTML â†’ extract mp.weixin.qq.com links
+Parse search result HTML â†?extract mp.weixin.qq.com links
 Limit: top 20 articles per crawl
 ```
 
@@ -40,13 +59,17 @@ If Bing returns no results or is blocked:
 ```
 GET https://weixin.sogou.com/weixin?type=2&query={keyword}
 Chrome RenderWithVirtualTime(url, 15000)
-Parse search result HTML â†’ extract mp.weixin.qq.com links
+Parse search result HTML â†?extract mp.weixin.qq.com links
 ```
 
 ### Step 3: Manual URL (always available)
 Admin can paste direct article URLs as SourceURL, newline-separated.
 
 ## Content Extraction
+
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
 
 ### WeChat Article Page (`mp.weixin.qq.com/s/...`)
 - **Title**: `<h1 class="rich_media_title">` or `<meta property="og:title">`
@@ -61,6 +84,10 @@ Admin can paste direct article URLs as SourceURL, newline-separated.
 
 ## Anti-Scraping Strategy
 
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
+
 - Reuse existing `chromeMu` mutex (serial Chrome rendering)
 - 3-5 second delay between article fetches
 - CAPTCHA detection: if page contains verification form, log and skip
@@ -69,16 +96,24 @@ Admin can paste direct article URLs as SourceURL, newline-separated.
 
 ## Data Model
 
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
+
 ### Source Configuration
 ```sql
 INSERT INTO policy_sources (source_id, source_name, source_url, source_level, crawl_type, interval_sec, region_code, enabled)
-VALUES ('WECHAT-ä¸Šæµ·ç¤¾ä¿', 'å¾®ä¿¡å…¬ä¼—å·-ä¸Šæµ·ç¤¾ä¿', 'ä¸Šæµ·ç¤¾ä¿', 'MEDIUM', 'wechat', 604800, '310000', true);
+VALUES ('WECHAT-ä¸Šæµ·ç¤¾ä¿', 'å¾®ä¿¡å…¬ä¼—å?ä¸Šæµ·ç¤¾ä¿', 'ä¸Šæµ·ç¤¾ä¿', 'MEDIUM', 'wechat', 604800, '310000', true);
 ```
 
 ### CrawlType Registration
-`manager.go` switch adds `case "wechat"` â†’ `NewWeChatCrawler(cfg).SetRenderer(renderer)`
+`manager.go` switch adds `case "wechat"` â†?`NewWeChatCrawler(cfg).SetRenderer(renderer)`
 
 ## File Changes
+
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
 
 | File | Change |
 |------|--------|
@@ -87,6 +122,10 @@ VALUES ('WECHAT-ä¸Šæµ·ç¤¾ä¿', 'å¾®ä¿¡å…¬ä¼—å·-ä¸Šæµ·ç¤¾ä¿', 'ä¸Šæµ·ç¤¾ä¿', '
 | `migrations/017_wechat_source.sql` | Seed data for initial WeChat sources |
 
 ## WeChatCrawler Interface
+
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
 
 ```go
 type WeChatCrawler struct {
@@ -106,9 +145,13 @@ func (w *WeChatCrawler) Fetch() ([]*CrawlResult, error)
 
 ## Key Methods
 
-- `discoverArticles(keyword)` â€” Bing search â†’ extract article URLs
-- `discoverArticlesSogou(keyword)` â€” Sogou fallback
-- `fetchArticle(url)` â€” Chrome render single article â†’ extract title + content
-- `extractWeChatContent(html)` â€” Parse rendered HTML for title, content, author, date
-- `isWeChatArticleURL(url)` â€” Check if URL is a WeChat article
-- `parseWeChatURLs(rawURL)` â€” Parse SourceURL field (handle multiple formats)
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
+
+- `discoverArticles(keyword)` â€?Bing search â†?extract article URLs
+- `discoverArticlesSogou(keyword)` â€?Sogou fallback
+- `fetchArticle(url)` â€?Chrome render single article â†?extract title + content
+- `extractWeChatContent(html)` â€?Parse rendered HTML for title, content, author, date
+- `isWeChatArticleURL(url)` â€?Check if URL is a WeChat article
+- `parseWeChatURLs(rawURL)` â€?Parse SourceURL field (handle multiple formats)

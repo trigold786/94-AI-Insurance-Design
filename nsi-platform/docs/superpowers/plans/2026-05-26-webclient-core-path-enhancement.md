@@ -1,5 +1,9 @@
 # WebClient Core Path Enhancement Implementation Plan
 
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Fix backend cashflow/afterTaxPension passthrough, then enhance webclient with retirement visualization, scheme comparison cards, cashflow charts, and a pension simulator.
@@ -12,6 +16,10 @@
 
 ## File Structure
 
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
+
 | File | Responsibility |
 |------|---------------|
 | `shared/models/models.go` | Add `AfterTaxPension` field to `Scheme` struct |
@@ -22,6 +30,10 @@
 ---
 
 ### Task 1: Add AfterTaxPension to models.Scheme
+
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
 
 **Files:**
 - Modify: `shared/models/models.go:118-132`
@@ -57,6 +69,10 @@ Expected: compiles without errors
 ---
 
 ### Task 2: Fix SchemeResult and mapping in plan_handler.go
+
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
 
 **Files:**
 - Modify: `services/api-server/internal/handler/plan_handler.go:38-51` (SchemeResult)
@@ -122,6 +138,10 @@ Expected: compiles without errors
 ---
 
 ### Task 3: Add test for cashflow/afterTaxPension passthrough
+
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
 
 **Files:**
 - Modify: `services/api-server/internal/handler/plan_handler_test.go`
@@ -199,7 +219,11 @@ Expected: all PASS
 
 ### Task 4: Build and deploy backend fix
 
-**Files:** None new â€” just build and deploy
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
+
+**Files:** None new â€?just build and deploy
 
 - [ ] **Step 1: Cross-compile for Linux**
 
@@ -222,8 +246,12 @@ Expected: `{"status":"ok"}`
 
 ### Task 5: Add Chart.js CDN and global styles to webclient
 
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
+
 **Files:**
-- Modify: `services/api-server/internal/handler/webclient_handler.go` â€” the `webClientHTML` const
+- Modify: `services/api-server/internal/handler/webclient_handler.go` â€?the `webClientHTML` const
 
 - [ ] **Step 1: Add Chart.js script tag**
 
@@ -276,8 +304,12 @@ Expected: compiles without errors
 
 ### Task 6: Implement delayed retirement visualization in Tab 1
 
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
+
 **Files:**
-- Modify: `services/api-server/internal/handler/webclient_handler.go` â€” the JS in `webClientHTML`
+- Modify: `services/api-server/internal/handler/webclient_handler.go` â€?the JS in `webClientHTML`
 
 - [ ] **Step 1: Add retireTimeline() helper function**
 
@@ -303,15 +335,15 @@ function retireTimeline(dob,gender,origAge){
   var basePct=Math.round((baseS-el)/totalSpan*100);
   var delayPct=100-elPct-basePct;if(delayPct<0)delayPct=0;
   var h='<div class="timeline-bar">';
-  if(elPct>0)h+='<div class="timeline-segment" style="width:'+elPct+'%;background:#9CA3AF">å·²è¿‡ '+el+'å¹´</div>';
-  if(basePct>0)h+='<div class="timeline-segment" style="width:'+basePct+'%;background:#3B82F6">è·æ³•å®šé€€ä¼‘ '+(baseS-el)+'å¹´</div>';
-  if(delayPct>0)h+='<div class="timeline-segment" style="width:'+delayPct+'%;background:#F59E0B">å»¶è¿Ÿ +'+(ri.years-oldRetireYear)+'å¹´'+ri.months+'æœˆ</div>';
+  if(elPct>0)h+='<div class="timeline-segment" style="width:'+elPct+'%;background:#9CA3AF">å·²è¿‡ '+el+'å¹?/div>';
+  if(basePct>0)h+='<div class="timeline-segment" style="width:'+basePct+'%;background:#3B82F6">è·æ³•å®šé€€ä¼?'+(baseS-el)+'å¹?/div>';
+  if(delayPct>0)h+='<div class="timeline-segment" style="width:'+delayPct+'%;background:#F59E0B">å»¶è¿Ÿ +'+(ri.years-oldRetireYear)+'å¹?+ri.months+'æœ?/div>';
   h+='</div>';
-  h+='<div class="timeline-labels"><span>'+by+'å¹´ (å‡ºç”Ÿ)</span><span>'+oldRetireYear+'å¹´ (åŸæ³•å®š)</span><span>'+newRetireYear+'å¹´'+ri.months+'æœˆ (å®é™…é€€ä¼‘)</span></div>';
+  h+='<div class="timeline-labels"><span>'+by+'å¹?(å‡ºç”Ÿ)</span><span>'+oldRetireYear+'å¹?(åŸæ³•å®?</span><span>'+newRetireYear+'å¹?+ri.months+'æœ?(å®é™…é€€ä¼?</span></div>';
   if(newRetireYear>oldRetireYear){
-    h+='<div style="margin-top:6px;font-size:12px;color:#D97706;background:#FEF3C7;padding:6px 10px;border-radius:6px">2025å»¶è¿Ÿé€€ä¼‘æ–°æ”¿ï¼šå»¶è¿Ÿ '+(ri.years-oldRetireYear)+'å¹´'+(ri.months<10?'0':'')+ri.months+'æœˆ</div>';
+    h+='<div style="margin-top:6px;font-size:12px;color:#D97706;background:#FEF3C7;padding:6px 10px;border-radius:6px">2025å»¶è¿Ÿé€€ä¼‘æ–°æ”¿ï¼šå»¶è¿Ÿ '+(ri.years-oldRetireYear)+'å¹?+(ri.months<10?'0':'')+ri.months+'æœ?/div>';
   } else {
-    h+='<div style="margin-top:6px;font-size:12px;color:#059669;background:#D1FAE5;padding:6px 10px;border-radius:6px">2025å»¶è¿Ÿé€€ä¼‘æ–°æ”¿ï¼šæ‚¨çš„å»¶è¿Ÿå¹…åº¦ä¸º0ï¼Œé€€ä¼‘æ—¶é—´ä¸å—å½±å“</div>';
+    h+='<div style="margin-top:6px;font-size:12px;color:#059669;background:#D1FAE5;padding:6px 10px;border-radius:6px">2025å»¶è¿Ÿé€€ä¼‘æ–°æ”¿ï¼šæ‚¨çš„å»¶è¿Ÿå¹…åº¦ä¸?ï¼Œé€€ä¼‘æ—¶é—´ä¸å—å½±å“?/div>';
   }
   return h;
 }
@@ -323,7 +355,7 @@ In the `showProfile()` function, find the line that builds the `retireInfo=calcP
 
 Find (around line 269):
 ```js
-    (retireYear>0?'<div id="pfRetireAlert" class="alert-success" style="margin:8px 0;font-size:14px;text-align:center">é¢„è®¡åˆæ¬¡é¢†å–é€€ä¼‘é‡‘: <strong>'+retireYear+'å¹´'+retireMonth+'æœˆ</strong></div>':'')+
+    (retireYear>0?'<div id="pfRetireAlert" class="alert-success" style="margin:8px 0;font-size:14px;text-align:center">é¢„è®¡åˆæ¬¡é¢†å–é€€ä¼‘é‡‘: <strong>'+retireYear+'å¹?+retireMonth+'æœ?/strong></div>':'')+
 ```
 
 Replace with:
@@ -362,8 +394,12 @@ Run: `go build ./services/api-server/...`
 
 ### Task 7: Implement scheme comparison cards + ROI chart in Tab 2
 
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
+
 **Files:**
-- Modify: `services/api-server/internal/handler/webclient_handler.go` â€” the `showPlan()` and `onGeneratePlan()` functions
+- Modify: `services/api-server/internal/handler/webclient_handler.go` â€?the `showPlan()` and `onGeneratePlan()` functions
 
 - [ ] **Step 1: Replace showPlan() function**
 
@@ -373,10 +409,10 @@ Replace the entire `showPlan` function (lines ~339-347):
 function showPlan(){
   var age=calcAge(_formData.dob);
   document.getElementById('app').innerHTML=
-    '<h2>æ–¹æ¡ˆç”Ÿæˆ</h2><p style="font-size:13px;color:#6B7280;margin-bottom:12px">åŸºäºä¿å­˜çš„ç”¨æˆ·ç”»åƒç”Ÿæˆç¤¾ä¿æ–¹æ¡ˆ</p>'+
+    '<h2>æ–¹æ¡ˆç”Ÿæˆ</h2><p style="font-size:13px;color:#6B7280;margin-bottom:12px">åŸºäºä¿å­˜çš„ç”¨æˆ·ç”»åƒç”Ÿæˆç¤¾ä¿æ–¹æ¡?/p>'+
     '<div style="font-size:13px;color:#374151;margin-bottom:12px;padding:12px;background:#F9FAFB;border-radius:8px">'+
-    'å‡ºç”Ÿ: '+_formData.dob+' | æ€§åˆ«: '+(_formData.gender==='male'?'ç”·':'å¥³')+' | å°±ä¸š: '+_formData.employment+' | '+
-    'ç¼´è´¹: '+_formData.months+'æœˆ | é¢„ç®—: '+_formData.budget+'å…ƒ/æœˆ | å…»è€é‡‘æ€»é¢: '+_formData.pensionTotal+'å…ƒ</div>'+
+    'å‡ºç”Ÿ: '+_formData.dob+' | æ€§åˆ«: '+(_formData.gender==='male'?'ç”?:'å¥?)+' | å°±ä¸š: '+_formData.employment+' | '+
+    'ç¼´è´¹: '+_formData.months+'æœ?| é¢„ç®—: '+_formData.budget+'å…?æœ?| å…»è€é‡‘æ€»é¢: '+_formData.pensionTotal+'å…?/div>'+
     '<button class="btn btn-primary" onclick="onGeneratePlan()" id="genBtn">ç”Ÿæˆæ–¹æ¡ˆ</button>'+
     '<div id="planResult"></div>';
 }
@@ -388,7 +424,7 @@ Replace the entire `onGeneratePlan` function (lines ~349-377):
 
 ```js
 function onGeneratePlan(){
-  var btn=document.getElementById('genBtn');btn.disabled=true;btn.textContent='ç”Ÿæˆä¸­...';
+  var btn=document.getElementById('genBtn');btn.disabled=true;btn.textContent='ç”Ÿæˆä¸?..';
   var age=calcAge(_formData.dob);
   var req={
     age:age,gender:_formData.gender,
@@ -411,7 +447,7 @@ function onGeneratePlan(){
       s._roi=roi;
       return s;
     });
-    var h='<div class="alert-success mt-16" style="margin-top:12px">æ–¹æ¡ˆç”ŸæˆæˆåŠŸï¼å…± '+schemes.length+' ä¸ªæ–¹æ¡ˆ</div>';
+    var h='<div class="alert-success mt-16" style="margin-top:12px">æ–¹æ¡ˆç”ŸæˆæˆåŠŸï¼å…± '+schemes.length+' ä¸ªæ–¹æ¡?/div>';
     h+='<div style="margin:12px 0"><canvas id="schemeChart" class="chart-container"></canvas></div>';
     schemesWithROI.forEach(function(s,i){
       var isRec=s._roi===maxROI;
@@ -421,15 +457,15 @@ function onGeneratePlan(){
       if(isRec)h+='<span class="rec-badge">æ¨è</span>';
       h+='<span class="roi-badge '+roiClass+'">ROI '+s._roi.toFixed(1)+'x</span></div>';
       h+='<div class="scheme-metrics">';
-      h+='<div class="scheme-metric"><div class="value">'+s.monthly_cost.toFixed(0)+'</div><div class="label">æœˆç¼´(å…ƒ)</div></div>';
+      h+='<div class="scheme-metric"><div class="value">'+s.monthly_cost.toFixed(0)+'</div><div class="label">æœˆç¼´(å…?</div></div>';
       h+='<div class="scheme-metric"><div class="value" style="color:#059669">'+s.projected_pension.toFixed(0)+'</div><div class="label">é¢„è®¡æœˆå…»è€é‡‘</div></div>';
       if(s.after_tax_pension>0)h+='<div class="scheme-metric"><div class="value" style="color:#7C3AED">'+s.after_tax_pension.toFixed(0)+'</div><div class="label">ç¨åæœˆé¢†</div></div>';
-      if(s.annual_subsidy>0)h+='<div class="scheme-metric"><div class="value" style="color:#D97706">'+s.annual_subsidy.toFixed(0)+'</div><div class="label">å¹´è¡¥è´´</div></div>';
-      h+='<div class="scheme-metric"><div class="value" style="font-size:16px;color:#6B7280">'+s.remaining_months+'</div><div class="label">è¿˜éœ€ç¼´(æœˆ)</div></div>';
+      if(s.annual_subsidy>0)h+='<div class="scheme-metric"><div class="value" style="color:#D97706">'+s.annual_subsidy.toFixed(0)+'</div><div class="label">å¹´è¡¥è´?/div></div>';
+      h+='<div class="scheme-metric"><div class="value" style="font-size:16px;color:#6B7280">'+s.remaining_months+'</div><div class="label">è¿˜éœ€ç¼?æœ?</div></div>';
       h+='</div>';
       if(s.subsidy_policy)h+='<div style="margin-top:8px;font-size:12px;color:#6B7280">'+esc(s.subsidy_policy)+'</div>';
       if(s.cashflow&&s.cashflow.length>0){
-        h+='<div class="cashflow-toggle" onclick="toggleCashflow('+i+')">æŸ¥çœ‹ç°é‡‘æµè¶‹åŠ¿ â–¼</div>';
+        h+='<div class="cashflow-toggle" onclick="toggleCashflow('+i+')">æŸ¥çœ‹ç°é‡‘æµè¶‹åŠ?â–?/div>';
         h+='<div class="cashflow-panel" id="cf-panel-'+i+'"><canvas id="cf-chart-'+i+'" class="chart-container"></canvas></div>';
       }
       h+='</div>';
@@ -461,12 +497,12 @@ function renderSchemeChart(schemes){
     data:{
       labels:schemes.map(function(s){return s.name}),
       datasets:[
-        {label:'æœˆç¼´è´¹(å…ƒ)',data:schemes.map(function(s){return s.monthly_cost}),backgroundColor:'rgba(59,130,246,0.7)'},
-        {label:'é¢„è®¡æœˆå…»è€é‡‘(å…ƒ)',data:schemes.map(function(s){return s.projected_pension}),backgroundColor:'rgba(5,150,105,0.7)'},
-        {label:'ç¨åæœˆé¢†(å…ƒ)',data:schemes.map(function(s){return s.after_tax_pension||0}),backgroundColor:'rgba(124,58,237,0.7)'}
+        {label:'æœˆç¼´è´?å…?',data:schemes.map(function(s){return s.monthly_cost}),backgroundColor:'rgba(59,130,246,0.7)'},
+        {label:'é¢„è®¡æœˆå…»è€é‡‘(å…?',data:schemes.map(function(s){return s.projected_pension}),backgroundColor:'rgba(5,150,105,0.7)'},
+        {label:'ç¨åæœˆé¢†(å…?',data:schemes.map(function(s){return s.after_tax_pension||0}),backgroundColor:'rgba(124,58,237,0.7)'}
       ]
     },
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{size:11}}}},scales:{y:{beginAtZero:true,ticks:{callback:function(v){return v+'å…ƒ'}}}}}
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{size:11}}}},scales:{y:{beginAtZero:true,ticks:{callback:function(v){return v+'å…?}}}}}
   });
 }
 function toggleCashflow(i){
@@ -480,14 +516,14 @@ function renderCashflowChart(i,cf){
   _cfCharts[i]=new Chart(ctx,{
     type:'line',
     data:{
-      labels:cf.map(function(c){return 'ç¬¬'+c.year+'å¹´'}),
+      labels:cf.map(function(c){return 'ç¬?+c.year+'å¹?}),
       datasets:[
-        {label:'å¹´ç¼´è´¹',data:cf.map(function(c){return c.payment}),borderColor:'#3B82F6',backgroundColor:'rgba(59,130,246,0.1)',fill:true,tension:0.3},
-        {label:'å¹´è¡¥è´´',data:cf.map(function(c){return c.subsidy}),borderColor:'#F59E0B',backgroundColor:'rgba(245,158,11,0.1)',fill:true,tension:0.3},
+        {label:'å¹´ç¼´è´?,data:cf.map(function(c){return c.payment}),borderColor:'#3B82F6',backgroundColor:'rgba(59,130,246,0.1)',fill:true,tension:0.3},
+        {label:'å¹´è¡¥è´?,data:cf.map(function(c){return c.subsidy}),borderColor:'#F59E0B',backgroundColor:'rgba(245,158,11,0.1)',fill:true,tension:0.3},
         {label:'ç´¯è®¡ä½™é¢',data:cf.map(function(c){return c.balance}),borderColor:'#059669',backgroundColor:'rgba(5,150,105,0.1)',fill:true,tension:0.3}
       ]
     },
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{size:11}}}},scales:{y:{ticks:{callback:function(v){return (v/10000).toFixed(1)+'ä¸‡'}}}}}
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{size:11}}}},scales:{y:{ticks:{callback:function(v){return (v/10000).toFixed(1)+'ä¸?}}}}}
   });
 }
 ```
@@ -500,19 +536,23 @@ Run: `go build ./services/api-server/...`
 
 ### Task 8: Implement retirement pension simulator in Tab 2
 
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
+
 **Files:**
-- Modify: `services/api-server/internal/handler/webclient_handler.go` â€” add simulator section in plan result
+- Modify: `services/api-server/internal/handler/webclient_handler.go` â€?add simulator section in plan result
 
 - [ ] **Step 1: Add simulator HTML generation in onGeneratePlan()**
 
 After the `h+='<</div>';` that closes the last scheme card, and before the "æŸ¥çœ‹å®Œæ•´æŠ¥å‘Š" button, insert:
 
 ```js
-    h+='<div class="sim-section"><h3 style="font-size:14px;color:#1A56DB;margin-bottom:8px">é€€ä¼‘é‡‘æ¨¡æ‹Ÿå™¨</h3>';
-    h+='<div class="sim-slider-row"><label>ç¼´è´¹åŸºæ•°</label><input type="range" id="sim-base" min="'+schemes[0].base_salary+'" max="'+schemes[schemes.length-1].base_salary+'" step="100" value="'+schemes[0].base_salary+'" oninput="onSimChange()"><span class="sim-val" id="sim-base-val">'+schemes[0].base_salary+'å…ƒ</span></div>';
-    h+='<div class="sim-slider-row"><label>ç¼´è´¹å¹´é™</label><input type="range" id="sim-years" min="1" max="40" step="1" value="'+Math.floor(_formData.months/12)+'" oninput="onSimChange()"><span class="sim-val" id="sim-years-val">'+Math.floor(_formData.months/12)+'å¹´</span></div>';
-    h+='<div class="sim-slider-row"><label>æœˆé¢„ç®—</label><input type="range" id="sim-budget" min="500" max="10000" step="100" value="'+_formData.budget+'" oninput="onSimChange()"><span class="sim-val" id="sim-budget-val">'+_formData.budget+'å…ƒ</span></div>';
-    h+='<div class="sim-result" id="sim-result">è®¡ç®—ä¸­...</div>';
+    h+='<div class="sim-section"><h3 style="font-size:14px;color:#1A56DB;margin-bottom:8px">é€€ä¼‘é‡‘æ¨¡æ‹Ÿå™?/h3>';
+    h+='<div class="sim-slider-row"><label>ç¼´è´¹åŸºæ•°</label><input type="range" id="sim-base" min="'+schemes[0].base_salary+'" max="'+schemes[schemes.length-1].base_salary+'" step="100" value="'+schemes[0].base_salary+'" oninput="onSimChange()"><span class="sim-val" id="sim-base-val">'+schemes[0].base_salary+'å…?/span></div>';
+    h+='<div class="sim-slider-row"><label>ç¼´è´¹å¹´é™</label><input type="range" id="sim-years" min="1" max="40" step="1" value="'+Math.floor(_formData.months/12)+'" oninput="onSimChange()"><span class="sim-val" id="sim-years-val">'+Math.floor(_formData.months/12)+'å¹?/span></div>';
+    h+='<div class="sim-slider-row"><label>æœˆé¢„ç®?/label><input type="range" id="sim-budget" min="500" max="10000" step="100" value="'+_formData.budget+'" oninput="onSimChange()"><span class="sim-val" id="sim-budget-val">'+_formData.budget+'å…?/span></div>';
+    h+='<div class="sim-result" id="sim-result">è®¡ç®—ä¸?..</div>';
     h+='<div class="sim-result-sub" id="sim-detail"></div></div>';
 ```
 
@@ -525,9 +565,9 @@ function onSimChange(){
   var base=parseFloat(document.getElementById('sim-base').value)||5000;
   var years=parseInt(document.getElementById('sim-years').value)||15;
   var budget=parseFloat(document.getElementById('sim-budget').value)||2000;
-  document.getElementById('sim-base-val').textContent=base+'å…ƒ';
-  document.getElementById('sim-years-val').textContent=years+'å¹´';
-  document.getElementById('sim-budget-val').textContent=budget+'å…ƒ';
+  document.getElementById('sim-base-val').textContent=base+'å…?;
+  document.getElementById('sim-years-val').textContent=years+'å¹?;
+  document.getElementById('sim-budget-val').textContent=budget+'å…?;
   var cityCode=_formData.city||'310000';
   var avgSalary=12383;
   var pensionRate=0.08,medicalRate=0.02;
@@ -542,9 +582,9 @@ function onSimChange(){
   var basicPension=(avgSalary+base)/2*years*0.01;
   var total=Math.round(basicPension+personalPension);
   var el=document.getElementById('sim-result');
-  if(el)el.textContent='ï¿¥'+total.toLocaleString()+' /æœˆ';
+  if(el)el.textContent='ï¿?+total.toLocaleString()+' /æœ?;
   var detail=document.getElementById('sim-detail');
-  if(detail)detail.textContent='åŸºç¡€å…»è€é‡‘ '+Math.round(basicPension)+' + ä¸ªäººè´¦æˆ· '+Math.round(personalPension)+' | æœˆç¼´ '+Math.round(monthlyCost)+'å…ƒ | æŠ•å…¥äº§å‡ºæ¯” '+(monthlyCost>0?(total/monthlyCost).toFixed(1):'-')+'x';
+  if(detail)detail.textContent='åŸºç¡€å…»è€é‡‘ '+Math.round(basicPension)+' + ä¸ªäººè´¦æˆ· '+Math.round(personalPension)+' | æœˆç¼´ '+Math.round(monthlyCost)+'å…?| æŠ•å…¥äº§å‡ºæ¯?'+(monthlyCost>0?(total/monthlyCost).toFixed(1):'-')+'x';
 }
 function GetCityInfoJS(code){
   var cities={'310000':{name:'ä¸Šæµ·',avgSalary:12383,pensionRate:0.08,medicalRate:0.02},'110000':{name:'åŒ—äº¬',avgSalary:15764,pensionRate:0.08,medicalRate:0.02},'440300':{name:'æ·±åœ³',avgSalary:14530,pensionRate:0.08,medicalRate:0.02},'440100':{name:'å¹¿å·',avgSalary:13795,pensionRate:0.08,medicalRate:0.02},'330100':{name:'æ­å·',avgSalary:9625,pensionRate:0.08,medicalRate:0.02}};
@@ -568,6 +608,10 @@ Run: `go build ./services/api-server/...`
 
 ### Task 9: Build, deploy, and verify
 
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
+
 - [ ] **Step 1: Cross-compile**
 
 Run: `$env:GOOS="linux"; $env:GOARCH="amd64"; go build -o api-server ./cmd/` (in `services/api-server/`)
@@ -590,7 +634,7 @@ Expected: `{"status":"ok"}`
 Run: `curl.exe -s -o /dev/null -w "%{http_code}" http://localhost:39401/webclient`
 Expected: 200
 
-- [ ] **Step 5: Smoke test â€” generate a plan**
+- [ ] **Step 5: Smoke test â€?generate a plan**
 
 Run:
 ```bash
@@ -611,7 +655,11 @@ git commit -m "feat(webclient): enhance core path with retirement viz, scheme ca
 
 ## Self-Review Checklist
 
+| **°æ±¾ºÅ** | V1.0.0 |
+| **×´Ì¬** | ÒÑÉúĞ§ |
+| **·¢²¼ÈÕÆÚ** | 2026-06-15 |
+
 - [x] Spec coverage: Task 1-4 = backend fix, Task 5-8 = frontend enhancements (all 5 items from spec covered)
 - [x] No placeholders: all code shown in full
-- [x] Type consistency: `SchemeResult.AfterTaxPension` (float64) â†’ `models.Scheme.AfterTaxPension` (float64), `SchemeResult.Cashflow` ([]models.CashFlowItem) â†’ `models.Scheme.Cashflow` ([]CashFlowItem) â€” types match
+- [x] Type consistency: `SchemeResult.AfterTaxPension` (float64) â†?`models.Scheme.AfterTaxPension` (float64), `SchemeResult.Cashflow` ([]models.CashFlowItem) â†?`models.Scheme.Cashflow` ([]CashFlowItem) â€?types match
 - [x] Test coverage: Task 3 tests the backend fix end-to-end with mock calculator

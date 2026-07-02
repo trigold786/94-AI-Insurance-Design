@@ -1,24 +1,30 @@
-# AI社保智筹 — 开发规划 V1.0.0
+# AI社保智筹 — 开发规划 V1.1.0
+
+| 文档属性 | 内容 |
+| :--- | :--- |
+| **版本号** | V1.1.0 |
+| **状态** | 生效 |
+| **发布日期** | 2026-07-03 |
+| **更新说明** | V1.1.0: 更新Stage 1.0完成状态；新增Stage 2.0规划；新增沙盘模拟器/AI顾问服务；新增llm-gateway服务；更新数据覆盖目标。 |
 
 ## 1. 项目结构
 
 ```
 nsi-platform/
 ├── services/
-│   ├── api-server/                # Go/Gin — 用户、匹配、方案、合规
-│   ├── policy-crawler/            # Go — 政策采集 + 验证
-│   └── actuarial-engine/          # Go — 精算 + 方案优化
+│   ├── api-server/                # Go/Gin — 用户、匹配、方案、合规、沙盘、AI顾问、订单
+│   ├── policy-crawler/            # Go — 政策采集 + 验证 + 版本管理
+│   ├── actuarial-engine/          # Go — NSGA-II优化 + 精算
+│   └── llm-gateway/               # Go — 统一模型配置管理(4功能点)
 ├── frontend/
-│   ├── ios/                       # SwiftUI — 原生 iOS
-│   ├── android/                   # Jetpack Compose — 原生 Android
-│   ├── weapp/                     # 微信小程序（原生）
-│   └── alipay/                    # 支付宝小程序（原生）
-├── shared/                        # Go 共享库（数据模型、工具）
-├── infra/                         # Docker Compose / K8s 配置
-├── scripts/                       # 工具脚本
+│   ├── ios/                       # SwiftUI — 原生 iOS (14页面)
+│   ├── android/                   # Jetpack Compose — 原生 Android (14页面)
+│   ├── weapp/                     # 微信小程序（原生，14页面+滑块验证码）
+│   └── alipay/                    # 支付宝小程序（原生，14页面+滑块验证码）
+├── shared/                        # Go 共享库（模型、加密、通知、配置）
+├── scripts/                       # 工具脚本（数据同步等）
+├── docs/                          # 文档库
 ├── docker-compose.yml
-├── docker-compose.infra.yml
-├── .env.example
 └── README.md
 ```
 
@@ -26,8 +32,10 @@ nsi-platform/
 
 | 服务 | 职责 | 外部依赖 | 数据库 |
 |------|------|---------|--------|
-| **api-server** | 用户注册登录、用户画像、政策匹配查询、方案展示、支付、合规引导、权益监测 | Redis(会话)、PG(数据)、actuarial-engine(gRPC) | postgres(nsi) |
-| **policy-crawler** | 多源政策采集、NLP结构化、交叉验证、置信度评分、人工审核、版本管理 | PG(政策库)、LLM API | postgres(policy) |
+| **api-server** | 用户注册登录、用户画像、政策匹配查询、方案展示、支付、合规引导、权益监测、社保沙盘模拟、AI顾问、订单管理、设置 | Redis(会话)、PG(数据)、actuarial-engine、llm-gateway | postgres(nsi_api) |
+| **policy-crawler** | 多源政策采集、NLP结构化、交叉验证、置信度评分、人工审核、版本管理、ASR视频转录 | PG(政策库)、LLM API、Embedding API | postgres(nsi_crawler) |
+| **actuarial-engine** | NSGA-II三目标帕累托优化(成本↓+养老金↑+公平性↑)、现金流预测、税务计算 | 无 | 无状态 |
+| **llm-gateway** | 统一模型配置管理(4功能点: llm_extract/llm_plan/embedding/asr)、多Provider代理 | 火山引擎、DeepSeek、Ollama | postgres(nsi_llm) |
 | **actuarial-engine** | 帕累托最优计算、三方案生成、现金流模拟、个税计算、灵敏度分析 | Redis(缓存)、PG(政策数据) | postgres(缓存结果) |
 
 ## 3. 开发阶段

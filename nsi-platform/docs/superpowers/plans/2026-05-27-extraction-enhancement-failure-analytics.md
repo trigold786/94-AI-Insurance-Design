@@ -1,4 +1,8 @@
-# LLM Extraction Enhancement & Failure Analytics Dashboard — Implementation Plan
+# LLM Extraction Enhancement & Failure Analytics Dashboard �?Implementation Plan
+
+| **�汾��** | V1.0.0 |
+| **״̬** | ����Ч |
+| **��������** | 2026-06-15 |
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -11,6 +15,10 @@
 ---
 
 ## File Structure
+
+| **�汾��** | V1.0.0 |
+| **״̬** | ����Ч |
+| **��������** | 2026-06-15 |
 
 | Action | File | Responsibility |
 |--------|------|----------------|
@@ -30,7 +38,11 @@
 
 ---
 
-### Task 1: Migration 025 — New Columns on policy_claims
+### Task 1: Migration 025 �?New Columns on policy_claims
+
+| **�汾��** | V1.0.0 |
+| **״̬** | ����Ч |
+| **��������** | 2026-06-15 |
 
 **Files:**
 - Create: `services/policy-crawler/migrations/025_extraction_enhancement.sql`
@@ -63,7 +75,11 @@ git commit -m "feat: migration 025 - extraction enhancement columns on policy_cl
 
 ---
 
-### Task 2: PolicyClaim Model — New Fields
+### Task 2: PolicyClaim Model �?New Fields
+
+| **�汾��** | V1.0.0 |
+| **״̬** | ����Ч |
+| **��������** | 2026-06-15 |
 
 **Files:**
 - Modify: `shared/models/models.go:30-57` (PolicyClaim struct)
@@ -99,6 +115,10 @@ git commit -m "feat: add extraction enhancement fields to PolicyClaim model"
 
 ### Task 3: Smart Document Splitter
 
+| **�汾��** | V1.0.0 |
+| **״̬** | ����Ч |
+| **��������** | 2026-06-15 |
+
 **Files:**
 - Create: `services/policy-crawler/internal/extractor/splitter.go`
 - Create: `services/policy-crawler/internal/extractor/splitter_test.go`
@@ -114,7 +134,7 @@ import (
 )
 
 func TestSplitDocument_Short(t *testing.T) {
-	text := "短文档内容，不需要分片。"
+	text := "短文档内容，不需要分片�?
 	chunks := splitDocument(text, 4000)
 	if len(chunks) != 1 {
 		t.Fatalf("expected 1 chunk, got %d", len(chunks))
@@ -127,7 +147,7 @@ func TestSplitDocument_Short(t *testing.T) {
 func TestSplitDocument_Long(t *testing.T) {
 	paras := make([]string, 20)
 	for i := range paras {
-		paras[i] = strings.Repeat("这是第"+string(rune('A'+i))+"段内容。", 100)
+		paras[i] = strings.Repeat("这是�?+string(rune('A'+i))+"段内容�?, 100)
 	}
 	text := strings.Join(paras, "\n\n")
 	chunks := splitDocument(text, 4000)
@@ -161,7 +181,7 @@ func TestSplitDocument_MaxChunks(t *testing.T) {
 }
 
 func TestSplitDocument_SingleHugeParagraph(t *testing.T) {
-	text := strings.Repeat("超长段落不分段。", 2000)
+	text := strings.Repeat("超长段落不分段�?, 2000)
 	chunks := splitDocument(text, 4000)
 	if len(chunks) != 1 {
 		t.Fatalf("expected 1 chunk for single para, got %d", len(chunks))
@@ -249,6 +269,10 @@ git commit -m "feat: smart document splitter for long policy texts"
 
 ### Task 4: Fault-Tolerant Parser
 
+| **�汾��** | V1.0.0 |
+| **״̬** | ����Ч |
+| **��������** | 2026-06-15 |
+
 **Files:**
 - Create: `services/policy-crawler/internal/extractor/parser.go`
 - Create: `services/policy-crawler/internal/extractor/parser_test.go`
@@ -316,7 +340,7 @@ func TestParseExtractionResult_TrailingComma(t *testing.T) {
 }
 
 func TestParseExtractionResult_RegexFallback(t *testing.T) {
-	input := `这段文字没有JSON格式。policy_id是P005，地区代码为440300，政策类型为training。补贴金额最低200元。生效日期2024-01-01。`
+	input := `这段文字没有JSON格式。policy_id是P005，地区代码为440300，政策类型为training。补贴金额最�?00元。生效日�?024-01-01。`
 	result, method, err := parseExtractionResultRobust(input)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -413,13 +437,13 @@ func tryRepairParse(input string) (*ExtractionResult, error) {
 }
 
 var (
-	rePolicyID    = regexp.MustCompile(`policy[_ ]?id[：:"]?\s*["']?([A-Za-z0-9\-_]+)`)
-	reRegionCode  = regexp.MustCompile(`(?:地区代码|region[_ ]?code)[：:"]?\s*["']?(\d{6})`)
-	rePolicyType  = regexp.MustCompile(`(?:政策类型|policy[_ ]?type)[：:"]?\s*["']?(pension|medical|unemployment|injury|maternity|housing_fund|subsidy|training)`)
-	reAmountMin   = regexp.MustCompile(`(?:最低补贴|amount[_ ]?min)[：:"]?\s*["']?([\d.]+)`)
-	reAmountMax   = regexp.MustCompile(`(?:最高补贴|amount[_ ]?max)[：:"]?\s*["']?([\d.]+)`)
-	reEffectiveDt = regexp.MustCompile(`(?:生效日期|effective[_ ]?date)[：:"]?\s*["']?(\d{4}[-/]\d{2}[-/]\d{2})`)
-	reBriefSumm   = regexp.MustCompile(`(?:brief[_ ]?summary|概括|要点)[：:"]?\s*["']([^"]{1,100})`)
+	rePolicyID    = regexp.MustCompile(`policy[_ ]?id[�?"]?\s*["']?([A-Za-z0-9\-_]+)`)
+	reRegionCode  = regexp.MustCompile(`(?:地区代码|region[_ ]?code)[�?"]?\s*["']?(\d{6})`)
+	rePolicyType  = regexp.MustCompile(`(?:政策类型|policy[_ ]?type)[�?"]?\s*["']?(pension|medical|unemployment|injury|maternity|housing_fund|subsidy|training)`)
+	reAmountMin   = regexp.MustCompile(`(?:最低补贴|amount[_ ]?min)[�?"]?\s*["']?([\d.]+)`)
+	reAmountMax   = regexp.MustCompile(`(?:最高补贴|amount[_ ]?max)[�?"]?\s*["']?([\d.]+)`)
+	reEffectiveDt = regexp.MustCompile(`(?:生效日期|effective[_ ]?date)[�?"]?\s*["']?(\d{4}[-/]\d{2}[-/]\d{2})`)
+	reBriefSumm   = regexp.MustCompile(`(?:brief[_ ]?summary|概括|要点)[�?"]?\s*["']([^"]{1,100})`)
 )
 
 func tryRegexFallback(input string) (*ExtractionResult, error) {
@@ -477,7 +501,11 @@ git commit -m "feat: fault-tolerant parser with 3-level degradation (standard/re
 
 ---
 
-### Task 5: Update Extractor — Integrate Splitter + Parser + New Fields
+### Task 5: Update Extractor �?Integrate Splitter + Parser + New Fields
+
+| **�汾��** | V1.0.0 |
+| **״̬** | ����Ч |
+| **��������** | 2026-06-15 |
 
 **Files:**
 - Modify: `services/policy-crawler/internal/extractor/extractor.go`
@@ -510,24 +538,23 @@ In `extractor.go`, after line 292 (`BriefSummary` field), add:
 Replace the system prompt (lines 128-145) with:
 
 ```go
-	systemPrompt := `你是一个专业的中国社保政策分析专家。你的任务是从政府政策文本中提取结构化信息。
-请提取以下字段，只返回JSON，不要其他文字：
+	systemPrompt := `你是一个专业的中国社保政策分析专家。你的任务是从政府政策文本中提取结构化信息�?请提取以下字段，只返回JSON，不要其他文字：
 {
   "policy_id": "唯一政策ID",
   "policy_title": "政策正式标题",
   "issuing_authority": "发文机关",
-  "document_number": "文号(如沪人社规〔2024〕1号)",
-  "region_code": "地区行政代码(6位)",
+  "document_number": "文号(如沪人社规�?024�?�?",
+  "region_code": "地区行政代码(6�?",
   "policy_type": "政策类型(pension/medical/unemployment/injury/maternity/housing_fund/subsidy/training)",
   "target_groups": ["适用人群标签(flexible_employment/unemployed/employed/4050/has_children/female/male/low_income)"],
   "subsidy_calc_method": "补贴计算方法描述",
-  "amount_min": 最低补贴金额(数字),
-  "amount_max": 最高补贴金额(数字,可选),
-  "subsidy_duration": 补贴期限(月,可选),
+  "amount_min": 最低补贴金�?数字),
+  "amount_max": 最高补贴金�?数字,可�?,
+  "subsidy_duration": 补贴期限(�?可�?,
   "effective_date": "生效日期YYYY-MM-DD",
-  "expire_date": "失效日期YYYY-MM-DD(可选)",
+  "expire_date": "失效日期YYYY-MM-DD(可�?",
   "policy_url": "该政策原文的网址(从页面文本中提取完整的URL,必填)",
-  "brief_summary": "用一句话概括该社保政策的要点(不超过50字)",
+  "brief_summary": "用一句话概括该社保政策的要点(不超�?0�?",
   "source_type": "原文类型(gov_doc/social_media/news/rumor)",
   "application_process": [{"step":1,"action":"办理步骤","description":"步骤描述"}],
   "contact_info": "咨询电话或办理地址",
@@ -538,7 +565,7 @@ Replace the system prompt (lines 128-145) with:
 
 - [ ] **Step 3: Update ProcessOne to use splitter + robust parser**
 
-Replace lines 122-157 (clean text → single LLM call → parse) with:
+Replace lines 122-157 (clean text �?single LLM call �?parse) with:
 
 ```go
 	cleanText := extractPlainText(entry.Content)
@@ -713,18 +740,22 @@ git commit -m "feat: integrate splitter + robust parser + new fields into extrac
 
 ---
 
-### Task 6: Update Store — INSERT/SELECT for New Columns
+### Task 6: Update Store �?INSERT/SELECT for New Columns
+
+| **�汾��** | V1.0.0 |
+| **״̬** | ����Ч |
+| **��������** | 2026-06-15 |
 
 **Files:**
 - Modify: `services/policy-crawler/internal/crawler/store.go`
 
-- [ ] **Step 1: Update InsertClaim (used by extractor) — add 9 new columns**
+- [ ] **Step 1: Update InsertClaim (used by extractor) �?add 9 new columns**
 
 The `InsertClaim` method at line 611 needs the new columns in its INSERT statement. Add the 9 new columns and parameters ($21-$29).
 
 - [ ] **Step 2: Update the other InsertClaim (used by admin) at line 102**
 
-Same pattern — add 9 new columns.
+Same pattern �?add 9 new columns.
 
 - [ ] **Step 3: Update ListByStatus SELECT query at line 153**
 
@@ -743,7 +774,11 @@ git commit -m "feat: update store INSERT/SELECT for extraction enhancement colum
 
 ---
 
-### Task 7: Failure Analytics — Data Layer
+### Task 7: Failure Analytics �?Data Layer
+
+| **�汾��** | V1.0.0 |
+| **״̬** | ����Ч |
+| **��������** | 2026-06-15 |
 
 **Files:**
 - Create: `services/policy-crawler/internal/crawler/failure_queries.go`
@@ -830,7 +865,11 @@ git commit -m "feat: failure analytics data layer with 7 query/retry methods"
 
 ---
 
-### Task 8: Failure Analytics — Admin API Handlers
+### Task 8: Failure Analytics �?Admin API Handlers
+
+| **�汾��** | V1.0.0 |
+| **״̬** | ����Ч |
+| **��������** | 2026-06-15 |
 
 **Files:**
 - Create: `services/policy-crawler/internal/admin/admin_failures.go`
@@ -839,12 +878,12 @@ git commit -m "feat: failure analytics data layer with 7 query/retry methods"
 - [ ] **Step 1: Create admin_failures.go with 6 handlers**
 
 Handlers:
-- `FailureSummaryHandler(store DashboardStore)` — GET `/admin/failures/summary`
-- `FailureTrendHandler(store DashboardStore)` — GET `/admin/failures/trend?days=7`
-- `FailureBySourceHandler(store DashboardStore)` — GET `/admin/failures/by-source`
-- `FailureTopReasonsHandler(store DashboardStore)` — GET `/admin/failures/top-reasons?limit=10`
-- `FailureRawTextsHandler(store DashboardStore)` — GET `/admin/failures/failed-raw-texts?source_id=&type=&limit=50`
-- `FailureRetryHandler(store DashboardStore)` — POST `/admin/failures/retry` with body `{"raw_text_id":123}` or `{"source_id":"X","all":true}`
+- `FailureSummaryHandler(store DashboardStore)` �?GET `/admin/failures/summary`
+- `FailureTrendHandler(store DashboardStore)` �?GET `/admin/failures/trend?days=7`
+- `FailureBySourceHandler(store DashboardStore)` �?GET `/admin/failures/by-source`
+- `FailureTopReasonsHandler(store DashboardStore)` �?GET `/admin/failures/top-reasons?limit=10`
+- `FailureRawTextsHandler(store DashboardStore)` �?GET `/admin/failures/failed-raw-texts?source_id=&type=&limit=50`
+- `FailureRetryHandler(store DashboardStore)` �?POST `/admin/failures/retry` with body `{"raw_text_id":123}` or `{"source_id":"X","all":true}`
 
 - [ ] **Step 2: Register routes in cmd/main.go**
 
@@ -872,7 +911,11 @@ git commit -m "feat: failure analytics admin API with 6 endpoints"
 
 ---
 
-### Task 9: Failure Analytics — Admin UI Tab
+### Task 9: Failure Analytics �?Admin UI Tab
+
+| **�汾��** | V1.0.0 |
+| **״̬** | ����Ч |
+| **��������** | 2026-06-15 |
 
 **Files:**
 - Modify: `services/policy-crawler/internal/admin/admin_page.go`
@@ -921,6 +964,10 @@ git commit -m "feat: failure analytics admin UI tab with charts and retry"
 
 ### Task 10: Build, Deploy, Verify
 
+| **�汾��** | V1.0.0 |
+| **״̬** | ����Ч |
+| **��������** | 2026-06-15 |
+
 **Files:**
 - Modify: `services/policy-crawler/Dockerfile` (no changes needed, just rebuild)
 
@@ -949,15 +996,15 @@ Expected: no errors, migration 025 applied, server listening.
 
 - [ ] **Step 5: Verify admin UI**
 
-Open `http://<container>:39403/admin#failures` — verify failure analytics tab loads with charts.
+Open `http://<container>:39403/admin#failures` �?verify failure analytics tab loads with charts.
 
 - [ ] **Step 6: Verify extraction pipeline**
 
-Check logs for next extraction cycle — verify new fields are being populated, splitter/parser working.
+Check logs for next extraction cycle �?verify new fields are being populated, splitter/parser working.
 
 - [ ] **Step 7: Final commit**
 
 ```bash
 git add -A
-git commit -m "feat: LLM extraction enhancement & failure analytics dashboard — complete deployment"
+git commit -m "feat: LLM extraction enhancement & failure analytics dashboard �?complete deployment"
 ```
