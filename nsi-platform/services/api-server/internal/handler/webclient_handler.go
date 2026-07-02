@@ -888,6 +888,7 @@ function simDebounce(){
 }
 
 function simGetParams(){
+  var profile = window._lastProfile || {};
   return {
     city_code:document.getElementById('sb-city').value,
     gender:document.getElementById('sb-gender').value,
@@ -896,7 +897,9 @@ function simGetParams(){
     paid_years:parseInt(document.getElementById('sb-paid').value),
     plan_years:parseInt(document.getElementById('sb-plan').value),
     employment:document.getElementById('sb-emp').value,
-    is_local_hukou:document.getElementById('sb-hukou').value==='true'
+    is_local_hukou:document.getElementById('sb-hukou').value==='true',
+    monthly_income:profile.monthly_income||0,
+    has_children:profile.has_children||false
   };
 }
 

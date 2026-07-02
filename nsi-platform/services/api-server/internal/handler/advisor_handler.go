@@ -60,11 +60,10 @@ func AdvisorHandler(llmGatewayURL string, policyRepo PolicyQuerier) http.Handler
 
 		llmResp, err := callLLMGateway(r.Context(), llmGatewayURL, systemPrompt, userContent)
 		if err != nil {
+			fallback := generatePolicyAnswer(req.Question, simCtx, policyRepo, r.Context())
 			respondJSON(w, 200, map[string]interface{}{
 				"code": 0,
-				"data": map[string]string{
-					"answer": "抱歉，AI顾问暂时无法响应。建议咨询12333社保热线确认。",
-				},
+				"data": map[string]string{"answer": fallback},
 			})
 			return
 		}
@@ -202,4 +201,54 @@ func truncateSentences(text string, maxSentences int) string {
 		return strings.TrimSpace(text)
 	}
 	return strings.TrimSpace(text[:pos])
+}
+
+func generatePolicyAnswer(question string, simCtx map[string]interface{}, policyRepo PolicyQuerier, ctx context.Context) string {
+	cityCode, _ := simCtx["city_code"].(string)
+	if cityCode == "" {
+		cityCode = "310000"
+	}
+	gender, _ := simCtx["gender"].(string)
+	age := 0
+	if v, ok := simCtx["age"].(float64); ok {
+		age = int(v)
+	}
+
+	policies, err := policyRepo.QueryByRegionAndStatus(ctx, cityCode, "verified")
+	if err != nil || len(policies) == 0 {
+		return "暂未查询到您所在城市的社保政策信息。建议拨打12333社保热线咨询当地最新政策。"
+	}
+
+	keywords := extractKeywords(question)
+	scored := scorePoliciesByKeyword(policies, keywords)
+	topN := scored
+	if len(topN) > 3 {
+		topN = topN[:3]
+	}
+
+	var answer strings.Builder
+	answer.WriteString("根据您所在城市的社保政策：\n")
+	for i, p := range topN {
+		if i >= 3 {
+			break
+		}
+		line := fmt.Sprintf("%d. %s", i+1, p.PolicyTitle)
+		if p.SubsidyCalcMethod != "" {
+			line += "（" + p.SubsidyCalcMethod + "）"
+		}
+		if p.IssuingAuthority != "" {
+			line += "，来源：" + p.IssuingAuthority
+		}
+		answer.WriteString(line + "。\n")
+	}
+
+	if age >= 40 && gender == "female" {
+		answer.WriteString("您已符合4050社保补贴条件（女性40岁以上），建议咨询当地人社局申请。")
+	} else if age >= 50 && gender == "male" {
+		answer.WriteString("您已符合4050社保补贴条件（男性50岁以上），建议咨询当地人社局申请。")
+	} else if age > 0 {
+		answer.WriteString(fmt.Sprintf("您今年%d岁，建议关注当地社保补贴政策，符合条件时及时申请。", age))
+	}
+
+	return strings.TrimSpace(answer.String())
 }
