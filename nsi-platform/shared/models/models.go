@@ -111,6 +111,7 @@ type PolicyCompliance struct {
 	ClaimID          string                `json:"claim_id"`
 	SubsidyCalcMethod string               `json:"subsidy_calc_method"`
 	Conditions       []ComplianceCondition `json:"conditions"`
+	ConditionStatuses map[string]bool      `json:"condition_statuses,omitempty"`
 	RequiredDocs     []RequiredDocument    `json:"required_docs"`
 	IsEligible       bool                  `json:"is_eligible"`
 	UnmetConditions  []string              `json:"unmet_conditions,omitempty"`

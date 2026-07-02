@@ -74,34 +74,36 @@ func GuideHandler(evaluator *ComplianceEvaluator, policyRepo PolicyQuerier, prof
 				PolicyType: p.PolicyType,
 				ClaimID:    p.ClaimID,
 			}
-			if len(p.Conditions) > 0 {
-				var conds []models.ComplianceCondition
-				if err := jsonUnmarshalNoError(p.Conditions, &conds); err == nil && len(conds) > 0 {
-					pc.Conditions = conds
-				}
+		if len(p.Conditions) > 0 {
+			var conds []models.ComplianceCondition
+			if err := jsonUnmarshalNoError(p.Conditions, &conds); err == nil && len(conds) > 0 {
+				pc.Conditions = conds
 			}
-			if len(p.RequiredDocuments) > 0 {
-				var docs []models.RequiredDocument
-				if err := jsonUnmarshalNoError(p.RequiredDocuments, &docs); err == nil {
-					pc.RequiredDocs = docs
-					for _, d := range docs {
-						if !docMap[d.Name] {
-							docMap[d.Name] = true
-							allDocs = append(allDocs, d)
-						}
+		}
+		isEligible, unmet := evaluator.Evaluate(profile, &p)
+		pc.IsEligible = isEligible
+		pc.UnmetConditions = unmet
+		pc.ConditionStatuses = evaluateConditionStatuses(pc.Conditions, profile)
+		pc.ProcessingSteps = getProcessingSteps(p.PolicyType, pc.Conditions, pc.RequiredDocs)
+		for _, s := range pc.ProcessingSteps {
+			if !stepMap[s.Order] {
+				stepMap[s.Order] = true
+				steps = append(steps, s)
+			}
+		}
+		if len(p.RequiredDocuments) > 0 {
+			var docs []models.RequiredDocument
+			if err := jsonUnmarshalNoError(p.RequiredDocuments, &docs); err == nil {
+				pc.RequiredDocs = docs
+				for _, d := range docs {
+					if !docMap[d.Name] {
+						docMap[d.Name] = true
+						allDocs = append(allDocs, d)
 					}
 				}
 			}
-			isEligible, _ := evaluator.Evaluate(profile, &p)
-			pc.IsEligible = isEligible
-			pc.ProcessingSteps = getProcessingSteps(p.PolicyType, pc.Conditions, pc.RequiredDocs)
-			for _, s := range pc.ProcessingSteps {
-				if !stepMap[s.Order] {
-					stepMap[s.Order] = true
-					steps = append(steps, s)
-				}
-			}
-			matchedPolicies = append(matchedPolicies, pc)
+		}
+		matchedPolicies = append(matchedPolicies, pc)
 		}
 
 		cityName := map[string]string{
@@ -123,6 +125,45 @@ func GuideHandler(evaluator *ComplianceEvaluator, policyRepo PolicyQuerier, prof
 			"Policies":  matchedPolicies,
 		})
 	})
+}
+
+func evaluateConditionStatuses(conditions []models.ComplianceCondition, profile *models.UserProfile) map[string]bool {
+	result := make(map[string]bool)
+	if profile == nil || len(conditions) == 0 {
+		return result
+	}
+	for _, cond := range conditions {
+		key := cond.Name
+		if cond.TagMatch == "" {
+			result[key] = true
+			continue
+		}
+		switch cond.TagMatch {
+		case "flexible_employment":
+			result[key] = profile.EmploymentStatus == "flexible"
+		case "unemployed":
+			result[key] = profile.EmploymentStatus == "unemployed"
+		case "employed":
+			result[key] = profile.EmploymentStatus == "employed"
+		case "4050":
+			result[key] = (profile.Gender == "female" && profile.Age >= 40) || (profile.Gender == "male" && profile.Age >= 50)
+		case "female":
+			result[key] = profile.Gender == "female"
+		case "male":
+			result[key] = profile.Gender == "male"
+		case "is_local_hukou":
+			result[key] = profile.IsLocalHukou
+		case "has_children":
+			result[key] = profile.HasChildren
+		case "has_elderly_dependents":
+			result[key] = profile.HasElderlyDependents
+		case "low_income":
+			result[key] = profile.MonthlyIncome > 0 && profile.MonthlyIncome < 3000
+		default:
+			result[key] = true
+		}
+	}
+	return result
 }
 
 func jsonUnmarshalNoError(data []byte, v interface{}) error {
@@ -204,7 +245,7 @@ td{padding:7px 10px;border-bottom:1px solid #F3F4F6;font-size:13px}
 {{if .Conditions}}
 <div style="margin-top:6px;font-size:12px;color:#374151"><strong>申请条件：</strong>
 <ul style="margin:4px 0;padding-left:20px">
-{{range .Conditions}}<li>{{if eq .Required true}}<span style="color:#059669">✅</span>{{else}}<span style="color:#9CA3AF">ℹ️</span>{{end}} <b>{{.Name}}</b>: {{.Description}}</li>{{end}}
+{{range .Conditions}}<li><span style="color:#059669">✅</span> <b>{{.Name}}</b>: {{.Description}}</li>{{end}}
 </ul>
 </div>
 {{end}}
